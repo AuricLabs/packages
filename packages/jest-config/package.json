@@ -1,0 +1,38 @@
+{
+  "name": "@auriclabs/jest-config",
+  "version": "0.0.1",
+  "description": "Shared Jest configuration for AuricLabs projects",
+  "prettier": "@auriclabs/prettier-config",
+  "type": "module",
+  "exports": {
+    "./node": "./configs/node.mjs",
+    "./react": "./configs/react.mjs",
+    "./sst": "./configs/sst.mjs"
+  },
+  "peerDependencies": {
+    "jest": "^30.0.0",
+    "ts-jest": "^29.0.0",
+    "@types/jest": "^30.0.0"
+  },
+  "keywords": [
+    "jest",
+    "testing",
+    "config"
+  ],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "exit 0",
+    "dev": "exit 0",
+    "lint": "eslint .",
+    "test": "exit 0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/jest-config"
+  }
+}

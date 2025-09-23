@@ -1,0 +1,29 @@
+{
+  "name": "@auriclabs/ts-config",
+  "version": "0.0.1",
+  "description": "Common TypeScript configuration for AuricLabs packages",
+  "prettier": "@auriclabs/prettier-config",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "build": "exit 0",
+    "dev": "exit 0",
+    "lint": "eslint .",
+    "test": "exit 0"
+  },
+  "exports": {
+    "./node": "./configs/tsconfig.node.json",
+    "./react": "./configs/tsconfig.react.json",
+    "./sst": "./configs/tsconfig.sst.json"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/ts-config"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@auriclabs/env",
+  "version": "0.0.1",
+  "description": "Environment loading and validation",
+  "prettier": "@auriclabs/prettier-config",
+  "keywords": [],
+  "author": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "browser": {
+    "dotenv": false
+  },
+  "license": "ISC",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./configure": "./dist/configure.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint .",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/ts-config"
+  },
+  "peerDependencies": {
+    "zod": "4.1.5"
+  },
+  "dependencies": {
+    "dotenv": "17.2.2"
+  }
+}

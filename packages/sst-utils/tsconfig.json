@@ -1,0 +1,9 @@
+{
+  "extends": "@auriclabs/ts-config/sst",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*", ".sst/platform/config.d.ts", "sst.config.ts"],
+  "exclude": ["node_modules", "dist", ".sst/platform/functions"]
+}

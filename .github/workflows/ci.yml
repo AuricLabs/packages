@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for proper change detection
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+      - name: Setup .npmrc for GitHub Packages
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> .npmrc
+      - name: Install dependencies
+        run: pnpm install
+      - name: Lint (affected packages only)
+        run: pnpm lint:affected
+      - name: Test (affected packages only)
+        run: pnpm test:affected
+      - name: Build (affected packages only)
+        run: pnpm build:affected 

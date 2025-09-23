@@ -1,0 +1,56 @@
+{
+  "name": "auriclabs-packages",
+  "private": true,
+  "version": "0.0.0",
+  "prettier": "@auriclabs/prettier-config",
+  "packageManager": "pnpm@9.0.6",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "build:affected": "turbo run build --filter=...[origin/master]",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "test:affected": "turbo run test --filter=...[origin/master]",
+    "lint": "turbo run lint",
+    "lint:staged": "lint-staged",
+    "lint:affected": "turbo run lint --filter=...[origin/master]",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "turbo run build && changeset publish",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.6",
+    "@types/jest": "^30.0.0",
+    "@types/lodash": "^4.17.20",
+    "@types/node": "^24.3.0",
+    "chokidar": "4.0.3",
+    "chokidar-cli": "^3.0.0",
+    "concurrently": "^9.2.1",
+    "husky": "^9.1.7",
+    "jest": "^30.1.1",
+    "lint-staged": "^16.1.6",
+    "ts-jest": "^29.4.1",
+    "ts-node": "^10.9.2",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@auriclabs/eslint-config": "workspace:*",
+    "@auriclabs/jest-config": "workspace:*",
+    "@auriclabs/prettier-config": "workspace:*",
+    "@auriclabs/ts-config": "workspace:*",
+    "@auriclabs/logger": "workspace:*",
+    "@auriclabs/env": "workspace:*",
+    "lodash": "^4.17.21"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "hono@<4.9.2": ">=4.9.2"
+    }
+  }
+}

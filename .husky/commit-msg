@@ -1,0 +1,2 @@
+# echo "[Script:commitlint] Running commitlint..."
+# npx --no-install commitlint --verbose --edit

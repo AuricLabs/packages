@@ -1,0 +1,2 @@
+echo "[Script:lint] Running lint..."
+pnpm lint:staged

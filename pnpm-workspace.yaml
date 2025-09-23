@@ -1,0 +1,5 @@
+packages:
+  - 'packages/*'
+  - '!packages/dev'
+  - '!packages/api-core'
+  - '!packages/sst-utils'

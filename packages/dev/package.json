@@ -1,0 +1,47 @@
+{
+  "name": "@auriclabs/dev",
+  "version": "0.0.1",
+  "description": "AuricLabs development CLI for project setup and tooling",
+  "prettier": "@auriclabs/prettier-config",
+  "type": "module",
+  "bin": {
+    "auricdev": "./dist/command.js"
+  },
+  "exports": {
+    ".": "./dist/command.js"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "degit": "^2.8.4",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/commander": "^2.12.5",
+    "@types/degit": "^2.8.6",
+    "@types/node": "^20.0.0",
+    "@types/prompts": "^2.4.9"
+  },
+  "keywords": [
+    "cli",
+    "dev",
+    "development",
+    "tooling"
+  ],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsc",
+    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint .",
+    "test": "exit 0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/dev"
+  }
+}

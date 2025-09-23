@@ -1,0 +1,51 @@
+{
+  "name": "@auriclabs/api-core",
+  "version": "0.0.1",
+  "description": "Core API functions for AuricLabs API projects",
+  "prettier": "@auriclabs/prettier-config",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsc",
+    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint . --ext .ts",
+    "test": "jest --config ../../jest.config.ts"
+  },
+  "dependencies": {
+    "@middy/core": "^6.4.4",
+    "@middy/http-cors": "^6.4.4",
+    "@middy/http-error-handler": "^6.4.4",
+    "@middy/http-event-normalizer": "^6.4.4",
+    "@middy/http-json-body-parser": "^6.4.4",
+    "aws-lambda": "^1.0.7",
+    "http-errors-enhanced": "^3.0.2",
+    "http-status-codes": "^2.3.0",
+    "lodash": "^4.17.21",
+    "p-retry": "^6.2.1"
+  },
+  "devDependencies": {
+    "@auriclabs/logger": "workspace:*",
+    "@auriclabs/env": "workspace:*",
+    "@types/aws-lambda": "^8.10.148"
+  },
+  "peerDependencies": {
+    "@auriclabs/logger": "^0.0.4",
+    "@auriclabs/env": "^0.0.4",
+    "pino-lambda": "^4.4.1",
+    "sst": "^3.17.10",
+    "zod": "^4.0.5"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/api-core"
+  }
+}

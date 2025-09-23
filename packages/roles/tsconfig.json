@@ -1,0 +1,9 @@
+{
+  "extends": "@auriclabs/ts-config/node",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*", "src/__tests__"],
+  "exclude": ["dist", "node_modules"]
+}

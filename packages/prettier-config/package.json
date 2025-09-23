@@ -1,0 +1,30 @@
+{
+  "name": "@auriclabs/prettier-config",
+  "version": "0.0.1",
+  "description": "Shared Prettier configuration for AuricLabs projects",
+  "main": "prettier.config.js",
+  "type": "module",
+  "exports": {
+    ".": "./prettier.config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "exit 0",
+    "dev": "exit 0",
+    "lint": "eslint .",
+    "test": "exit 0"
+  },
+  "peerDependencies": {
+    "prettier": ">=3.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/prettier-config"
+  }
+}
