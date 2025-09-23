@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/ts-config",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Common TypeScript configuration for AuricLabs packages",
   "prettier": "@auriclabs/prettier-config",
   "keywords": [],
