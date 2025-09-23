@@ -190,6 +190,136 @@ describe('stringifyScope', () => {
       const result = stringifyScope('org:{orgId}:app:{appId}:user:{userId}:read', variables);
       expect(result).toBe('org:123:app:456:user:789:read');
     });
+
+    it('should handle dot notation for nested object properties', () => {
+      const variables = {
+        user: { id: '123', name: 'john' },
+        org: { id: '456', name: 'acme' },
+      };
+      const result = stringifyScope('org:{org.id}:user:{user.id}', variables);
+      expect(result).toBe('org:456:user:123');
+    });
+
+    it('should handle dot notation with multiple levels of nesting', () => {
+      const variables = {
+        data: {
+          user: {
+            profile: { id: '123' },
+            settings: { theme: 'dark' },
+          },
+          org: {
+            details: { id: '456' },
+          },
+        },
+      };
+      const result = stringifyScope(
+        'org:{data.org.details.id}:user:{data.user.profile.id}',
+        variables,
+      );
+      expect(result).toBe('org:456:user:123');
+    });
+
+    it('should handle dot notation in array scope', () => {
+      const variables = {
+        user: { id: '123' },
+        org: { id: '456' },
+      };
+      // @ts-expect-error test for dot notation
+      const result = stringifyScope(['org', '{org.id}', 'user', '{user.id}'], variables);
+      expect(result).toBe('org:456:user:123');
+    });
+
+    it('should handle dot notation in ScopeSubjectArray scope', () => {
+      const variables = {
+        user: { id: '123' },
+        org: { id: '456' },
+      };
+      const scopeSubjects: ScopeSubjectArray = [
+        { type: 'org', id: '{org.id}' },
+        { type: 'user', id: '{user.id}' },
+      ];
+      const result = stringifyScope(scopeSubjects, variables);
+      expect(result).toBe('org:456:user:123');
+    });
+
+    it('should handle dot notation with undefined nested properties', () => {
+      const variables = {
+        user: { id: '123' },
+        org: { name: 'acme' }, // missing id property
+      };
+      const result = stringifyScope('org:{org.id}:user:{user.id}', variables);
+      expect(result).toBe('org:{org.id}:user:123');
+    });
+
+    it('should handle dot notation with null nested properties', () => {
+      const variables = {
+        user: { id: '123' },
+        org: { id: null },
+      };
+      const result = stringifyScope('org:{org.id}:user:{user.id}', variables);
+      expect(result).toBe('org:null:user:123');
+    });
+
+    it('should handle dot notation with array indices', () => {
+      const variables = {
+        users: ['john', 'jane', 'bob'],
+        orgs: [{ id: '123' }, { id: '456' }],
+      };
+      const result = stringifyScope('org:{orgs.1.id}:user:{users.0}', variables);
+      expect(result).toBe('org:456:user:john');
+    });
+
+    it('should handle mixed dot notation and regular variables', () => {
+      const variables = {
+        userId: '123',
+        user: { profile: { name: 'john' } },
+        orgId: '456',
+      };
+      const result = stringifyScope(
+        'org:{orgId}:user:{userId}:profile:{user.profile.name}',
+        variables,
+      );
+      expect(result).toBe('org:456:user:123:profile:john');
+    });
+
+    it('should handle dot notation with special characters in property names', () => {
+      const variables = {
+        'user-data': { 'user-id': '123' },
+        'org-info': { 'org-id': '456' },
+      };
+      const result = stringifyScope('org:{org-info.org-id}:user:{user-data.user-id}', variables);
+      expect(result).toBe('org:456:user:123');
+    });
+
+    it('should handle dot notation with empty string values', () => {
+      const variables = {
+        user: { id: '123', name: '' },
+        org: { id: '456' },
+      };
+      const result = stringifyScope('org:{org.id}:user:{user.id}:name:{user.name}', variables);
+      expect(result).toBe('org:456:user:123:name:');
+    });
+
+    it('should handle dot notation with boolean values', () => {
+      const variables = {
+        user: { id: '123', active: true },
+        org: { id: '456', enabled: false },
+      };
+      const result = stringifyScope('org:{org.id}:user:{user.id}:active:{user.active}', variables);
+      expect(result).toBe('org:456:user:123:active:true');
+    });
+
+    it('should handle dot notation with number values', () => {
+      const variables = {
+        user: { id: '123', count: 42 },
+        org: { id: '456', score: 3.14 },
+      };
+      const result = stringifyScope(
+        'org:{org.id}:user:{user.id}:count:{user.count}:score:{org.score}',
+        variables,
+      );
+      expect(result).toBe('org:456:user:123:count:42:score:3.14');
+    });
   });
 
   describe('edge cases', () => {

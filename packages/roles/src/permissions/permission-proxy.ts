@@ -1,14 +1,7 @@
 import { isScope, stringifyScope } from '../scope';
 import { Scope } from '../scope/types';
 
-import {
-  ActionType,
-  ConditionsQuery,
-  Permission,
-  Subject,
-  Context,
-  Action,
-} from './types';
+import { ActionType, ConditionsQuery, Permission, Subject, Context, Action } from './types';
 
 export type PermissionProxy = {
   [S in Subject]: {

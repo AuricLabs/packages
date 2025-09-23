@@ -9,7 +9,7 @@ import prettierPlugin from 'eslint-plugin-prettier';
  * @type {import('@typescript-eslint/utils').TSESLint.FlatConfig.ConfigArray}
  */
 export default [
-  { ignores: ['dist/', '.turbo/', 'sst-env.d.ts', '.sst/'] },
+  { ignores: ['dist/', '.turbo/', 'sst-env.d.ts', '.sst/', '.yalc/'] },
   eslint.configs.recommended,
   prettierConfig,
   {

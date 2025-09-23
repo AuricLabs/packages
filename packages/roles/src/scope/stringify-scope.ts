@@ -1,8 +1,10 @@
+import { get } from 'lodash';
+
 import { Scope, ScopeString, ScopeSubject } from './types';
 
 export const stringifyScope = (
   scope?: Scope,
-  variables: Record<string, string | undefined> = {},
+  context: Record<string, unknown> = {},
 ): ScopeString => {
   if (!scope) {
     return '';
@@ -23,10 +25,9 @@ export const stringifyScope = (
     throw new Error('Unsupported scope type ' + typeof scope + '\n' + JSON.stringify(scope));
   }
 
-  Object.entries(variables).forEach(([key, value]) => {
-    if (value) {
-      result = result.replace(new RegExp(`{${key}}`, 'g'), value);
-    }
+  // find all instances of a {variable} and replace with the value from the get(context)
+  result = result.replace(/{(.+?)}/g, (match, p1) => {
+    return String(get(context, p1, match));
   });
 
   return result.toLowerCase() as ScopeString;
