@@ -25,6 +25,15 @@ export default tseslint.config(
         '@typescript-eslint/explicit-function-return-type': 'off',
         '@typescript-eslint/no-explicit-any': 'warn',
         '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+        '@typescript-eslint/restrict-template-expressions': [
+          'error',
+          {
+            allow: [{ from: 'lib', name: 'Error' }],
+            allowBoolean: true,
+            allowNumber: true,
+            allowRegExp: true,
+          },
+        ],
       },
     },
   ].map((config) => ({
