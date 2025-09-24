@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/env",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Environment loading and validation",
   "prettier": "@auriclabs/prettier-config",
   "keywords": [],

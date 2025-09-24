@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/jest-config",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Shared Jest configuration for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
