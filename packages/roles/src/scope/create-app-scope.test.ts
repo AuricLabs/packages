@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { createAppScope } from './create-app-scope';
 
 describe('createAppScope', () => {

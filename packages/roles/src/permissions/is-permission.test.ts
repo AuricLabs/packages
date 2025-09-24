@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { ScopeString } from '../scope';
 
 import { isPermission } from './is-permission';

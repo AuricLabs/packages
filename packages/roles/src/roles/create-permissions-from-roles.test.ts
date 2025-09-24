@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { isPermissionGroup, Permission, PermissionGroup } from '../permissions';
 
 import { createPermissionsFromRoles } from './create-permissions-from-roles';

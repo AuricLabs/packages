@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { isScope } from './is-scope';
 import { Scope, ScopeSubject } from './types';
 

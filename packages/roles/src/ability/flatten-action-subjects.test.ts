@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { Action, Permission, permission, Subject } from '../permissions';
 
 import { flattenActionSubjects } from './flatten-action-subjects';
@@ -14,7 +16,7 @@ describe('flattenActionSubjects', () => {
     const result = flattenActionSubjects(inputPermission);
 
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual({
+    expect(result[0]).toStrictEqual({
       subject: 'user',
       action: 'read',
       type: 'can',
@@ -33,13 +35,13 @@ describe('flattenActionSubjects', () => {
     const result = flattenActionSubjects(inputPermission);
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({
+    expect(result[0]).toStrictEqual({
       subject: 'user',
       action: 'read',
       type: 'can',
       scope: 'app:123',
     });
-    expect(result[1]).toEqual({
+    expect(result[1]).toStrictEqual({
       subject: 'user',
       action: 'create',
       type: 'can',
@@ -58,13 +60,13 @@ describe('flattenActionSubjects', () => {
     const result = flattenActionSubjects(inputPermission);
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toEqual({
+    expect(result[0]).toStrictEqual({
       subject: 'user',
       action: 'read',
       type: 'can',
       scope: 'app:123',
     });
-    expect(result[1]).toEqual({
+    expect(result[1]).toStrictEqual({
       subject: 'role',
       action: 'read',
       type: 'can',
@@ -83,7 +85,7 @@ describe('flattenActionSubjects', () => {
     const result = flattenActionSubjects(inputPermission);
 
     expect(result).toHaveLength(4);
-    expect(result).toEqual([
+    expect(result).toStrictEqual([
       {
         subject: 'user',
         action: 'read',
@@ -126,7 +128,7 @@ describe('flattenActionSubjects', () => {
     result.forEach((perm) => {
       expect(perm.type).toBe('cannot');
       expect(perm.scope).toBe('org:456');
-      expect(perm.conditions).toEqual({ userId: '123' });
+      expect(perm.conditions).toStrictEqual({ userId: '123' });
     });
   });
 
@@ -196,7 +198,7 @@ describe('flattenActionSubjects', () => {
     const originalPermission = { ...inputPermission };
     flattenActionSubjects(inputPermission);
 
-    expect(inputPermission).toEqual(originalPermission);
+    expect(inputPermission).toStrictEqual(originalPermission);
   });
 
   it('should create new objects for each flattened permission', () => {

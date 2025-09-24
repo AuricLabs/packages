@@ -108,7 +108,9 @@ export function parseEnv<T extends z.ZodRawShape | z.ZodObject<z.ZodRawShape> | 
   const env: Record<string, string | undefined> =
     typeof process !== 'undefined'
       ? process.env
-      : (import.meta as unknown as { env: Record<string, string> }).env;
+      : // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore - this is required for tests
+        ((import.meta as unknown as { env?: Record<string, string> } | undefined)?.env ?? {});
   let result: Record<string, string | undefined>;
 
   // If envPrefix is provided, filter the env variables to only include those that start with the prefix

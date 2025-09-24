@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { merge } from 'lodash';
 
 import { Scope, ScopeString } from '../scope';
@@ -18,8 +19,8 @@ describe('modifyPermission', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Default mock implementation for merge
-    mockMerge.mockImplementation((target, ...sources) => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-argument
+    mockMerge.mockImplementation((target: unknown, ...sources: unknown[]) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return Object.assign({}, target, ...sources);
     });
   });

@@ -11,3 +11,4 @@ export * from './scope-key-id';
 export * from './stringify-scope';
 export * from './types';
 export * from './is-scope';
+export * from './is-parent-scope';

@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { parseScope } from './parse-scope';
 import { Scope } from './types';
 

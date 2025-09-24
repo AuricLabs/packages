@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { groupPermissions } from './group-permissions';
 import { isPermission } from './is-permission';
 import { isPermissionGroup } from './is-permission-group';

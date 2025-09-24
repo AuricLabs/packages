@@ -10,9 +10,9 @@
     "./sst": "./configs/sst.mjs"
   },
   "peerDependencies": {
+    "@jest/globals": "^30.0.0",
     "jest": "^30.0.0",
-    "ts-jest": "^29.0.0",
-    "@types/jest": "^30.0.0"
+    "ts-jest": "^29.0.0"
   },
   "keywords": [
     "jest",

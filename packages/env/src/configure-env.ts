@@ -1,8 +1,12 @@
 import dotenv, { DotenvConfigOptions } from 'dotenv';
 
-import { resetEnvironment } from './environment';
+import { configureEnvironment, EnvironmentConfig } from './environment';
 
-export const configureEnv = (options?: DotenvConfigOptions) => {
-  dotenv.config(options);
-  resetEnvironment();
+export interface ConfigureEnvOptions extends Partial<EnvironmentConfig> {
+  dotenv?: DotenvConfigOptions;
+}
+
+export const configureEnv = ({ dotenv: dotenvOptions, ...options }: ConfigureEnvOptions = {}) => {
+  dotenv.config(dotenvOptions);
+  configureEnvironment(options);
 };

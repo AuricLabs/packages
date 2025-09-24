@@ -1,9 +1,10 @@
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import z from 'zod';
 
-import { parseEnv, HandleErrorFn } from '..';
+import { HandleErrorFn, parseEnv } from './parse-env';
 
-let processExit!: jest.SpyInstance;
-let processStderrWrite!: jest.SpyInstance;
+let processExit!: jest.SpiedFunction<typeof process.exit>;
+let processStderrWrite!: jest.SpiedFunction<typeof console.error>;
 let originalProcessEnv: NodeJS.ProcessEnv;
 
 describe('parseEnv', () => {
@@ -15,9 +16,10 @@ describe('parseEnv', () => {
     originalProcessEnv = process.env;
 
     // Mock process.exit to prevent actual exit
-    processExit = jest.spyOn(process, 'exit').mockImplementation();
+    processExit = jest.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
     // Mock process.stderr.write
-    processStderrWrite = jest.spyOn(process.stderr, 'write').mockImplementation();
+    processStderrWrite = jest.spyOn(console, 'error').mockImplementation(() => undefined as never);
 
     // Reset process.env to a clean state
     process.env = {};

@@ -35,4 +35,21 @@ export default [
       'n/hashbang': 'off',
     },
   },
+  {
+    files: [
+      '**/*.test.ts',
+      '**/*.spec.ts',
+      '**/*.test.js',
+      '**/*.spec.js',
+      '**/__tests__/**/*.ts',
+      '**/__tests__/**/*.js',
+      '**/test/**/*.ts',
+      '**/test/**/*.js',
+      '**/tests/**/*.ts',
+      '**/tests/**/*.js',
+    ],
+    rules: {
+      'n/no-extraneous-import': 'off',
+    },
+  },
 ];

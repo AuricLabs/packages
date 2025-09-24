@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { getIdFromScope } from './get-id-from-scope';
 import { ScopeSubjectArray } from './types';
 

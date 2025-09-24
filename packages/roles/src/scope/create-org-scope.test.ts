@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { createOrgScope } from './create-org-scope';
 import { Scope } from './types';
 

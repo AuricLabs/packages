@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { Permission } from '../permissions';
 
 import { mergeRoles } from './merge-roles';

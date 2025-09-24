@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { mergeScopes } from './merge-scopes';
 import { ScopeSubjectArray } from './types';
 

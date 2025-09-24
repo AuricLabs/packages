@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 /* eslint-disable jest/no-conditional-expect */
 import { ScopeString } from '../scope';
 
