@@ -85,6 +85,9 @@ importers:
         specifier: ^11.1.0
         version: 11.1.0
     devDependencies:
+      '@auriclabs/logger':
+        specifier: workspace:*
+        version: link:../logger
       '@types/promise-inflight':
         specifier: 1.0.3
         version: 1.0.3

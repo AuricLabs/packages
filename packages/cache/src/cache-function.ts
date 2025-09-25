@@ -1,3 +1,4 @@
+import { logger } from '@auriclabs/logger';
 import Keyv from 'keyv';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,33 +42,84 @@ export function cacheFunction<T extends (...args: any[]) => any>(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     store: baseStore.store,
   });
+
+  logger.info(
+    {
+      functionName: fn.name,
+      uniqueId,
+      namespace: store.namespace,
+      ttl,
+    },
+    'Creating cache function',
+  );
+
   const cacheFn = async (...args: Parameters<T>) => {
     const key = serializeArgs(args);
+    logger.debug(
+      {
+        functionName: fn.name,
+        key,
+        argsCount: args.length,
+      },
+      'Cache function called',
+    );
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return cache(key, () => fn(...args), {
       ttl,
       store,
     });
   };
+
   cacheFn.clear = (...args: Parameters<T>) => {
     const key = serializeArgs(args);
+    logger.debug(
+      {
+        functionName: fn.name,
+        key,
+      },
+      'Clearing cache for function',
+    );
     return store.delete(key);
   };
+
   cacheFn.clearAll = () => {
+    logger.debug(
+      {
+        functionName: fn.name,
+        namespace: store.namespace,
+      },
+      'Clearing all cache for function',
+    );
     return store.clear();
   };
+
   cacheFn.set = async (
     ...args: [...Parameters<T>, value: Awaited<ReturnType<T>> | ReturnType<T>]
   ) => {
     const value = args.pop();
     if (!value) {
+      logger.error(
+        {
+          functionName: fn.name,
+        },
+        'Cache function set called without value',
+      );
       throw new Error('Value is required');
     }
     const key = serializeArgs(args as unknown as Parameters<T>);
+    logger.debug(
+      {
+        functionName: fn.name,
+        key,
+        ttl,
+      },
+      'Manually setting cache value',
+    );
     await store.set(key, value, ttl);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return value;
   };
+
   cacheFn.id = uniqueId;
   cacheFn.isCacheFunction = true as const;
   return cacheFn;

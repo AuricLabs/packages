@@ -1,3 +1,4 @@
+import { logger } from '@auriclabs/logger';
 import Keyv from 'keyv';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -49,6 +50,18 @@ export function cacheService<S extends Record<string, unknown>, P extends string
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     store: baseStore.store,
   });
+
+  logger.info(
+    {
+      serviceNamespace,
+      cacheFunctionPrefix,
+      ignoreMethods: ignoreMethods.length,
+      ttl,
+      storeNamespace: store.namespace,
+    },
+    'Creating cache service',
+  );
+
   const descriptors = Object.entries(Object.getOwnPropertyDescriptors(service));
   const newService = {} as CachedService<S, P>;
 
@@ -65,6 +78,15 @@ export function cacheService<S extends Record<string, unknown>, P extends string
             !('isCacheFunction' in descriptor.value) &&
             !ignoreMethods.includes(key as keyof S)
           ) {
+            logger.debug(
+              {
+                methodName: key,
+                serviceNamespace,
+                cacheFunctionPrefix,
+              },
+              'Caching service method',
+            );
+
             return [
               key,
               {
@@ -87,7 +109,16 @@ export function cacheService<S extends Record<string, unknown>, P extends string
               writable: true,
               configurable: true,
               // @ts-expect-error - clearAllCache is a function
-              value: () => store.clear(),
+              value: () => {
+                logger.debug(
+                  {
+                    serviceNamespace,
+                    storeNamespace: store.namespace,
+                  },
+                  'Clearing all cache for service',
+                );
+                return store.clear();
+              },
             },
           ],
         ]),

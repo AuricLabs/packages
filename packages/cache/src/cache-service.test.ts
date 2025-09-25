@@ -531,4 +531,150 @@ describe('cacheService', () => {
       expect(getUsers).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('create method calling clearAllCache', () => {
+    it('create method calls clearAllCache to clear existing cached data', async () => {
+      const getData = jest.fn((id: string) => `data-${id}`);
+      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const createUser = jest.fn(async (userData: { name: string }) => {
+        // Simulate creating a user and then clearing cache
+        const newUser = { id: '3', ...userData };
+        // Clear all cached data when creating new user
+        await cachedService.clearAllCache();
+        return newUser;
+      });
+
+      const service = { getData, getUsers, createUser };
+      const cachedService = cacheService(service);
+
+      // Cache some initial data
+      await cachedService.getData('1');
+      await cachedService.getUsers();
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(getUsers).toHaveBeenCalledTimes(1);
+
+      // Create a new user (this should clear the cache)
+      const newUser = await cachedService.createUser({ name: 'user3' });
+      expect(newUser).toEqual({ id: '3', name: 'user3' });
+      expect(createUser).toHaveBeenCalledTimes(1);
+
+      // Verify that cached data is cleared by calling the same functions again
+      // They should be called again since cache was cleared
+      await cachedService.getData('1');
+      await cachedService.getUsers();
+      expect(getData).toHaveBeenCalledTimes(2); // Called again due to cache clear
+      expect(getUsers).toHaveBeenCalledTimes(2); // Called again due to cache clear
+    });
+
+    it('create method with custom prefix calls clearAllCache', async () => {
+      const fetchData = jest.fn((id: string) => `data-${id}`);
+      const createData = jest.fn(async (data: { value: string }) => {
+        // Clear cache when creating new data
+        await cachedService.clearAllCache();
+        return { id: 'new', ...data };
+      });
+
+      const service = { fetchData, createData };
+      const cachedService = cacheService(service, { cacheFunctionPrefix: 'fetch' });
+
+      // Cache some initial data (only fetchData will be cached due to prefix)
+      await cachedService.fetchData('1');
+      expect(fetchData).toHaveBeenCalledTimes(1);
+
+      // Create new data (this should clear the cache)
+      const result = await cachedService.createData({ value: 'test' });
+      expect(result).toEqual({ id: 'new', value: 'test' });
+      expect(createData).toHaveBeenCalledTimes(1);
+
+      // Verify that cached data is cleared
+      await cachedService.fetchData('1');
+      expect(fetchData).toHaveBeenCalledTimes(2); // Called again due to cache clear
+    });
+
+    it('create method calls clearAllCache with multiple cached functions', async () => {
+      const getData = jest.fn((id: string) => `data-${id}`);
+      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const getSettings = jest.fn(() => ({ theme: 'dark' }));
+      const createUser = jest.fn(async (userData: { name: string }) => {
+        // Clear all cached data when creating new user
+        await cachedService.clearAllCache();
+        return { id: 'new', ...userData };
+      });
+
+      const service = { getData, getUsers, getSettings, createUser };
+      const cachedService = cacheService(service);
+
+      // Cache multiple functions
+      await cachedService.getData('1');
+      await cachedService.getUsers();
+      await cachedService.getSettings();
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(getUsers).toHaveBeenCalledTimes(1);
+      expect(getSettings).toHaveBeenCalledTimes(1);
+
+      // Create a new user (this should clear all cache)
+      const newUser = await cachedService.createUser({ name: 'user3' });
+      expect(newUser).toEqual({ id: 'new', name: 'user3' });
+      expect(createUser).toHaveBeenCalledTimes(1);
+
+      // Verify that all cached data is cleared
+      await cachedService.getData('1');
+      await cachedService.getUsers();
+      await cachedService.getSettings();
+      expect(getData).toHaveBeenCalledTimes(2); // Called again due to cache clear
+      expect(getUsers).toHaveBeenCalledTimes(2); // Called again due to cache clear
+      expect(getSettings).toHaveBeenCalledTimes(2); // Called again due to cache clear
+    });
+
+    it('create method calls clearAllCache with custom namespace', async () => {
+      const getData = jest.fn((id: string) => `data-${id}`);
+      const createData = jest.fn(async (data: { value: string }) => {
+        // Clear cache when creating new data
+        await cachedService.clearAllCache();
+        return { id: 'new', ...data };
+      });
+
+      const service = { getData, createData };
+      const cachedService = cacheService(service, { namespace: 'test-namespace' });
+
+      // Cache some initial data
+      await cachedService.getData('1');
+      expect(getData).toHaveBeenCalledTimes(1);
+
+      // Create new data (this should clear the cache)
+      const result = await cachedService.createData({ value: 'test' });
+      expect(result).toEqual({ id: 'new', value: 'test' });
+      expect(createData).toHaveBeenCalledTimes(1);
+
+      // Verify that cached data is cleared
+      await cachedService.getData('1');
+      expect(getData).toHaveBeenCalledTimes(2); // Called again due to cache clear
+    });
+
+    it('create method calls clearAllCache with custom store', async () => {
+      const getData = jest.fn((id: string) => `data-${id}`);
+      const createData = jest.fn(async (data: { value: string }) => {
+        // Clear cache when creating new data
+        await cachedService.clearAllCache();
+        return { id: 'new', ...data };
+      });
+
+      const service = { getData, createData };
+      const customStore = new Keyv();
+      const cachedService = cacheService(service, { store: customStore });
+
+      // Cache some initial data
+      await cachedService.getData('1');
+      expect(getData).toHaveBeenCalledTimes(1);
+
+      // Create new data (this should clear the cache)
+      const result = await cachedService.createData({ value: 'test' });
+      expect(result).toEqual({ id: 'new', value: 'test' });
+      expect(createData).toHaveBeenCalledTimes(1);
+
+      // Verify that cached data is cleared
+      await cachedService.getData('1');
+      expect(getData).toHaveBeenCalledTimes(2); // Called again due to cache clear
+    });
+  });
 });

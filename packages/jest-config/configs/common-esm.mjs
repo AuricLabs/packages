@@ -7,9 +7,9 @@ export default {
   roots: ['<rootDir>'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   extensionsToTreatAsEsm: ['.ts', '.tsx', '.jsx'],
-  testPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/node_modules/'],
+  testPathIgnorePatterns: ['.*/dist/', '.*/node_modules/'],
   transform: {
-    '^.+\\.[tj]sx?$': ['ts-jest', { useESM: true }],
+    '^.+\\.[t]sx?$': ['ts-jest', { useESM: true }],
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

@@ -1,4 +1,7 @@
+import { logger } from '@auriclabs/logger';
 import Keyv, { KeyvOptions, KeyvStoreAdapter } from 'keyv';
+
+import { createCache } from './create-cache';
 
 export let defaultCache = new Keyv<unknown>({
   ttl: 1000 * 60 * 5, // 5 minutes
@@ -14,9 +17,12 @@ export function configureDefaultCache(
   store?: KeyvStoreAdapter | KeyvOptions | Map<any, any> | Keyv,
   options?: Omit<KeyvOptions, 'store'>,
 ) {
-  if (store instanceof Keyv) {
-    defaultCache = store;
-  } else {
-    defaultCache = new Keyv(store, options);
-  }
+  logger.info(
+    {
+      hasStore: !!store,
+      options: options ? Object.keys(options) : [],
+    },
+    'Configuring default cache',
+  );
+  defaultCache = createCache(store, options);
 }

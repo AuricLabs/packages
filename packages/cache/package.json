@@ -14,13 +14,20 @@
     "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"
   },
   "dependencies": {
     "keyv": "5.5.1",
     "promise-inflight": "1.0.1",
     "uuid": "^11.1.0"
+  },
+  "peerDependencies": {
+    "@auriclabs/logger": "^0.0.4"
+  },
+  "devDependencies": {
+    "@auriclabs/logger": "workspace:*",
+    "@types/promise-inflight": "1.0.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
@@ -29,8 +36,5 @@
     "type": "git",
     "url": "https://github.com/auriclabs/packages.git",
     "directory": "packages/cache"
-  },
-  "devDependencies": {
-    "@types/promise-inflight": "1.0.3"
   }
 }

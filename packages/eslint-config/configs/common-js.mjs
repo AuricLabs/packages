@@ -52,10 +52,4 @@ export default [
       'import/no-unresolved': 'error',
     },
   },
-  {
-    files: ['eslint.config.js', 'jest.config.js'],
-    rules: {
-      'n/no-extraneous-import': 'off',
-    },
-  },
 ];
