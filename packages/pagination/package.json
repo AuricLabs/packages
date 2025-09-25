@@ -1,0 +1,37 @@
+{
+  "name": "@auriclabs/pagination",
+  "version": "0.0.1",
+  "description": "Pagination for AuricLabs projects",
+  "prettier": "@auriclabs/prettier-config",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsc",
+    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint .",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "dependencies": {
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@auriclabs/logger": "workspace:*"
+  },
+  "peerDependencies": {
+    "@auriclabs/logger": "^0.0.4"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/pagination"
+  }
+}
