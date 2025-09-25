@@ -1,5 +1,11 @@
 # @auriclabs/eslint-config
 
+## 0.0.5
+
+### Patch Changes
+
+- e7340e6: Updates to support the new vitest
+
 ## 0.0.4
 
 ### Patch Changes
