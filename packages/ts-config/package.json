@@ -11,6 +11,7 @@
     "build": "exit 0",
     "dev": "exit 0",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "exit 0"
   },
   "exports": {

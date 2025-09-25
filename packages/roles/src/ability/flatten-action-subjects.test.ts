@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 import { Action, Permission, permission, Subject } from '../permissions';
 
@@ -215,7 +215,6 @@ describe('flattenActionSubjects', () => {
     result.forEach((perm, index) => {
       result.forEach((otherPerm, otherIndex) => {
         if (index !== otherIndex) {
-          // eslint-disable-next-line jest/no-conditional-expect
           expect(perm).not.toBe(otherPerm);
         }
       });

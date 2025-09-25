@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 import { createOrgScope } from './create-org-scope';
 import { Scope } from './types';
@@ -138,30 +138,24 @@ describe('createOrgScope', () => {
   });
 
   describe('integration with scope system', () => {
-    it('should work with stringifyScope function', () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-      const { stringifyScope } = require('./stringify-scope');
+    it('should work with stringifyScope function', async () => {
+      const { stringifyScope } = await import('./stringify-scope');
       const orgScope = createOrgScope('123');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       const stringified = stringifyScope(orgScope);
       expect(stringified).toBe('org:123');
     });
 
-    it('should work with getIdFromScope function', () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-      const { getIdFromScope } = require('./get-id-from-scope');
+    it('should work with getIdFromScope function', async () => {
+      const { getIdFromScope } = await import('./get-id-from-scope');
       const orgScope = createOrgScope('123');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
       const orgId = getIdFromScope(orgScope, 'org');
       expect(orgId).toBe('123');
     });
 
-    it('should work with mergeScopes function', () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-      const { mergeScopes } = require('./merge-scopes');
+    it('should work with mergeScopes function', async () => {
+      const { mergeScopes } = await import('./merge-scopes');
       const orgScope = createOrgScope('123');
-      const appScope = ['app', '456'];
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+      const appScope: Scope = ['app', '456'];
       const merged = mergeScopes(orgScope, appScope);
       expect(merged).toStrictEqual([
         { type: 'org', id: '123' },
@@ -207,7 +201,6 @@ describe('createOrgScope', () => {
       const start = performance.now();
 
       for (let i = 0; i < 1000; i++) {
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         createOrgScope(`org-${i}`);
       }
 

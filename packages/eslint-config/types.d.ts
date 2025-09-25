@@ -1,3 +1,4 @@
 import { TSESLint } from '@typescript-eslint/utils';
-const config: TSESLint.FlatConfig.ConfigArray;
+
+declare const config: TSESLint.FlatConfig.ConfigArray;
 export default config;

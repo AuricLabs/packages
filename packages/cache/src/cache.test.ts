@@ -1,5 +1,5 @@
-import { describe, it, expect } from '@jest/globals';
 import Keyv from 'keyv';
+import { describe, it, expect } from 'vitest';
 
 import { cache } from './cache';
 
@@ -77,5 +77,39 @@ describe('cache', () => {
     const result2 = await cache('key', fn, { store });
     expect(result2).toBe('sync result');
     expect(calls).toBe(1);
+  });
+
+  it('does not cache when ttl is 0 in CacheOptions', async () => {
+    const store = new Keyv();
+    let calls = 0;
+    const fn = () => {
+      calls++;
+      return 'result';
+    };
+
+    const result1 = await cache('key', fn, { ttl: -1, store });
+    expect(result1).toBe('result');
+    expect(calls).toBe(1);
+
+    const result2 = await cache('key', fn, { ttl: -1, store });
+    expect(result2).toBe('result');
+    expect(calls).toBe(2); // Should not be cached, function called again
+  });
+
+  it('does not cache when store.ttl is 0', async () => {
+    const store = new Keyv({ ttl: -1 });
+    let calls = 0;
+    const fn = () => {
+      calls++;
+      return 'result';
+    };
+
+    const result1 = await cache('key', fn, { store });
+    expect(result1).toBe('result');
+    expect(calls).toBe(1);
+
+    const result2 = await cache('key', fn, { store });
+    expect(result2).toBe('result');
+    expect(calls).toBe(2); // Should not be cached, function called again
   });
 });

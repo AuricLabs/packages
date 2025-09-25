@@ -13,11 +13,13 @@ export interface CacheServiceOptions<S extends Record<string, unknown>, P extend
   ignoreMethods?: (keyof S)[];
   serializeArgs?: <K extends keyof S>(
     key: K,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: S[K] extends (...args: any[]) => any ? Parameters<S[K]> : never,
   ) => string;
 }
 
 export type CachedService<S extends Record<string, unknown>, P extends string = 'get'> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [K in keyof S]: S[K] extends (...args: any[]) => any
     ? K extends `${P}${string}`
       ? CacheFunction<S[K]>
@@ -49,6 +51,7 @@ export function cacheService<S extends Record<string, unknown>, P extends string
     namespace: `${baseStore.namespace ? `${baseStore.namespace}:` : ''}${serviceNamespace}`,
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     store: baseStore.store,
+    ttl: baseStore.ttl,
   });
 
   logger.info(
@@ -94,7 +97,7 @@ export function cacheService<S extends Record<string, unknown>, P extends string
                 value: cacheFunction(descriptor.value, {
                   ttl,
                   store,
-                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
                   serializeArgs: serializeArgs?.bind(newService, key as keyof S) as any,
                 }),
               },

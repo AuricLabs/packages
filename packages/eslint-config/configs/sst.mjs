@@ -5,10 +5,10 @@ import tseslint from 'typescript-eslint';
 import nodeTsConfig from './node-ts.mjs';
 
 export default tseslint.config(
+  ...nodeTsConfig,
   {
     ignores: ['.sst/'],
   },
-  ...nodeTsConfig,
   {
     languageOptions: {
       globals: {

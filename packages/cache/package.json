@@ -14,8 +14,9 @@
     "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
-    "test": "NODE_OPTIONS='--experimental-vm-modules' jest",
-    "test:watch": "NODE_OPTIONS='--experimental-vm-modules' jest --watch"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "keyv": "5.5.1",

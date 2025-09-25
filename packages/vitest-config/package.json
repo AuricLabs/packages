@@ -1,0 +1,37 @@
+{
+  "name": "@auriclabs/vitest-config",
+  "version": "0.0.1",
+  "description": "Vitest config for AuricLabs projects",
+  "prettier": "@auriclabs/prettier-config",
+  "type": "module",
+  "exports": {
+    ".": "./dist/node.config.js",
+    "./node": "./dist/node.config.js",
+    "./sst": "./dist/sst.config.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsc",
+    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "exit 0"
+  },
+  "peerDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/vitest-config"
+  },
+  "devDependencies": {
+    "vitest": "3.2.4"
+  }
+}

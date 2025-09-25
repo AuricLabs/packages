@@ -1,6 +1,5 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
-/* eslint-disable jest/no-conditional-expect */
 import { ScopeString } from '../scope';
 
 import { can, cannot } from './can-cannot-proxy';

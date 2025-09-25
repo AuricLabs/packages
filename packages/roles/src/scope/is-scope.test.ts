@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 import { isScope } from './is-scope';
 import { Scope, ScopeSubject } from './types';

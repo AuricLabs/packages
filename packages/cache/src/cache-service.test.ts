@@ -1,5 +1,5 @@
-import { jest, describe, it, expect } from '@jest/globals';
 import Keyv from 'keyv';
+import { vi, describe, it, expect } from 'vitest';
 
 import { cacheService } from './cache-service';
 import { defaultCache } from './default-cache';
@@ -8,8 +8,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('cacheService', () => {
   it('caches matching functions in the service', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
-    const postData = jest.fn((id: string) => `posted-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
+    const postData = vi.fn((id: string) => `posted-${id}`);
     const service = { getData, postData };
 
     const cachedService = cacheService(service);
@@ -25,7 +25,7 @@ describe('cacheService', () => {
   });
 
   it('respects custom cacheFunctionNames regex', async () => {
-    const fetchData = jest.fn((id: string) => `data-${id}`);
+    const fetchData = vi.fn((id: string) => `data-${id}`);
     const service = { fetchData };
 
     const cachedService = cacheService(service, { cacheFunctionPrefix: 'fetch' });
@@ -36,7 +36,7 @@ describe('cacheService', () => {
   });
 
   it('handles ttl option', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = { getData };
 
     const cachedService = cacheService(service, { ttl: 100 });
@@ -52,7 +52,7 @@ describe('cacheService', () => {
   });
 
   it('handles inflight requests', async () => {
-    const getData = jest.fn((id: string) => sleep(50).then(() => `data-${id}`));
+    const getData = vi.fn((id: string) => sleep(50).then(() => `data-${id}`));
     const service = { getData };
 
     const cachedService = cacheService(service);
@@ -67,7 +67,7 @@ describe('cacheService', () => {
   });
 
   it('uses custom serializeArgs', async () => {
-    const getData = jest.fn((obj: { id: string }) => `data-${obj.id}`);
+    const getData = vi.fn((obj: { id: string }) => `data-${obj.id}`);
     const service = { getData };
 
     const serializeArgs = (key: string, args: unknown[]) => {
@@ -86,7 +86,7 @@ describe('cacheService', () => {
   });
 
   it('uses provided namespace', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = { getData };
 
     const cachedService = cacheService(service, { namespace: 'test-namespace' });
@@ -99,7 +99,7 @@ describe('cacheService', () => {
   });
 
   it('does not re-wrap already cached functions', () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = { getData };
 
     const cachedService1 = cacheService(service);
@@ -109,7 +109,7 @@ describe('cacheService', () => {
   });
 
   it('works with synchronous functions', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = { getData };
 
     const cachedService = cacheService(service);
@@ -123,7 +123,7 @@ describe('cacheService', () => {
   });
 
   it('uses service name when available', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = {
       name: 'TestService',
       getData,
@@ -135,7 +135,7 @@ describe('cacheService', () => {
   });
 
   it('uses provided namespace over service name', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = {
       name: 'TestService',
       getData,
@@ -147,7 +147,7 @@ describe('cacheService', () => {
   });
 
   it('generates uuid when no name or namespace provided', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = { getData }; // no name property
 
     const cachedService = cacheService(service);
@@ -156,7 +156,7 @@ describe('cacheService', () => {
   });
 
   it('handles baseStore with existing namespace', async () => {
-    const getData = jest.fn((id: string) => `data-${id}`);
+    const getData = vi.fn((id: string) => `data-${id}`);
     const service = { getData };
     const customStore = new Keyv({ namespace: 'BaseNamespace' });
 
@@ -167,8 +167,8 @@ describe('cacheService', () => {
 
   describe('clearAllCache method', () => {
     it('clears all cache entries for the service', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
       const service = { getData, getUsers };
 
       const cachedService = cacheService(service);
@@ -192,7 +192,7 @@ describe('cacheService', () => {
     });
 
     it('clearAllCache works with custom namespace', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
       const service = { getData };
 
       const cachedService = cacheService(service, { namespace: 'test-namespace' });
@@ -210,7 +210,7 @@ describe('cacheService', () => {
     });
 
     it('clearAllCache works with custom store', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
       const service = { getData };
       const customStore = new Keyv();
 
@@ -229,8 +229,8 @@ describe('cacheService', () => {
     });
 
     it('clearAllCache only affects cached functions', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const postData = jest.fn((id: string) => `posted-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const postData = vi.fn((id: string) => `posted-${id}`);
       const service = { getData, postData };
 
       const cachedService = cacheService(service);
@@ -256,9 +256,9 @@ describe('cacheService', () => {
     });
 
     it('clearAllCache works with multiple cached functions', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
-      const getSettings = jest.fn(() => ({ theme: 'dark' }));
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
+      const getSettings = vi.fn(() => ({ theme: 'dark' }));
       const service = { getData, getUsers, getSettings };
 
       const cachedService = cacheService(service);
@@ -284,7 +284,7 @@ describe('cacheService', () => {
     });
 
     it('clearAllCache is available on the service instance', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
       const service = { getData };
 
       const cachedService = cacheService(service);
@@ -307,8 +307,8 @@ describe('cacheService', () => {
 
   describe('ignoreMethods property', () => {
     it('excludes specified methods from caching', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
       const service = { getData, getUsers };
 
       const cachedService = cacheService(service, { ignoreMethods: ['getData'] });
@@ -327,9 +327,9 @@ describe('cacheService', () => {
     });
 
     it('excludes multiple methods from caching', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
-      const getSettings = jest.fn(() => ({ theme: 'dark' }));
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
+      const getSettings = vi.fn(() => ({ theme: 'dark' }));
       const service = { getData, getUsers, getSettings };
 
       const cachedService = cacheService(service, {
@@ -353,8 +353,8 @@ describe('cacheService', () => {
     });
 
     it('works with custom cacheFunctionPrefix', async () => {
-      const fetchData = jest.fn((id: string) => `data-${id}`);
-      const fetchUsers = jest.fn(() => ['user1', 'user2']);
+      const fetchData = vi.fn((id: string) => `data-${id}`);
+      const fetchUsers = vi.fn(() => ['user1', 'user2']);
       const service = { fetchData, fetchUsers };
 
       const cachedService = cacheService(service, {
@@ -374,9 +374,9 @@ describe('cacheService', () => {
     });
 
     it('ignores methods that match prefix but are in ignoreMethods', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
-      const getSettings = jest.fn(() => ({ theme: 'dark' }));
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
+      const getSettings = vi.fn(() => ({ theme: 'dark' }));
       const service = { getData, getUsers, getSettings };
 
       const cachedService = cacheService(service, {
@@ -398,8 +398,8 @@ describe('cacheService', () => {
     });
 
     it('handles empty ignoreMethods array', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
       const service = { getData, getUsers };
 
       const cachedService = cacheService(service, { ignoreMethods: [] });
@@ -415,7 +415,7 @@ describe('cacheService', () => {
     });
 
     it('handles non-existent methods in ignoreMethods', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
       const service = { getData };
 
       const cachedService = cacheService(service, {
@@ -430,7 +430,7 @@ describe('cacheService', () => {
     });
 
     it('ignores methods that are not functions', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
       const service = {
         getData,
         someProperty: 'not a function',
@@ -452,7 +452,7 @@ describe('cacheService', () => {
     });
 
     it('ignores methods that are already cached functions', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
+      const getData = vi.fn((id: string) => `data-${id}`);
       const service = { getData };
 
       // First create a cached service
@@ -474,8 +474,8 @@ describe('cacheService', () => {
     });
 
     it('works with clearAllCache when methods are ignored', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
       const service = { getData, getUsers };
 
       const cachedService = cacheService(service, {
@@ -503,11 +503,11 @@ describe('cacheService', () => {
     });
 
     it('ignores methods with custom serializeArgs', async () => {
-      const getData = jest.fn((obj: { id: string }) => `data-${obj.id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
+      const getData = vi.fn((obj: { id: string }) => `data-${obj.id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
       const service = { getData, getUsers };
 
-      const serializeArgs = jest.fn((key: string, args: unknown[]) => {
+      const serializeArgs = vi.fn((key: string, args: unknown[]) => {
         if (key === 'getData') {
           return (args[0] as { id: string }).id.toUpperCase();
         }
@@ -534,9 +534,9 @@ describe('cacheService', () => {
 
   describe('create method calling clearAllCache', () => {
     it('create method calls clearAllCache to clear existing cached data', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
-      const createUser = jest.fn(async (userData: { name: string }) => {
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
+      const createUser = vi.fn(async (userData: { name: string }) => {
         // Simulate creating a user and then clearing cache
         const newUser = { id: '3', ...userData };
         // Clear all cached data when creating new user
@@ -567,8 +567,8 @@ describe('cacheService', () => {
     });
 
     it('create method with custom prefix calls clearAllCache', async () => {
-      const fetchData = jest.fn((id: string) => `data-${id}`);
-      const createData = jest.fn(async (data: { value: string }) => {
+      const fetchData = vi.fn((id: string) => `data-${id}`);
+      const createData = vi.fn(async (data: { value: string }) => {
         // Clear cache when creating new data
         await cachedService.clearAllCache();
         return { id: 'new', ...data };
@@ -592,10 +592,10 @@ describe('cacheService', () => {
     });
 
     it('create method calls clearAllCache with multiple cached functions', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const getUsers = jest.fn(() => ['user1', 'user2']);
-      const getSettings = jest.fn(() => ({ theme: 'dark' }));
-      const createUser = jest.fn(async (userData: { name: string }) => {
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const getUsers = vi.fn(() => ['user1', 'user2']);
+      const getSettings = vi.fn(() => ({ theme: 'dark' }));
+      const createUser = vi.fn(async (userData: { name: string }) => {
         // Clear all cached data when creating new user
         await cachedService.clearAllCache();
         return { id: 'new', ...userData };
@@ -627,8 +627,8 @@ describe('cacheService', () => {
     });
 
     it('create method calls clearAllCache with custom namespace', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const createData = jest.fn(async (data: { value: string }) => {
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const createData = vi.fn(async (data: { value: string }) => {
         // Clear cache when creating new data
         await cachedService.clearAllCache();
         return { id: 'new', ...data };
@@ -652,8 +652,8 @@ describe('cacheService', () => {
     });
 
     it('create method calls clearAllCache with custom store', async () => {
-      const getData = jest.fn((id: string) => `data-${id}`);
-      const createData = jest.fn(async (data: { value: string }) => {
+      const getData = vi.fn((id: string) => `data-${id}`);
+      const createData = vi.fn(async (data: { value: string }) => {
         // Clear cache when creating new data
         await cachedService.clearAllCache();
         return { id: 'new', ...data };

@@ -4,4 +4,4 @@ import commonNodeConfig from './common-node.mjs';
 /**
  * @type {import('typescript-eslint').InfiniteDepthConfigWithExtends[]}
  */
-export default [...commonJsConfig, ...commonNodeConfig];
+export default [...commonJsConfig, ...commonNodeConfig, { ignores: ['*.ts'] }];

@@ -1,4 +1,4 @@
 export default {
-  '*.{js,jsx,ts,tsx}': 'pnpm lint --fix',
+  '*.{js,jsx,ts,tsx}': 'pnpm lint:fix',
   '*.json': ['prettier --write'],
 };

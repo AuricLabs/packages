@@ -1,4 +1,4 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect, vi } from 'vitest';
 
 import { cacheFunction } from './cache-function';
 import { defaultCache } from './default-cache';
@@ -7,7 +7,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('cacheFunction', () => {
   it('caches function calls with same arguments', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     const result1 = await cachedFn('test');
@@ -20,7 +20,7 @@ describe('cacheFunction', () => {
   });
 
   it('calls function for different arguments', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     await cachedFn('test1');
@@ -31,7 +31,7 @@ describe('cacheFunction', () => {
   });
 
   it('handles inflight requests', async () => {
-    const fn = jest.fn((arg: string) => sleep(50).then(() => `result-${arg}`));
+    const fn = vi.fn((arg: string) => sleep(50).then(() => `result-${arg}`));
     const cachedFn = cacheFunction(fn);
 
     const [result1, result2] = await Promise.all([cachedFn('test'), cachedFn('test')]);
@@ -42,7 +42,7 @@ describe('cacheFunction', () => {
   });
 
   it('respects ttl', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn, { ttl: 100 });
 
     await cachedFn('test');
@@ -58,7 +58,7 @@ describe('cacheFunction', () => {
   });
 
   it('clears specific cache entry', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     await cachedFn('test');
@@ -72,7 +72,7 @@ describe('cacheFunction', () => {
   });
 
   it('clears all cache entries', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     await cachedFn('test1');
@@ -87,7 +87,7 @@ describe('cacheFunction', () => {
   });
 
   it('clear returns false for non-existent key', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     const clearResult = await cachedFn.clear('nonexistent');
@@ -95,7 +95,7 @@ describe('cacheFunction', () => {
   });
 
   it('clear works with different argument types', async () => {
-    const fn = jest.fn((obj: { id: number }) => `result-${String(obj.id)}`);
+    const fn = vi.fn((obj: { id: number }) => `result-${String(obj.id)}`);
     const cachedFn = cacheFunction(fn);
 
     await cachedFn({ id: 1 });
@@ -109,8 +109,8 @@ describe('cacheFunction', () => {
   });
 
   it('clear method uses serializeArgs for key generation', async () => {
-    const fn = jest.fn((obj: { id: number }) => `result-${String(obj.id)}`);
-    const serializeArgs = jest.fn((args: [{ id: number }]) => `custom-${String(args[0].id)}`);
+    const fn = vi.fn((obj: { id: number }) => `result-${String(obj.id)}`);
+    const serializeArgs = vi.fn((args: [{ id: number }]) => `custom-${String(args[0].id)}`);
     const cachedFn = cacheFunction(fn, { serializeArgs });
 
     await cachedFn({ id: 1 });
@@ -125,7 +125,7 @@ describe('cacheFunction', () => {
   });
 
   it('clearAll method clears entire store', async () => {
-    const fn = jest.fn((arg: string) => `result-${arg}`);
+    const fn = vi.fn((arg: string) => `result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     await cachedFn('test1');
@@ -142,7 +142,7 @@ describe('cacheFunction', () => {
   });
 
   it('works with custom args serializer', async () => {
-    const fn = jest.fn((obj: { key: string }) => `result-${obj.key}`);
+    const fn = vi.fn((obj: { key: string }) => `result-${obj.key}`);
     const serializeArgs = (args: [{ key: string }]) => args[0].key.toUpperCase();
     const cachedFn = cacheFunction(fn, { serializeArgs });
 
@@ -154,7 +154,7 @@ describe('cacheFunction', () => {
   });
 
   it('works with synchronous functions', async () => {
-    const fn = jest.fn((arg: string) => `sync-result-${arg}`);
+    const fn = vi.fn((arg: string) => `sync-result-${arg}`);
     const cachedFn = cacheFunction(fn);
 
     const result1 = await cachedFn('test');
@@ -167,7 +167,7 @@ describe('cacheFunction', () => {
   });
 
   it('should support having multiple cache functions with the same name', async () => {
-    const fn = jest.fn((arg: string) => `sync-result-${arg}`);
+    const fn = vi.fn((arg: string) => `sync-result-${arg}`);
     const cachedFn = cacheFunction(fn);
     const cachedFn2 = cacheFunction(fn);
 
@@ -188,7 +188,7 @@ describe('cacheFunction', () => {
   });
 
   it('should apply the namespace as a key prefix', async () => {
-    const testFunction = jest.fn((arg: string) => `sync-result-${arg}`);
+    const testFunction = vi.fn((arg: string) => `sync-result-${arg}`);
     const cachedFn = cacheFunction(testFunction);
 
     const args = ['test'] as const;
@@ -203,7 +203,7 @@ describe('cacheFunction', () => {
 
   describe('set method', () => {
     it('manually sets cache value', async () => {
-      const fn = jest.fn((arg: string) => `result-${arg}`);
+      const fn = vi.fn((arg: string) => `result-${arg}`);
       const cachedFn = cacheFunction(fn);
 
       // Set a value manually
@@ -217,7 +217,7 @@ describe('cacheFunction', () => {
     });
 
     it('set method respects TTL', async () => {
-      const fn = jest.fn((arg: string) => `result-${arg}`);
+      const fn = vi.fn((arg: string) => `result-${arg}`);
       const cachedFn = cacheFunction(fn, { ttl: 100 });
 
       // Set a value manually
@@ -238,7 +238,7 @@ describe('cacheFunction', () => {
     });
 
     it('set method works with different argument types', async () => {
-      const fn = jest.fn((obj: { id: number }) => `result-${String(obj.id)}`);
+      const fn = vi.fn((obj: { id: number }) => `result-${String(obj.id)}`);
       const cachedFn = cacheFunction(fn);
 
       // Set a value manually
@@ -252,8 +252,8 @@ describe('cacheFunction', () => {
     });
 
     it('set method uses serializeArgs for key generation', async () => {
-      const fn = jest.fn((obj: { id: number }) => `result-${String(obj.id)}`);
-      const serializeArgs = jest.fn((args: [{ id: number }]) => `custom-${String(args[0].id)}`);
+      const fn = vi.fn((obj: { id: number }) => `result-${String(obj.id)}`);
+      const serializeArgs = vi.fn((args: [{ id: number }]) => `custom-${String(args[0].id)}`);
       const cachedFn = cacheFunction(fn, { serializeArgs });
 
       // Set a value manually
@@ -267,14 +267,14 @@ describe('cacheFunction', () => {
     });
 
     it('set method throws error when no value provided', async () => {
-      const fn = jest.fn((arg: string) => `result-${arg}`);
+      const fn = vi.fn((arg: string) => `result-${arg}`);
       const cachedFn = cacheFunction(fn);
       // @ts-expect-error - Testing error case with missing value parameter
       await expect(cachedFn.set()).rejects.toThrow('Value is required');
     });
 
     it('set method works with synchronous return values', async () => {
-      const fn = jest.fn((arg: string) => `sync-result-${arg}`);
+      const fn = vi.fn((arg: string) => `sync-result-${arg}`);
       const cachedFn = cacheFunction(fn);
 
       // Set a synchronous value manually
@@ -288,7 +288,7 @@ describe('cacheFunction', () => {
     });
 
     it('set method overwrites existing cached values', async () => {
-      const fn = jest.fn((arg: string) => `result-${arg}`);
+      const fn = vi.fn((arg: string) => `result-${arg}`);
       const cachedFn = cacheFunction(fn);
 
       // First call to cache the original result
@@ -306,7 +306,7 @@ describe('cacheFunction', () => {
     });
 
     it('set method works with multiple arguments', async () => {
-      const fn = jest.fn((a: string, b: number) => `result-${a}-${String(b)}`);
+      const fn = vi.fn((a: string, b: number) => `result-${a}-${String(b)}`);
       const cachedFn = cacheFunction(fn);
 
       // Set a value manually with multiple arguments

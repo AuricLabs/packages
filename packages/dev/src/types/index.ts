@@ -21,7 +21,7 @@ export interface ProjectConfig {
   type: 'node' | 'react' | 'sst';
   eslint: boolean;
   prettier: boolean;
-  jest: boolean;
+  vitest: boolean;
 }
 
 export interface PackageJson {

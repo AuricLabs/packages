@@ -21,8 +21,9 @@
     "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
-    "test": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest",
-    "test:watch": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-vm-modules\" npx jest --watch"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

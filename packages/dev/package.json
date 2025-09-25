@@ -34,7 +34,9 @@
     "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
-    "test": "exit 0"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

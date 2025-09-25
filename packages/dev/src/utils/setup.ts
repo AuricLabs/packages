@@ -18,7 +18,7 @@ export function setupProject(projectType: string): void {
 
   updatePackageJson(projectType as ProjectType);
   createEslintConfig(projectType as ProjectType);
-  createJestConfig(projectType as ProjectType);
+  createVitestConfig(projectType as ProjectType);
   installDependencies(projectType as ProjectType);
 
   console.log('');
@@ -26,7 +26,7 @@ export function setupProject(projectType: string): void {
   console.log('');
   console.log('Next steps:');
   console.log(
-    '1. Install dependencies: pnpm add -D @auriclabs/eslint-config @auriclabs/prettier-config @auriclabs/jest-config eslint prettier jest ts-jest @types/jest',
+    '1. Install dependencies: pnpm add -D @auriclabs/eslint-config @auriclabs/prettier-config @auriclabs/vitest-config eslint prettier vitest',
   );
   console.log('2. Run linting: pnpm lint');
   console.log('3. Run formatting: pnpm format');
@@ -58,7 +58,8 @@ function updatePackageJson(_projectType: ProjectType): void {
   }
 
   if (!packageJson.scripts.test) {
-    packageJson.scripts.test = 'jest';
+    packageJson.scripts.test = 'vitest run';
+    packageJson.scripts['test:watch'] = 'vitest';
   }
 
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
@@ -77,16 +78,18 @@ export default ${projectType}Config;
   console.log(`✅ Created eslint.config.js for ${projectType}`);
 }
 
-function createJestConfig(projectType: ProjectType): void {
-  const jestConfigPath = path.join(process.cwd(), 'jest.config.js');
+function createVitestConfig(projectType: ProjectType): void {
+  const vitestConfigPath = path.join(process.cwd(), 'vitest.config.ts');
 
-  const configContent = `import ${projectType}Config from '@auriclabs/jest-config/${projectType}';
+  const configContent = `import ${projectType}Config from '@auriclabs/vitest-config/${projectType}';
 
-export default ${projectType}Config;
+export default {
+  ...${projectType}Config,
+};
 `;
 
-  fs.writeFileSync(jestConfigPath, configContent);
-  console.log(`✅ Created jest.config.js for ${projectType}`);
+  fs.writeFileSync(vitestConfigPath, configContent);
+  console.log(`✅ Created vitest.config.ts for ${projectType}`);
 }
 
 function installDependencies(projectType: ProjectType): void {
@@ -95,12 +98,10 @@ function installDependencies(projectType: ProjectType): void {
   const dependencies = [
     '@auriclabs/eslint-config',
     '@auriclabs/prettier-config',
-    '@auriclabs/jest-config',
+    '@auriclabs/vitest-config',
     'eslint',
     'prettier',
-    'jest',
-    'ts-jest',
-    '@types/jest',
+    'vitest',
   ];
 
   // Add type-specific dependencies

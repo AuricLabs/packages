@@ -11,18 +11,6 @@ export default [
     },
   },
   {
-    files: [
-      'eslint.config.js',
-      'eslint.config.mjs',
-      'jest.config.js',
-      'jest.config.mjs',
-      '.lintstagedrc.js',
-    ],
-    rules: {
-      'n/no-extraneous-import': 'off',
-    },
-  },
-  {
     settings: {
       node: {
         version: '>=22.16.0',
@@ -38,7 +26,11 @@ export default [
   {
     files: [
       'eslint.config.js',
-      'jest.config.js',
+      'eslint.config.mjs',
+      'vitest.config.ts',
+      'vitest.config.js',
+      'vitest.config.mjs',
+      '.lintstagedrc.js',
       '**/*.test.ts',
       '**/*.spec.ts',
       '**/*.test.js',
@@ -54,6 +46,12 @@ export default [
     ],
     rules: {
       'n/no-extraneous-import': 'off',
+    },
+  },
+  {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'n/no-missing-import': 'off', // Disable n rule for TypeScript files
     },
   },
 ];

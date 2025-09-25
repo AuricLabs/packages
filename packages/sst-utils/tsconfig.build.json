@@ -1,0 +1,19 @@
+{
+  "extends": "@auriclabs/ts-config/sst",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".sst/platform/functions",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "vitest.config.ts"
+  ]
+}

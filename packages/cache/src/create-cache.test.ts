@@ -1,12 +1,12 @@
 import { logger } from '@auriclabs/logger';
-import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import Keyv from 'keyv';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 import { createCache } from './create-cache';
 
 describe('createCache', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('when store is a Keyv instance', () => {

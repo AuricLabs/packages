@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it } from 'vitest';
 
 import { normalizePaginationResponse, DynamodbResponse } from './normalize-pagination-response';
 import { PaginationResponse } from './types';

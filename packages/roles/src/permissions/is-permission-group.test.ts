@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 import { ScopeString } from '../scope';
 
@@ -332,9 +332,7 @@ describe('isPermissionGroup', () => {
 
       if (isPermissionGroup(permissionOrGroup)) {
         // TypeScript should know this is a PermissionGroup here
-        // eslint-disable-next-line jest/no-conditional-expect
         expect(permissionOrGroup.permissions).toBeDefined();
-        // eslint-disable-next-line jest/no-conditional-expect
         expect(Array.isArray(permissionOrGroup.permissions)).toBe(true);
       } else {
         throw new Error('Should not reach this branch: permissionOrGroup is not a PermissionGroup');

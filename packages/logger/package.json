@@ -14,7 +14,9 @@
     "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
-    "test": "jest --passWithNoTests"
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "lodash": "^4.17.21",

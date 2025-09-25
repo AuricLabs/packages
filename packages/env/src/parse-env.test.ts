@@ -1,25 +1,25 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, vi, MockInstance } from 'vitest';
 import z from 'zod';
 
 import { HandleErrorFn, parseEnv } from './parse-env';
 
-let processExit!: jest.SpiedFunction<typeof process.exit>;
-let processStderrWrite!: jest.SpiedFunction<typeof console.error>;
+let processExit!: MockInstance<typeof process.exit>;
+let processStderrWrite!: MockInstance<typeof console.error>;
 let originalProcessEnv: NodeJS.ProcessEnv;
 
 describe('parseEnv', () => {
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Store original process.env
     originalProcessEnv = process.env;
 
     // Mock process.exit to prevent actual exit
-    processExit = jest.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    processExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
     // Mock process.stderr.write
-    processStderrWrite = jest.spyOn(console, 'error').mockImplementation(() => undefined as never);
+    processStderrWrite = vi.spyOn(console, 'error').mockImplementation(() => undefined as never);
 
     // Reset process.env to a clean state
     process.env = {};
@@ -28,7 +28,7 @@ describe('parseEnv', () => {
   afterEach(() => {
     // Restore original process.env
     process.env = originalProcessEnv;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('with Zod schema', () => {
@@ -154,7 +154,7 @@ describe('parseEnv', () => {
         REQUIRED: z.string(),
       };
 
-      const customErrorHandler: HandleErrorFn<typeof schema> = jest.fn();
+      const customErrorHandler: HandleErrorFn<typeof schema> = vi.fn();
 
       process.env = {};
 
@@ -170,7 +170,7 @@ describe('parseEnv', () => {
       };
 
       const recoveryValue = { REQUIRED: 'recovered-value' };
-      const customErrorHandler: HandleErrorFn<typeof schema> = jest
+      const customErrorHandler: HandleErrorFn<typeof schema> = vi
         .fn()
         .mockReturnValue(recoveryValue);
 
@@ -187,7 +187,7 @@ describe('parseEnv', () => {
         REQUIRED: z.string(),
       };
 
-      const customErrorHandler: HandleErrorFn<typeof schema> = jest.fn().mockReturnValue(undefined);
+      const customErrorHandler: HandleErrorFn<typeof schema> = vi.fn().mockReturnValue(undefined);
 
       process.env = {};
 
@@ -337,7 +337,7 @@ describe('parseEnv', () => {
         REQUIRED: z.string(),
       };
 
-      const voidHandler: HandleErrorFn<typeof schema> = jest.fn().mockImplementation(() => {
+      const voidHandler: HandleErrorFn<typeof schema> = vi.fn().mockImplementation(() => {
         // Handler does something but returns void
         process.stderr.write('Custom error message\n');
       });
@@ -355,7 +355,7 @@ describe('parseEnv', () => {
         REQUIRED: z.string(),
       };
 
-      const recoveryHandler: HandleErrorFn<typeof schema> = jest.fn().mockReturnValue({
+      const recoveryHandler: HandleErrorFn<typeof schema> = vi.fn().mockReturnValue({
         REQUIRED: 'recovered-value',
       });
 

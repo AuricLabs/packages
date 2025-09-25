@@ -13,8 +13,10 @@
     "build": "tsc",
     "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
-    "lint": "eslint . --ext .ts",
-    "test": "jest --config ../../jest.config.ts"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@middy/core": "^6.4.4",

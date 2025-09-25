@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 import { ScopeString } from '../scope';
 
@@ -346,9 +346,7 @@ describe('isPermission', () => {
 
       if (isPermission(permissionOrGroup)) {
         // TypeScript should know this is a Permission here
-        // eslint-disable-next-line jest/no-conditional-expect
         expect(permissionOrGroup.subject).toBeDefined();
-        // eslint-disable-next-line jest/no-conditional-expect
         expect(permissionOrGroup.action).toBeDefined();
       } else {
         throw new Error('Should not reach this branch: permissionOrGroup is not a Permission');
@@ -392,7 +390,7 @@ describe('isPermission', () => {
   });
 
   describe('integration with isPermissionGroup', () => {
-    it('should be mutually exclusive with isPermissionGroup', () => {
+    it('should be mutually exclusive with isPermissionGroup', async () => {
       const permission: Permission<'user', 'read', 'can'> = {
         subject: 'user',
         action: 'read',
@@ -411,15 +409,14 @@ describe('isPermission', () => {
 
       // Import isPermissionGroup for this test
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-require-imports
-      const { isPermissionGroup } = require('./is-permission-group');
+      const { isPermissionGroup } = await import('./is-permission-group');
 
       expect(isPermission(permission)).toBe(true);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       expect(isPermissionGroup(permission)).toBe(false);
 
       expect(isPermission(permissionGroup)).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+
       expect(isPermissionGroup(permissionGroup)).toBe(true);
     });
   });

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   configureEnvironment,
@@ -30,7 +30,7 @@ describe('environment', () => {
     originalConsoleWarn = console.warn;
 
     // Mock console.warn to prevent test output noise
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined as never);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined as never);
 
     // Reset process.env to a clean state
     process.env = {};
@@ -40,7 +40,7 @@ describe('environment', () => {
     // Restore original process.env
     process.env = originalProcessEnv;
     console.warn = originalConsoleWarn;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('configuration', () => {

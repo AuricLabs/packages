@@ -6,10 +6,12 @@ import { cache, CacheOptions } from './cache';
 import { ArgsSerializer, defaultArgsSerializer } from './default-args-serializer';
 import { defaultCache } from './default-cache';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface CacheFunctionOptions<T extends (...args: any[]) => any> extends CacheOptions {
   serializeArgs?: ArgsSerializer<T>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type CacheFunction<T extends (...args: any[]) => any> = ((
   ...args: Parameters<T>
 ) => Promise<Awaited<ReturnType<T>>>) & {
@@ -28,6 +30,7 @@ export type CacheFunction<T extends (...args: any[]) => any> = ((
  * @param {CacheFunctionOptions<T>} options - The options for the cache
  * @returns The cached function
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function cacheFunction<T extends (...args: any[]) => any>(
   fn: T,
   {

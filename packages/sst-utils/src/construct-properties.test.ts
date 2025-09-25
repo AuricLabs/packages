@@ -1,44 +1,22 @@
 import fs from 'fs';
+import path from 'path';
+
+import { describe, expect, beforeEach, vi, test } from 'vitest';
 
 // We use path indirectly through the constructProperties function
-import { constructProperties } from '../construct-properties';
-
-// Mock fs module
-jest.mock('fs');
+import { constructProperties } from './construct-properties';
 
 describe('constructProperties', () => {
-  // Set up mocks
-  const mockFs = fs as jest.Mocked<typeof fs>;
-
-  // Virtual file system for tests
-  const virtualFileSystem: Record<string, string> = {};
-
   // Helper to add a file to the virtual system
   function addFile(filePath: string, content: string) {
-    virtualFileSystem[filePath] = content;
+    const basepath = path.dirname(filePath);
+    fs.mkdirSync(basepath, { recursive: true });
+    fs.writeFileSync(filePath, content);
   }
 
   beforeEach(() => {
-    // Clear virtual file system
-    Object.keys(virtualFileSystem).forEach((key) => {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-      delete virtualFileSystem[key];
-    });
-
     // Reset all mocks
-    jest.restoreAllMocks();
-
-    // Mock implementations
-    mockFs.existsSync.mockImplementation((filePath) => {
-      return filePath.toString() in virtualFileSystem;
-    });
-
-    mockFs.readFileSync.mockImplementation((filePath) => {
-      if (typeof filePath === 'string' && filePath in virtualFileSystem) {
-        return virtualFileSystem[filePath];
-      }
-      throw new Error(`File not found: ${filePath.toString()}`);
-    });
+    vi.restoreAllMocks();
   });
 
   test('should return empty object when no property files exist', () => {
@@ -280,8 +258,8 @@ describe('constructProperties', () => {
     // Test the $interpolate function specifically
     addFile('/base/folder.properties', 'message=Hello ${name}! Your ID is ${id}');
 
-    // Use jest.spyOn to mock the global $interpolate function
-    const interpolateSpy = jest
+    // Use vi.spyOn to mock the global $interpolate function
+    const interpolateSpy = vi
       .spyOn(global as unknown as { $interpolate: typeof $interpolate }, '$interpolate')
       .mockImplementation((strings: Parameters<typeof $interpolate>[0], ...values: string[]) => {
         return `Hello ${values[0]}! Your ID is ${values[1]}` as unknown as $util.Output<string>;

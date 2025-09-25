@@ -12,6 +12,7 @@
     "build": "exit 0",
     "dev": "exit 0",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "exit 0"
   },
   "exports": {
@@ -23,10 +24,6 @@
     "./common-js": {
       "types": "./types.d.ts",
       "default": "./configs/common-js.mjs"
-    },
-    "./jest": {
-      "types": "./types.d.ts",
-      "default": "./configs/jest.mjs"
     },
     "./node-ts": {
       "types": "./types.d.ts",
@@ -43,29 +40,35 @@
     "./sst": {
       "types": "./types.d.ts",
       "default": "./configs/sst.mjs"
+    },
+    "./vitest": {
+      "types": "./types.d.ts",
+      "default": "./configs/vitest.mjs"
     }
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
   "peerDependencies": {
+    "@eslint/js": ">=9.0.0",
     "@typescript-eslint/eslint-plugin": ">=8.0.0",
     "@typescript-eslint/parser": ">=8.0.0",
     "eslint": ">=9.0.0",
-    "@eslint/js": ">=9.0.0",
     "eslint-config-prettier": ">=10.0.0",
+    "eslint-import-resolver-typescript": ">=4.0.0",
     "eslint-plugin-import": ">=2.0.0",
-    "eslint-plugin-jest": ">=29.0.0",
     "eslint-plugin-n": ">=17.0.0",
     "eslint-plugin-prettier": ">=5.0.0",
     "eslint-plugin-react": ">=7.0.0",
     "eslint-plugin-react-hooks": ">=4.0.0",
-    "eslint-import-resolver-typescript": ">=4.0.0",
     "typescript-eslint": ">=8.0.0"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/auriclabs/packages.git",
     "directory": "packages/eslint-config"
+  },
+  "dependencies": {
+    "eslint-plugin-vitest": "0.5.4"
   }
 }

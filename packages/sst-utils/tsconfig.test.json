@@ -1,0 +1,16 @@
+{
+  "extends": "@auriclabs/ts-config/node",
+  "compilerOptions": {
+    "rootDir": ".",
+    "composite": true,
+    "noEmit": true
+  },
+  "include": [
+    "src",
+    "vitest.config.ts",
+    "__mocks__",
+    ".sst/platform/config.d.ts",
+    "sst.config.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}

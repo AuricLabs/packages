@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 import { stringifyScope } from './stringify-scope';
 import { ScopeSubjectArray } from './types';

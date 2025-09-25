@@ -41,7 +41,7 @@ export const createLocalPrettyTransport = () => {
       const coloredTimestamp = colors.gray + timestamp + colors.reset;
 
       // Use process.stdout.write for better control and to avoid console.log truncation
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+
       const output = `${coloredTimestamp} ${coloredLevel} ${msg}\n`;
       process.stdout.write(output);
 
@@ -54,7 +54,7 @@ export const createLocalPrettyTransport = () => {
         const coloredStackLines = stackLines.map(
           (line: string) => `${colors.red}${line}${colors.reset}`,
         );
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
         const stackOutput = `${coloredStackLines.join('\n')}\n`;
         process.stdout.write(stackOutput);
       }

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { merge } from 'lodash';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { Scope, ScopeString } from '../scope';
 
@@ -9,15 +9,15 @@ import { permission } from './permission-proxy';
 import { Permission, PermissionGroup, ConditionsQuery } from './types';
 
 // Mock lodash merge to control its behavior in tests
-jest.mock('lodash', () => ({
-  merge: jest.fn(),
+vi.mock('lodash', () => ({
+  merge: vi.fn(),
 }));
 
-const mockMerge = merge as jest.MockedFunction<typeof merge>;
+const mockMerge = merge as ReturnType<typeof vi.fn>;
 
 describe('modifyPermission', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Default mock implementation for merge
     mockMerge.mockImplementation((target: unknown, ...sources: unknown[]) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return

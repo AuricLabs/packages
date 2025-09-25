@@ -1,23 +1,17 @@
 import { logger } from '@auriclabs/logger';
-import { jest, describe, expect, it, beforeEach } from '@jest/globals';
+import { vi, describe, expect, it, beforeEach } from 'vitest';
 
 import { fetchAll } from './fetch-all';
 
 // Mock the logger
-jest.mock('@auriclabs/logger', () => ({
-  logger: {
-    debug: jest.fn(),
-  },
-}));
-
 describe('fetchAll', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Array data responses', () => {
     it('should fetch all data from a single page', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<(cursor: string | null | undefined) => Promise<{ data: number[]; cursor: null }>>()
         .mockResolvedValue({
           data: [1, 2, 3],
@@ -32,7 +26,7 @@ describe('fetchAll', () => {
     });
 
     it('should fetch all data from multiple pages', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{ data: number[]; cursor: string | null }>
         >()
@@ -59,7 +53,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle empty array responses', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: number[]; cursor: null }>>()
         .mockResolvedValue({
           data: [],
@@ -73,7 +67,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle mixed array and empty responses', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{ data: number[]; cursor: string | null }>
         >()
@@ -99,7 +93,7 @@ describe('fetchAll', () => {
 
   describe('Object data responses', () => {
     it('should fetch all data from a single page with object structure', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: { users: string[]; posts: string[] }; cursor: null }>>()
         .mockResolvedValue({
           data: {
@@ -119,7 +113,7 @@ describe('fetchAll', () => {
     });
 
     it('should fetch all data from multiple pages with object structure', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (
             cursor: string | null | undefined,
@@ -150,7 +144,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle object responses with different keys across pages', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{
             data: { users?: string[]; posts?: string[]; comments?: string[] };
@@ -182,7 +176,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle empty object responses', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: Record<never, never>; cursor: null }>>()
         .mockResolvedValue({
           data: {},
@@ -198,7 +192,7 @@ describe('fetchAll', () => {
 
   describe('Undefined batch handling', () => {
     it('should skip undefined batch responses and log debug message', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{ data: number[]; cursor: string | null }>
         >()
@@ -227,7 +221,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle multiple undefined batches', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{ data: number[]; cursor: string | null }>
         >()
@@ -256,7 +250,7 @@ describe('fetchAll', () => {
 
   describe('Edge cases', () => {
     it('should handle null cursor correctly', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: number[]; cursor: null }>>()
         .mockResolvedValue({
           data: [1, 2, 3],
@@ -270,7 +264,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle undefined cursor correctly', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: number[]; cursor: undefined }>>()
         .mockResolvedValue({
           data: [1, 2, 3],
@@ -284,7 +278,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle empty string cursor', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{ data: number[]; cursor: string | null }>
         >()
@@ -304,7 +298,7 @@ describe('fetchAll', () => {
     });
 
     it('should handle mixed array and object data types', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<
           (cursor: string | null | undefined) => Promise<{ data: number[]; cursor: string | null }>
         >()
@@ -331,7 +325,7 @@ describe('fetchAll', () => {
   describe('Error handling', () => {
     it('should propagate errors from the callback function', async () => {
       const error = new Error('API Error');
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: number[]; cursor: string | null }>>()
         .mockRejectedValue(error);
 
@@ -341,7 +335,7 @@ describe('fetchAll', () => {
 
     it('should propagate errors from subsequent callback calls', async () => {
       const error = new Error('API Error');
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: number[]; cursor: string | null }>>()
         .mockResolvedValueOnce({
           data: [1, 2],
@@ -356,7 +350,7 @@ describe('fetchAll', () => {
 
   describe('Type safety', () => {
     it('should maintain type safety for array data', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: string[]; cursor: null }>>()
         .mockResolvedValue({
           data: ['string1', 'string2'],
@@ -370,7 +364,7 @@ describe('fetchAll', () => {
     });
 
     it('should maintain type safety for object data', async () => {
-      const mockCallback = jest
+      const mockCallback = vi
         .fn<() => Promise<{ data: { users: string[]; posts: string[] }; cursor: null }>>()
         .mockResolvedValue({
           data: {
