@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/pagination",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Pagination for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "main": "dist/index.cjs",
@@ -34,7 +34,7 @@
     "@auriclabs/logger": "workspace:*"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.0.3"
+    "@auriclabs/logger": "^0.0.4"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

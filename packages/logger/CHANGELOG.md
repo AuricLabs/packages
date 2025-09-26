@@ -1,5 +1,11 @@
 # @auriclabs/logger
 
+## 0.0.4
+
+### Patch Changes
+
+- ef69a0a: Update lodash to lodash-es
+
 ## 0.0.3
 
 ### Patch Changes

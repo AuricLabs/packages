@@ -1,5 +1,11 @@
 # @auriclabs/roles
 
+## 0.0.6
+
+### Patch Changes
+
+- ef69a0a: Update lodash to lodash-es
+
 ## 0.0.5
 
 ### Patch Changes
