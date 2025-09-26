@@ -33,7 +33,7 @@
     "@auriclabs/logger": "workspace:*"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.0.4"
+    "@auriclabs/logger": "^0.0.1"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

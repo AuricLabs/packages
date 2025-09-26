@@ -37,7 +37,7 @@
     "@types/aws-lambda": "^8.10.148"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.0.4",
+    "@auriclabs/logger": "^0.0.1",
     "@auriclabs/env": "^0.0.4",
     "pino-lambda": "^4.4.1",
     "sst": "^3.17.10",
