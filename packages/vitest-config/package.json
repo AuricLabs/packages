@@ -4,6 +4,9 @@
   "description": "Vitest config for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
+  "main": "dist/node.config.cjs",
+  "module": "dist/node.config.js",
+  "types": "dist/node.config.d.ts",
   "exports": {
     ".": {
       "types": "./dist/node.config.d.ts",
