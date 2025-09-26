@@ -1,15 +1,9 @@
-# @auriclabs/cache
+# @auriclabs/pagination
 
-## 0.0.3
+## 0.0.2
 
 ### Patch Changes
 
 - 732042e: Bump esm module exports
 - Updated dependencies [732042e]
   - @auriclabs/logger@0.0.2
-
-## 0.0.2
-
-### Patch Changes
-
-- bb6dad9: Added debug logs to the caching layer
