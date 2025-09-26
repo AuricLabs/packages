@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { set, unset } from 'lodash';
+import { set, unset } from 'lodash-es';
 import propertiesReader from 'properties-reader';
 /**
  * Constructs properties from a given base directory and file path,

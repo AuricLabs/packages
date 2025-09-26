@@ -1,5 +1,4 @@
-import { merge } from 'lodash';
-import cloneDeep from 'lodash/cloneDeep';
+import { merge, cloneDeep } from 'lodash-es';
 
 import { isScope, mergeScopes, Scope, stringifyScope } from '../scope';
 

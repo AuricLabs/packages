@@ -1,5 +1,5 @@
 import { logger } from '@auriclabs/logger';
-import { merge } from 'lodash';
+import { merge } from 'lodash-es';
 import pRetry, { FailedAttemptError, Options } from 'p-retry';
 
 export const retry = <T>(fn: () => Promise<T>, options?: Options): Promise<T> => {

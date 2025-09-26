@@ -1,4 +1,4 @@
-import { merge } from 'lodash';
+import { merge } from 'lodash-es';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { Scope, ScopeString } from '../scope';
@@ -9,7 +9,7 @@ import { permission } from './permission-proxy';
 import { Permission, PermissionGroup, ConditionsQuery } from './types';
 
 // Mock lodash merge to control its behavior in tests
-vi.mock('lodash', () => ({
+vi.mock('lodash-es', () => ({
   merge: vi.fn(),
 }));
 

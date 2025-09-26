@@ -1,4 +1,4 @@
-import { isMatch } from 'lodash';
+import { isMatch } from 'lodash-es';
 import sift from 'sift';
 
 import { Context, Permission } from '../permissions';
