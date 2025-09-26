@@ -1,5 +1,13 @@
 # @auriclabs/cache
 
+## 0.0.4
+
+### Patch Changes
+
+- 7ae5da8: Fix for module export ordering
+- Updated dependencies [7ae5da8]
+  - @auriclabs/logger@0.0.3
+
 ## 0.0.3
 
 ### Patch Changes

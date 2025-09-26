@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/cache",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Cache for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
@@ -33,7 +33,7 @@
     "uuid": "^11.1.0"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.0.2"
+    "@auriclabs/logger": "^0.0.3"
   },
   "devDependencies": {
     "@auriclabs/logger": "workspace:*",
