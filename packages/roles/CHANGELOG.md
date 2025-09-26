@@ -1,5 +1,11 @@
 # @auriclabs/roles
 
+## 0.0.4
+
+### Patch Changes
+
+- 732042e: Bump esm module exports
+
 ## 0.0.3
 
 ### Patch Changes

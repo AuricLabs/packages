@@ -1,13 +1,15 @@
 {
   "name": "@auriclabs/sst-types",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "",
   "main": "dist/platform/config.d.ts",
   "types": "dist/platform/config.d.ts",
   "prettier": "@auriclabs/prettier-config",
   "keywords": [],
   "author": "",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "type": "module",
   "license": "ISC",
   "devDependencies": {
