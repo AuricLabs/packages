@@ -10,13 +10,6 @@
   "files": ["dist"],
   "type": "module",
   "license": "ISC",
-  "scripts": {
-    "build": "./build.sh",
-    "lint": "exit 0",
-    "lint:fix": "exit 0",
-    "test": "exit 0",
-    "test:watch": "exit 0"
-  },
   "devDependencies": {
     "sst": "^3.17.13"
   },

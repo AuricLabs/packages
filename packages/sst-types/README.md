@@ -36,13 +36,23 @@ yarn add @auriclabs/sst-types
 
 ## Usage
 
-This package is purely for TypeScript type definitions. Once installed, you'll automatically get:
+This package is purely for TypeScript type definitions. To use the types in your project, you need to add the package to your `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "types": ["@auriclabs/sst-types"]
+  }
+}
+```
+
+Once configured, you'll automatically get:
 
 - Full type safety for SST components
 - IntelliSense autocompletion in your IDE
 - Compile-time type checking for SST configurations
 
-No additional imports or configuration are required - the types are automatically available when using SST in your TypeScript projects.
+The types are automatically available when using SST in your TypeScript projects.
 
 ## Building
 
