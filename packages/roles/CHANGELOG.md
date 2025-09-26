@@ -1,5 +1,11 @@
 # @auriclabs/roles
 
+## 0.0.5
+
+### Patch Changes
+
+- 7ae5da8: Fix for module export ordering
+
 ## 0.0.4
 
 ### Patch Changes
