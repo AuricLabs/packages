@@ -11,6 +11,8 @@ import { Permission, PermissionGroup, ConditionsQuery } from './types';
 // Mock lodash merge to control its behavior in tests
 vi.mock('lodash-es', () => ({
   merge: vi.fn(),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  cloneDeep: vi.fn((value: unknown) => JSON.parse(JSON.stringify(value))),
 }));
 
 const mockMerge = merge as ReturnType<typeof vi.fn>;
