@@ -1,5 +1,11 @@
 # @auriclabs/eslint-config
 
+## 0.0.6
+
+### Patch Changes
+
+- c147edd: Updated eslint configuration
+
 ## 0.0.5
 
 ### Patch Changes
