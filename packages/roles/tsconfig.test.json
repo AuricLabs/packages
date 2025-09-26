@@ -1,5 +1,5 @@
 {
-  "extends": "@auriclabs/ts-config/node",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": ".",
     "noEmit": true

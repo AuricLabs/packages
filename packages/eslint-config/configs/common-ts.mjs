@@ -1,26 +1,26 @@
 // @ts-check
 
 import fs from 'fs';
-import path from 'path';
 
 import tseslint from 'typescript-eslint';
 
 import commonJsConfig from './common-js.mjs';
 
-const tsconfigBuildJson = path.join(process.cwd(), 'tsconfig.build.json');
-const hasTsconfigBuildJson = fs.existsSync(tsconfigBuildJson);
-
 export default tseslint.config(
   ...commonJsConfig,
-  ...tseslint.configs.strictTypeChecked,
-  ...tseslint.configs.stylisticTypeChecked,
+  ...tseslint.configs.strictTypeChecked
+    .concat(tseslint.configs.stylisticTypeChecked)
+    .map((config) => ({
+      ...config,
+      // @ts-ignore
+      files: config.files ?? ['**/*.{ts,tsx,d.ts}'],
+    })),
   {
     files: ['**/*.{ts,tsx,d.ts}'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
-        project: hasTsconfigBuildJson ? 'tsconfig.build.json' : 'tsconfig.json',
-        tsconfigRootDir: process.cwd(),
+        project: ['tsconfig.build.json', 'tsconfig.json'].filter(fs.existsSync),
       },
     },
     rules: {
@@ -49,7 +49,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['*.js', '*.mjs', '*.cjs', '.*.js'],
+          allowDefaultProject: ['*.js', '*.mjs', '*.cjs', '.*.js', '*.ts', '*.tsx', '*.d.ts'],
         },
       },
     },

@@ -1,13 +1,9 @@
 // @ts-check
 
 import fs from 'fs';
-import path from 'path';
 
 import vitest from 'eslint-plugin-vitest';
 import tseslint from 'typescript-eslint';
-
-const tsconfigTestJson = path.join(process.cwd(), 'tsconfig.test.json');
-const hasTsconfigTestJson = fs.existsSync(tsconfigTestJson);
 
 // type definition for eslint config array
 /**
@@ -31,8 +27,8 @@ export default tseslint.config([
       globals: vitest.environments.env.globals, // add `describe`, `it`, etc
       parser: tseslint.parser,
       parserOptions: {
-        project: hasTsconfigTestJson ? 'tsconfig.test.json' : 'tsconfig.json',
-        tsconfigRootDir: process.cwd(),
+        project: ['tsconfig.test.json', 'tsconfig.json'].filter(fs.existsSync),
+        // tsconfigRootDir: process.cwd(),
       },
     },
   },

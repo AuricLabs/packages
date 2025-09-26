@@ -30,11 +30,12 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsc",
-    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "build": "tsdown src/commands/scaffold.ts --format cjs,esm --dts",
+    "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "typecheck": "ts-config-typecheck",
     "test": "vitest run",
     "test:watch": "vitest"
   },

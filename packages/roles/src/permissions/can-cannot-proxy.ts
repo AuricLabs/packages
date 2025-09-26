@@ -43,7 +43,7 @@ export const cannot = createCanCannotProxy('cannot');
 
 function createCanCannotProxy<T extends ActionType>(type: T) {
   return new Proxy(createPermission as unknown as CanCannotProxy<T>, {
-    apply(target, thisArg, argArray) {
+    apply(_target, _thisArg, argArray) {
       const [action, subject, conditions, scope] = argArray as [
         Action,
         Subject,
@@ -55,8 +55,8 @@ function createCanCannotProxy<T extends ActionType>(type: T) {
     get(_: unknown, action: Action) {
       return new Proxy(createPermission, {
         apply(
-          target,
-          thisArg,
+          _target,
+          _thisArg,
           argArray: [SubjectsWithActions<Action>, ConditionsQuery, ScopeString],
         ) {
           const [subject, conditions, scope] = argArray;

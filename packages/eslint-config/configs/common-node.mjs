@@ -46,6 +46,7 @@ export default [
     ],
     rules: {
       'n/no-extraneous-import': 'off',
+      'n/no-unpublished-import': 'off',
     },
   },
   {

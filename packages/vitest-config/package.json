@@ -5,22 +5,34 @@
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
   "exports": {
-    ".": "./dist/node.config.js",
-    "./node": "./dist/node.config.js",
-    "./sst": "./dist/sst.config.js"
+    ".": {
+      "types": "./dist/node.config.d.ts",
+      "import": "./dist/node.config.js",
+      "require": "./dist/node.config.cjs"
+    },
+    "./node": {
+      "types": "./dist/node.config.d.ts",
+      "import": "./dist/node.config.js",
+      "require": "./dist/node.config.cjs"
+    },
+    "./sst": {
+      "types": "./dist/sst.config.d.ts",
+      "import": "./dist/sst.config.js",
+      "require": "./dist/sst.config.cjs"
+    }
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsc",
-    "dev": "concurrently \"tsc -w\" \"pnpm:y:watch\"",
+    "build": "tsdown src/* src/setup/* --dts",
+    "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "test": "exit 0"
+    "lint:fix": "eslint . --fix"
   },
   "peerDependencies": {
+    "vite": "7.1.7",
     "vitest": "^3.0.0"
   },
   "publishConfig": {
@@ -32,6 +44,7 @@
     "directory": "packages/vitest-config"
   },
   "devDependencies": {
+    "vite": "7.1.7",
     "vitest": "3.2.4"
   }
 }

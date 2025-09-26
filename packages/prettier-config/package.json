@@ -11,11 +11,8 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "exit 0",
-    "dev": "exit 0",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "test": "exit 0"
+    "lint:fix": "eslint . --fix"
   },
   "peerDependencies": {
     "prettier": ">=3.0.0"

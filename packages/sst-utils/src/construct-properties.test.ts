@@ -1,22 +1,26 @@
 import fs from 'fs';
 import path from 'path';
 
+import { vol } from 'memfs';
 import { describe, expect, beforeEach, vi, test } from 'vitest';
 
 // We use path indirectly through the constructProperties function
-import { constructProperties } from './construct-properties';
+import { constructProperties } from './construct-properties.js';
 
 describe('constructProperties', () => {
   // Helper to add a file to the virtual system
   function addFile(filePath: string, content: string) {
     const basepath = path.dirname(filePath);
-    fs.mkdirSync(basepath, { recursive: true });
+    if (!fs.existsSync(basepath)) {
+      fs.mkdirSync(basepath, { recursive: true });
+    }
     fs.writeFileSync(filePath, content);
   }
 
   beforeEach(() => {
     // Reset all mocks
     vi.restoreAllMocks();
+    vol.reset();
   });
 
   test('should return empty object when no property files exist', () => {

@@ -3,7 +3,7 @@ import path from 'path';
 
 import * as glob from 'glob';
 
-import { constructProperties } from './construct-properties';
+import { constructProperties } from './construct-properties.js';
 
 export interface RegisterApiRoutesOptions {
   routesDir?: string;

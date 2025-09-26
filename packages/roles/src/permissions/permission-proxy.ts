@@ -23,7 +23,7 @@ export type PartialCreatePermissionMethod<S extends Subject> = <
 export const permission = new Proxy(createPermission as PermissionProxy, {
   get(_target, subject: Subject) {
     return new Proxy(createPermission, {
-      apply(target, thisArg, argArray) {
+      apply(_target, _thisArg, argArray) {
         const [action, type, conditions, scope] = argArray as [
           Action,
           ActionType,

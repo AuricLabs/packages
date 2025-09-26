@@ -14,10 +14,13 @@
     "lint:fix": "eslint . --fix",
     "test": "exit 0"
   },
+  "bin": {
+    "ts-config-typecheck": "./bin/type-check.sh"
+  },
   "exports": {
-    "./node": "./configs/tsconfig.node.json",
-    "./react": "./configs/tsconfig.react.json",
-    "./sst": "./configs/tsconfig.sst.json"
+    "./node-package": "./configs/tsconfig.node-package.json",
+    "./react-package": "./configs/tsconfig.react-package.json",
+    "./node": "./configs/tsconfig.node.json"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

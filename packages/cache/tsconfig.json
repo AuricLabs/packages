@@ -1,7 +1,7 @@
 {
-  "extends": "@auriclabs/ts-config/node",
+  "extends": "@auriclabs/ts-config/node-package",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist"
   },
   "include": ["src/**/*"],

@@ -94,13 +94,12 @@ export const slackDestination = (
 ): pino.StreamEntry => {
   const writeable = new Writable({
     defaultEncoding: 'utf8',
-    write(chunk: string, encoding, callback) {
+    write(chunk: string, _encoding, callback) {
       const data = JSON.parse(chunk) as Record<string, unknown>;
       // implementation detail leaking. Oh well.
       const context = (options.getContext?.() ?? {}) as LambdaContext;
 
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { time, level, msg, err, error, stack, ...props } = data as {
+      const { time, err, error } = data as {
         time: number;
         level: string;
         msg: string;

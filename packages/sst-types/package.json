@@ -1,0 +1,37 @@
+{
+  "name": "@auriclabs/sst-types",
+  "version": "0.0.1",
+  "description": "",
+  "main": "dist/platform/config.d.ts",
+  "types": "dist/platform/config.d.ts",
+  "prettier": "@auriclabs/prettier-config",
+  "keywords": [],
+  "author": "",
+  "files": ["dist"],
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "build": "./build.sh",
+    "lint": "exit 0",
+    "lint:fix": "exit 0",
+    "test": "exit 0",
+    "test:watch": "exit 0"
+  },
+  "devDependencies": {
+    "sst": "^3.17.13"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/sst-types"
+  },
+  "dependencies": {
+    "@pulumi/aws": "7.7.0",
+    "@pulumi/aws-native": "1.35.0",
+    "@pulumi/pulumi": "3.197.0",
+    "bun": "1.2.22"
+  }
+}

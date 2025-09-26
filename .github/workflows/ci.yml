@@ -26,9 +26,11 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" >> .npmrc
       - name: Install dependencies
         run: pnpm install
+      - name: Build (affected packages only)
+        run: pnpm build:affected
+      - name: Typecheck (affected packages only)
+        run: pnpm typecheck:affected
       - name: Lint (affected packages only)
         run: pnpm lint:affected
       - name: Test (affected packages only)
         run: pnpm test:affected
-      - name: Build (affected packages only)
-        run: pnpm build:affected 

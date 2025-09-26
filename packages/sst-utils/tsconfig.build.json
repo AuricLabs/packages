@@ -1,15 +1,15 @@
 {
-  "extends": "@auriclabs/ts-config/sst",
+  "extends": "@auriclabs/ts-config/node-package",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
     "outDir": "dist",
-    "composite": true
+    "composite": true,
+    "types": ["@auriclabs/sst-types"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "sst.config.ts"],
   "exclude": [
     "node_modules",
     "dist",
-    ".sst/platform/functions",
     "**/*.test.ts",
     "**/*.spec.ts",
     "**/__tests__/**",
