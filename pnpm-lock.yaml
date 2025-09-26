@@ -251,6 +251,9 @@ importers:
         specifier: ^2.3.0
         version: 2.3.0
     devDependencies:
+      '@auriclabs/sst-types':
+        specifier: workspace:*
+        version: link:../sst-types
       '@types/glob':
         specifier: ^9.0.0
         version: 9.0.0
