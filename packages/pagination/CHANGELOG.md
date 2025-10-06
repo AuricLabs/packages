@@ -1,5 +1,11 @@
 # @auriclabs/pagination
 
+## 0.0.5
+
+### Patch Changes
+
+- 9c3702c: Added fetch-all to the export
+
 ## 0.0.4
 
 ### Patch Changes
