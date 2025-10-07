@@ -11,6 +11,7 @@ export interface RegisterApiRoutesOptions {
   variables?: Record<string, unknown>;
   functionArgs?: Omit<sst.aws.FunctionArgs, 'handler'>;
   apiGatewayV2RouteArgs?: sst.aws.ApiGatewayV2RouteArgs;
+  pathPrefix?: string;
 }
 
 /**
@@ -26,6 +27,7 @@ export const registerApiRoutes = (
   {
     variables = {},
     routesDir = 'api',
+    pathPrefix = '',
     functionArgs: defaultFunctionArgs = {},
     apiGatewayV2RouteArgs: defaultApiGatewayV2RouteArgs = {},
   }: RegisterApiRoutesOptions,
@@ -55,7 +57,7 @@ export const registerApiRoutes = (
         .replace(/\/index$/, ''); // Convert /index to / for root routes
 
       // Format the route with the HTTP method and path
-      const route = `${method.toUpperCase()} /${routePath}`;
+      const route = `${method.toUpperCase()} ${pathPrefix}/${routePath}`;
 
       logger.debug(`Registering route ${route} from ${routesDir}/${file}`);
 
@@ -82,11 +84,6 @@ export const registerApiRoutes = (
         {
           ...functionArgs,
           handler,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          link: $resolve([functionArgs?.link, defaultFunctionArgs?.link].filter(Boolean)).apply(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment
-            ([link = [], additionalLink = []]) => [...link, ...additionalLink],
-          ),
         },
         {
           ...apiGatewayArgs,

@@ -74,11 +74,6 @@ export const registerFunctions = ({
         {
           ...functionArgs,
           handler,
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-          link: $resolve([functionArgs?.link, defaultFunctionArgs?.link].filter(Boolean)).apply(
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment
-            ([link = [], additionalLink = []]) => [...link, ...additionalLink],
-          ),
         },
         {
           ...componentOptions,

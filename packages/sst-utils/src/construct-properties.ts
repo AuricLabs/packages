@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { cloneDeep, get, set, unset } from 'lodash-es';
+import { isObject, cloneDeepWith, get, set, unset } from 'lodash-es';
 import propertiesReader from 'properties-reader';
 /**
  * Constructs properties from a given base directory and file path,
@@ -28,7 +28,14 @@ export const constructProperties = (
   //   if there is a key called "test.a" with a value of "123", we need to create an object called "test" with a property "a" with a value of "123"
   //   if there is a key called "test.b" with a value of "${userPool.id}", we need to create an object called "test" with a property "b" with a value of the variables.userPool.id
 
-  const result: Record<string, unknown> = cloneDeep(defaultProperties);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const result: Record<string, unknown> = cloneDeepWith(defaultProperties, (value) => {
+    if (isObject(value) && value.constructor === Object) {
+      return undefined;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return value;
+  });
 
   // Check for index.properties at the base level
   const baseIndexPropertiesPath = path.join(baseDir, 'index.properties');
