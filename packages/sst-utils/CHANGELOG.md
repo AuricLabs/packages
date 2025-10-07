@@ -1,5 +1,11 @@
 # @auriclabs/sst-utils
 
+## 0.0.6
+
+### Patch Changes
+
+- a37fbc1: Added array functionality
+
 ## 0.0.5
 
 ### Patch Changes
