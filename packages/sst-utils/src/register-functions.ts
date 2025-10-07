@@ -4,12 +4,12 @@ import path from 'path';
 import { logger } from '@auriclabs/logger';
 import * as glob from 'glob';
 
-import { constructProperties } from './construct-properties.js';
-import { sstCase } from './sst-case.js';
+import { constructProperties } from './construct-properties';
+import { sstCase } from './sst-case';
 
 export interface RegisterFunctionsOptions {
   functionsDir?: string;
-  propertiesVariables?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
   namePrefix?: string;
   nameSuffix?: string;
   functionArgs?: Omit<sst.aws.FunctionArgs, 'handler'>;
@@ -22,11 +22,11 @@ export type FunctionWithName = sst.aws.Function & { sstName: string };
  * Register SST Functions from a directory of index.ts files
  * @param options Configuration options
  * @param options.functionsDir The directory containing the index.ts files (relative to pwd)
- * @param options.propertiesVariables Variables to be used in the properties files
+ * @param options.variables Variables to be used in the properties files
  * @returns Array of all generated SST Functions
  */
 export const registerFunctions = ({
-  propertiesVariables = {},
+  variables = {},
   functionsDir = 'functions',
   nameSuffix = 'Fn',
   namePrefix = '',
@@ -57,7 +57,7 @@ export const registerFunctions = ({
         baseDir,
         file,
         {
-          ...propertiesVariables,
+          ...variables,
           aws,
           $app,
           $dev,

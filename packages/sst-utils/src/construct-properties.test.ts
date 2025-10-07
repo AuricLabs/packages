@@ -83,18 +83,18 @@ describe('constructProperties', () => {
     });
   });
 
-  test('should substitute variables from propertyVariables', () => {
+  test('should substitute variables from variables', () => {
     // Add a file with variable references
     addFile('/base/folder.properties', 'cognito.userPoolId=${userPool.id}\napp.region=${region}');
 
-    const propertyVariables = {
+    const variables = {
       userPool: {
         id: 'us-east-1_abc123',
       },
       region: 'us-east-1',
     };
 
-    const result = constructProperties('/base', 'folder/file.ts', propertyVariables);
+    const result = constructProperties('/base', 'folder/file.ts', variables);
     expect(result).toStrictEqual({
       cognito: {
         userPoolId: 'us-east-1_abc123',
@@ -108,13 +108,13 @@ describe('constructProperties', () => {
   test('should throw error if variable not found', () => {
     addFile('/base/folder.properties', 'db.url=${database.url}\napi.key=${api.secretKey}');
 
-    const propertyVariables = {
+    const variables = {
       api: {
         // No secretKey defined
       },
     };
 
-    expect(() => constructProperties('/base', 'folder/file.ts', propertyVariables)).toThrow();
+    expect(() => constructProperties('/base', 'folder/file.ts', variables)).toThrow();
   });
 
   test('should handle complex nested properties', () => {
@@ -131,13 +131,13 @@ describe('constructProperties', () => {
     );
 
     // Set up property variables
-    const propertyVariables = {
+    const variables = {
       dynamoDB: {
         tablePrefix: 'dev_',
       },
     };
 
-    const result = constructProperties('/base', 'folder/api/users/handler.ts', propertyVariables);
+    const result = constructProperties('/base', 'folder/api/users/handler.ts', variables);
 
     expect(result).toStrictEqual({
       app: {
@@ -191,7 +191,7 @@ describe('constructProperties', () => {
       'api.url=https://${env}.${region}.example.com\napp.description=${app.name} v${app.version}',
     );
 
-    const propertyVariables = {
+    const variables = {
       env: 'dev',
       region: 'us-east-1',
       app: {
@@ -200,7 +200,7 @@ describe('constructProperties', () => {
       },
     };
 
-    const result = constructProperties('/base', 'folder/file.ts', propertyVariables);
+    const result = constructProperties('/base', 'folder/file.ts', variables);
     expect(result).toStrictEqual({
       api: {
         url: 'https://dev.us-east-1.example.com',
@@ -251,9 +251,9 @@ describe('constructProperties', () => {
     // Test the error handling in resolveVariable
     addFile('/base/folder.properties', 'test.invalid=${invalid.syntax..}');
 
-    const propertyVariables = { invalid: {} };
+    const variables = { invalid: {} };
 
-    expect(() => constructProperties('/base', 'folder/file.ts', propertyVariables)).toThrow(
+    expect(() => constructProperties('/base', 'folder/file.ts', variables)).toThrow(
       /Error evaluating/,
     );
   });
@@ -265,16 +265,16 @@ describe('constructProperties', () => {
     // Use vi.spyOn to mock the global $interpolate function
     const interpolateSpy = vi
       .spyOn(global as unknown as { $interpolate: typeof $interpolate }, '$interpolate')
-      .mockImplementation((strings: Parameters<typeof $interpolate>[0], ...values: string[]) => {
+      .mockImplementation((_strings: Parameters<typeof $interpolate>[0], ...values: string[]) => {
         return `Hello ${values[0]}! Your ID is ${values[1]}` as unknown as $util.Output<string>;
       });
 
-    const propertyVariables = {
+    const variables = {
       name: 'John',
       id: 12345,
     };
 
-    const result = constructProperties('/base', 'folder/file.ts', propertyVariables);
+    const result = constructProperties('/base', 'folder/file.ts', variables);
     expect(result).toStrictEqual({
       message: 'Hello John! Your ID is 12345',
     });
@@ -285,5 +285,117 @@ describe('constructProperties', () => {
     );
 
     interpolateSpy.mockRestore();
+  });
+
+  test('should parse array syntax with simple values', () => {
+    // Test basic array parsing
+    addFile('/base/folder.properties', 'array=[hello,world,test]');
+
+    const result = constructProperties('/base', 'folder/file.ts', {});
+    expect(result).toStrictEqual({
+      array: ['hello', 'world', 'test'],
+    });
+  });
+
+  test('should parse empty array', () => {
+    addFile('/base/folder.properties', 'emptyArray=[]');
+
+    const result = constructProperties('/base', 'folder/file.ts', {});
+    expect(result).toStrictEqual({
+      emptyArray: [],
+    });
+  });
+
+  test('should parse array with variable substitution', () => {
+    addFile('/base/folder.properties', 'array=[hello,world,${value}]');
+
+    const variables = {
+      value: 'test',
+    };
+
+    const result = constructProperties('/base', 'folder/file.ts', variables);
+    expect(result).toStrictEqual({
+      array: ['hello', 'world', 'test'],
+    });
+  });
+
+  test('should parse array with multiple variables', () => {
+    addFile('/base/folder.properties', 'array=[${prefix},middle,${suffix}]');
+
+    const variables = {
+      prefix: 'start',
+      suffix: 'end',
+    };
+
+    const result = constructProperties('/base', 'folder/file.ts', variables);
+    expect(result).toStrictEqual({
+      array: ['start', 'middle', 'end'],
+    });
+  });
+
+  test('should parse array with object references', () => {
+    addFile('/base/folder.properties', 'array=[${user},${admin}]');
+
+    const variables = {
+      user: { name: 'Alice', role: 'user' },
+      admin: { name: 'Bob', role: 'admin' },
+    };
+
+    const result = constructProperties('/base', 'folder/file.ts', variables);
+    expect(result).toStrictEqual({
+      array: [
+        { name: 'Alice', role: 'user' },
+        { name: 'Bob', role: 'admin' },
+      ],
+    });
+  });
+
+  test('should parse array with mixed literals and variables', () => {
+    addFile('/base/folder.properties', 'array=[${env},prod,${region}]');
+
+    const variables = {
+      env: 'dev',
+      region: 'us-east-1',
+    };
+
+    const result = constructProperties('/base', 'folder/file.ts', variables);
+    expect(result).toStrictEqual({
+      array: ['dev', 'prod', 'us-east-1'],
+    });
+  });
+
+  test('should parse array with nested variable references', () => {
+    addFile('/base/folder.properties', 'array=[${config.name},${config.version}]');
+
+    const variables = {
+      config: {
+        name: 'MyApp',
+        version: '1.0.0',
+      },
+    };
+
+    const result = constructProperties('/base', 'folder/file.ts', variables);
+    expect(result).toStrictEqual({
+      array: ['MyApp', '1.0.0'],
+    });
+  });
+
+  test('should handle array with spaces around elements', () => {
+    addFile('/base/folder.properties', 'array=[ hello , world , test ]');
+
+    const result = constructProperties('/base', 'folder/file.ts', {});
+    expect(result).toStrictEqual({
+      array: ['hello', 'world', 'test'],
+    });
+  });
+
+  test('should throw error for undefined variable in array', () => {
+    addFile('/base/folder.properties', 'array=[hello,${undefinedVar},world]');
+
+    const variables = {};
+
+    expect(() => constructProperties('/base', 'folder/file.ts', variables)).toThrow(
+      'Property undefinedVar not found in variables',
+    );
   });
 });

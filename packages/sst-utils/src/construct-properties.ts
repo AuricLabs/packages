@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { cloneDeep, set, unset } from 'lodash-es';
+import { cloneDeep, get, set, unset } from 'lodash-es';
 import propertiesReader from 'properties-reader';
 /**
  * Constructs properties from a given base directory and file path,
@@ -9,13 +9,13 @@ import propertiesReader from 'properties-reader';
  *
  * @param baseDir - The base directory path
  * @param filePath - The file path to construct properties from
- * @param propertyVariables - The property variables to use for variable substitution
+ * @param variables - The property variables to use for variable substitution
  * @returns The constructed properties
  */
 export const constructProperties = (
   baseDir: string,
   filePath: string,
-  propertyVariables: Record<string, unknown>,
+  variables: Record<string, unknown>,
   defaultProperties: Record<string, unknown> = {},
 ): Record<string, unknown> => {
   // we need to loop through all folders relative to baseDir to file path.
@@ -26,14 +26,14 @@ export const constructProperties = (
   // this should combine the entire properties with the deeper ones overriding the previous ones.
   // we then need to create an object, based on the key values of the properties file. For example:
   //   if there is a key called "test.a" with a value of "123", we need to create an object called "test" with a property "a" with a value of "123"
-  //   if there is a key called "test.b" with a value of "${userPool.id}", we need to create an object called "test" with a property "b" with a value of the propertyVariables.userPool.id
+  //   if there is a key called "test.b" with a value of "${userPool.id}", we need to create an object called "test" with a property "b" with a value of the variables.userPool.id
 
   const result: Record<string, unknown> = cloneDeep(defaultProperties);
 
   // Check for index.properties at the base level
   const baseIndexPropertiesPath = path.join(baseDir, 'index.properties');
   if (fs.existsSync(baseIndexPropertiesPath)) {
-    applyPropertiesFile(baseIndexPropertiesPath, propertyVariables, result);
+    applyPropertiesFile(baseIndexPropertiesPath, variables, result);
   }
 
   // Split the relative path into parts
@@ -50,7 +50,7 @@ export const constructProperties = (
     // Check for properties file next to the folder
     const folderPropertiesPath = path.join(currentPath, `${part}.properties`);
     if (fs.existsSync(folderPropertiesPath)) {
-      applyPropertiesFile(folderPropertiesPath, propertyVariables, result);
+      applyPropertiesFile(folderPropertiesPath, variables, result);
     }
 
     // Update current path
@@ -60,7 +60,7 @@ export const constructProperties = (
     if (!isFile) {
       const indexPropertiesPath = path.join(currentPath, 'index.properties');
       if (fs.existsSync(indexPropertiesPath)) {
-        applyPropertiesFile(indexPropertiesPath, propertyVariables, result);
+        applyPropertiesFile(indexPropertiesPath, variables, result);
       }
     }
   }
@@ -73,7 +73,7 @@ export const constructProperties = (
     `${fileNameWithoutExt}.properties`,
   );
   if (fs.existsSync(filePropertiesPath)) {
-    applyPropertiesFile(filePropertiesPath, propertyVariables, result);
+    applyPropertiesFile(filePropertiesPath, variables, result);
   }
 
   return result;
@@ -84,7 +84,7 @@ export const constructProperties = (
  */
 function applyPropertiesFile(
   filePath: string,
-  propertyVariables: Record<string, unknown>,
+  variables: Record<string, unknown>,
   result: Record<string, unknown>,
 ): void {
   const reader = propertiesReader(filePath);
@@ -96,12 +96,17 @@ function applyPropertiesFile(
   for (const [key, value] of Object.entries(properties)) {
     if (typeof value === 'string') {
       // Process the value - check if it contains variable references
-      const processedValue = processValue(value, propertyVariables);
+      const processedValue = processValue(value, variables);
 
       if (value === 'null') {
         set(result, key, null);
       } else if (value === 'undefined') {
         unset(result, key);
+      } else if (key.endsWith('[]')) {
+        const arrayObject: unknown[] = get(result, key.slice(0, -2), []) as unknown[];
+        arrayObject.push(processedValue);
+        set(result, key.slice(0, -2), arrayObject);
+        console.log(result);
       } else {
         set(result, key, processedValue);
       }
@@ -114,17 +119,30 @@ function applyPropertiesFile(
 /**
  * Process a property value, replacing ${variable} references with actual values
  */
-function processValue(value: string, propertyVariables: Record<string, unknown>): unknown {
+function processValue(value: string, variables: Record<string, unknown>): unknown {
+  // Check if value is an array like [item1,item2,item3]
+  const arrayMatch = /^\[(.*)\]$/.exec(value);
+  if (arrayMatch) {
+    const arrayContent = arrayMatch[1];
+    if (arrayContent.trim() === '') {
+      return [];
+    }
+
+    // Split by comma, but be careful about commas inside variable references
+    const elements = parseArrayElements(arrayContent);
+    return elements.map((element) => processValue(element.trim(), variables));
+  }
+
   // Check if value is a variable reference like ${userPool.id}
   const variableMatch = /^\${([^{}]+)}$/.exec(value);
 
   if (variableMatch) {
     const propertyPath = variableMatch[1];
     // Use lodash get to retrieve the nested property
-    const resolvedValue = resolveVariable(propertyPath, propertyVariables);
+    const resolvedValue = resolveVariable(propertyPath, variables);
 
     if (resolvedValue === undefined) {
-      throw new Error(`Property ${propertyPath} not found in propertyVariables`);
+      throw new Error(`Property ${propertyPath} not found in variables`);
     }
 
     return resolvedValue;
@@ -139,10 +157,10 @@ function processValue(value: string, propertyVariables: Record<string, unknown>)
 
     for (const match of variableMatches) {
       const propertyPath = match.slice(2, -1);
-      const resolvedValue = resolveVariable(propertyPath, propertyVariables);
+      const resolvedValue = resolveVariable(propertyPath, variables);
 
       if (resolvedValue === undefined) {
-        throw new Error(`Property ${propertyPath} not found in propertyVariables`);
+        throw new Error(`Property ${propertyPath} not found in variables`);
       }
 
       const slice = templateStrings.pop()?.split(match) ?? [];
@@ -160,14 +178,48 @@ function processValue(value: string, propertyVariables: Record<string, unknown>)
   return value;
 }
 
-function resolveVariable(path: string, propertyVariables: Record<string, unknown>): unknown {
+/**
+ * Parse array elements from a string, respecting variable references
+ * Handles commas inside ${variable} references properly
+ */
+function parseArrayElements(arrayContent: string): string[] {
+  const elements: string[] = [];
+  let currentElement = '';
+  let braceDepth = 0;
+
+  for (let i = 0; i < arrayContent.length; i++) {
+    const char = arrayContent[i];
+
+    if (char === '$' && arrayContent[i + 1] === '{') {
+      braceDepth++;
+      currentElement += char;
+    } else if (char === '}' && braceDepth > 0) {
+      braceDepth--;
+      currentElement += char;
+    } else if (char === ',' && braceDepth === 0) {
+      elements.push(currentElement);
+      currentElement = '';
+    } else {
+      currentElement += char;
+    }
+  }
+
+  // Add the last element
+  if (currentElement) {
+    elements.push(currentElement);
+  }
+
+  return elements;
+}
+
+function resolveVariable(path: string, variables: Record<string, unknown>): unknown {
   try {
-    // Create a function that has access to the propertyVariables object
+    // Create a function that has access to the variables object
     // This is a safer alternative to direct eval
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const evalInContext = new Function('propertyVariables', `return propertyVariables.${path}`);
+    const evalInContext = new Function('variables', `return variables.${path}`);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    return evalInContext(propertyVariables);
+    return evalInContext(variables);
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Error evaluating "${path}": ${errorMessage}`);

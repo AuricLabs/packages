@@ -32,7 +32,8 @@
     "change-case": "^5.4.4",
     "glob": "^11.0.3",
     "lodash-es": "4.17.21",
-    "properties-reader": "^2.3.0"
+    "properties-reader": "2.3.0",
+    "toml": "3.0.0"
   },
   "devDependencies": {
     "@auriclabs/logger": "workspace:*",

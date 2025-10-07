@@ -4,11 +4,11 @@ import path from 'path';
 import { logger } from '@auriclabs/logger';
 import * as glob from 'glob';
 
-import { constructProperties } from './construct-properties.js';
+import { constructProperties } from './construct-properties';
 
 export interface RegisterApiRoutesOptions {
   routesDir?: string;
-  propertiesVariables?: Record<string, unknown>;
+  variables?: Record<string, unknown>;
   functionArgs?: Omit<sst.aws.FunctionArgs, 'handler'>;
   apiGatewayV2RouteArgs?: sst.aws.ApiGatewayV2RouteArgs;
 }
@@ -18,13 +18,13 @@ export interface RegisterApiRoutesOptions {
  * @param api An existing API Gateway V2 API
  * @param options Configuration options
  * @param options.routesDir The directory containing the handler files (relative to pwd)
- * @param options.propertiesVariables Variables to be used in the properties files
+ * @param options.variables Variables to be used in the properties files
  * @returns The API Gateway V2 API with routes registered
  */
 export const registerApiRoutes = (
   api: sst.aws.ApiGatewayV2,
   {
-    propertiesVariables = {},
+    variables = {},
     routesDir = 'api',
     functionArgs: defaultFunctionArgs = {},
     apiGatewayV2RouteArgs: defaultApiGatewayV2RouteArgs = {},
@@ -63,7 +63,7 @@ export const registerApiRoutes = (
         baseDir,
         file,
         {
-          ...propertiesVariables,
+          ...variables,
           aws,
           $app,
           $dev,
