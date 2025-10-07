@@ -1,5 +1,11 @@
 # @auriclabs/sst-utils
 
+## 0.0.4
+
+### Patch Changes
+
+- 498f5e2: Added register functions and improved register-api-routes
+
 ## 0.0.3
 
 ### Patch Changes
