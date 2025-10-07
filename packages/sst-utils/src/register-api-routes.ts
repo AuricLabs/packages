@@ -8,6 +8,8 @@ import { constructProperties } from './construct-properties.js';
 export interface RegisterApiRoutesOptions {
   routesDir?: string;
   propertiesVariables?: Record<string, unknown>;
+  functionArgs?: Omit<sst.aws.FunctionArgs, 'handler'>;
+  apiGatewayV2RouteArgs?: sst.aws.ApiGatewayV2RouteArgs;
 }
 
 /**
@@ -20,7 +22,12 @@ export interface RegisterApiRoutesOptions {
  */
 export const registerApiRoutes = (
   api: sst.aws.ApiGatewayV2,
-  { propertiesVariables = {}, routesDir = 'api' }: RegisterApiRoutesOptions,
+  {
+    propertiesVariables = {},
+    routesDir = 'api',
+    functionArgs: defaultFunctionArgs = {},
+    apiGatewayV2RouteArgs: defaultApiGatewayV2RouteArgs = {},
+  }: RegisterApiRoutesOptions,
 ): sst.aws.ApiGatewayV2 => {
   const baseDir = path.join(process.cwd(), routesDir);
 
@@ -65,10 +72,17 @@ export const registerApiRoutes = (
     api.route(
       route,
       {
+        ...defaultFunctionArgs,
         ...functionArgs,
         handler,
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        link: $resolve([functionArgs?.link, defaultFunctionArgs?.link].filter(Boolean)).apply(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment
+          ([link = [], additionalLink = []]) => [...link, ...additionalLink],
+        ),
       },
       {
+        ...defaultApiGatewayV2RouteArgs,
         ...apiGatewayArgs,
       },
     );
