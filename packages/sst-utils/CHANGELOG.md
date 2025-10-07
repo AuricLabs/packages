@@ -1,5 +1,11 @@
 # @auriclabs/sst-utils
 
+## 0.0.5
+
+### Patch Changes
+
+- bdcd170: Fix for errors being thrown due to sst utils
+
 ## 0.0.4
 
 ### Patch Changes
