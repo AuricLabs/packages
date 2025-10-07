@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-import { set, unset } from 'lodash-es';
+import { cloneDeep, set, unset } from 'lodash-es';
 import propertiesReader from 'properties-reader';
 /**
  * Constructs properties from a given base directory and file path,
@@ -16,6 +16,7 @@ export const constructProperties = (
   baseDir: string,
   filePath: string,
   propertyVariables: Record<string, unknown>,
+  defaultProperties: Record<string, unknown> = {},
 ): Record<string, unknown> => {
   // we need to loop through all folders relative to baseDir to file path.
   // if there is a {folder}.properties file next to the folder it should apply to the folder itself.
@@ -27,7 +28,7 @@ export const constructProperties = (
   //   if there is a key called "test.a" with a value of "123", we need to create an object called "test" with a property "a" with a value of "123"
   //   if there is a key called "test.b" with a value of "${userPool.id}", we need to create an object called "test" with a property "b" with a value of the propertyVariables.userPool.id
 
-  const result: Record<string, unknown> = {};
+  const result: Record<string, unknown> = cloneDeep(defaultProperties);
 
   // Check for index.properties at the base level
   const baseIndexPropertiesPath = path.join(baseDir, 'index.properties');

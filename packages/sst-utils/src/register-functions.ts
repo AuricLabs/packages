@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 
+import { logger } from '@auriclabs/logger';
 import * as glob from 'glob';
-import { camelCase, upperFirst } from 'lodash-es';
 
 import { constructProperties } from './construct-properties.js';
+import { sstCase } from './sst-case.js';
 
 export interface RegisterFunctionsOptions {
   functionsDir?: string;
@@ -29,58 +30,69 @@ export const registerFunctions = ({
   functionsDir = 'functions',
   nameSuffix = 'Fn',
   namePrefix = '',
-  functionArgs: additionalFunctionArgs = {},
+  functionArgs: defaultFunctionArgs = {},
   componentOptions = {},
 }: RegisterFunctionsOptions = {}): FunctionWithName[] => {
-  const baseDir = path.join(process.cwd(), functionsDir);
+  try {
+    const baseDir = path.join(process.cwd(), functionsDir);
 
-  if (!fs.existsSync(baseDir)) {
-    throw new Error(`Functions directory ${functionsDir} does not exist`);
+    if (!fs.existsSync(baseDir)) {
+      throw new Error(`Functions directory ${functionsDir} does not exist`);
+    }
+
+    const files = glob
+      .sync(path.join(baseDir, '/**/*/index.ts'))
+      .map((file) => path.relative(baseDir, file));
+
+    const functions: FunctionWithName[] = [];
+
+    files.forEach((file) => {
+      const handler = path.join(functionsDir, file).replace('.ts', '.handler');
+
+      // Generate function name from path in title case
+      const functionName = generateFunctionName(namePrefix, file, nameSuffix);
+      logger.debug(`Registering function ${functionName} from ${functionsDir}/${file}`);
+
+      const { function: functionArgs } = constructProperties(
+        baseDir,
+        file,
+        {
+          ...propertiesVariables,
+          aws,
+          $app,
+          $dev,
+        },
+        {
+          function: defaultFunctionArgs,
+        },
+      ) as {
+        function: sst.aws.FunctionArgs;
+      };
+
+      const fn = new sst.aws.Function(
+        functionName,
+        {
+          ...functionArgs,
+          handler,
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          link: $resolve([functionArgs?.link, defaultFunctionArgs?.link].filter(Boolean)).apply(
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment
+            ([link = [], additionalLink = []]) => [...link, ...additionalLink],
+          ),
+        },
+        {
+          ...componentOptions,
+        },
+      );
+
+      functions.push(Object.assign(fn, { sstName: functionName }));
+    });
+
+    return functions;
+  } catch (error) {
+    logger.error({ error }, 'Error registering functions');
+    throw error;
   }
-
-  const files = glob
-    .sync(path.join(baseDir, '/*/index.ts'))
-    .concat(glob.sync(path.join(baseDir, '/**/*/index.ts')))
-    .map((file) => path.relative(baseDir, file));
-
-  const functions: FunctionWithName[] = [];
-
-  files.forEach((file) => {
-    const handler = path.join(functionsDir, file).replace('.ts', '.handler');
-
-    // Generate function name from path in title case
-    const functionName = generateFunctionName(namePrefix, file, nameSuffix);
-
-    const { function: functionArgs } = constructProperties(baseDir, file, {
-      ...propertiesVariables,
-      aws,
-      $app,
-      $dev,
-    }) as {
-      function: sst.aws.FunctionArgs;
-    };
-
-    const fn = new sst.aws.Function(
-      functionName,
-      {
-        ...functionArgs,
-        ...additionalFunctionArgs,
-        handler,
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        link: $resolve([functionArgs?.link, additionalFunctionArgs?.link].filter(Boolean)).apply(
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment
-          ([link = [], additionalLink = []]) => [...link, ...additionalLink],
-        ),
-      },
-      {
-        ...componentOptions,
-      },
-    );
-
-    functions.push(Object.assign(fn, { sstName: functionName }));
-  });
-
-  return functions;
 };
 
 /**
@@ -94,9 +106,5 @@ function generateFunctionName(prefix: string, filePath: string, suffix: string):
   const pathParts = pathWithoutIndex.split(path.sep).filter((part) => part.length > 0);
 
   // Convert each part to title case and join
-  return (
-    upperFirst(camelCase(prefix)) +
-    pathParts.map((part) => upperFirst(camelCase(part))).join('') +
-    upperFirst(camelCase(suffix))
-  );
+  return sstCase(prefix) + pathParts.map((part) => sstCase(part)).join('') + sstCase(suffix);
 }

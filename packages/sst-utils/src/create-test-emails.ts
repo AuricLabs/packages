@@ -1,3 +1,5 @@
+import { logger } from '@auriclabs/logger';
+
 export interface CreateTestEmailsOptions {
   totalTestEmails?: number;
   prefix?: string;
@@ -19,12 +21,17 @@ export const createTestEmails = (
     prefix = `test-${$app.name}-${$app.stage}-`,
   }: CreateTestEmailsOptions = {},
 ) => {
-  return emails.flatMap((email) => {
-    const [emailName, domain] = email.split('@');
-    const emails = [];
-    for (let i = 0; i < totalTestEmails; i++) {
-      emails.push(`${emailName}+${prefix}${(i + 1).toString()}@${domain}`);
-    }
-    return emails;
-  });
+  try {
+    return emails.flatMap((email) => {
+      const [emailName, domain] = email.split('@');
+      const emails = [];
+      for (let i = 0; i < totalTestEmails; i++) {
+        emails.push(`${emailName}+${prefix}${(i + 1).toString()}@${domain}`);
+      }
+      return emails;
+    });
+  } catch (error) {
+    logger.error({ error }, 'Error creating test emails');
+    throw error;
+  }
 };

@@ -1,5 +1,5 @@
-import { camelCase } from 'lodash-es';
+import { camelCase, upperFirst } from 'lodash-es';
 
 export const sstCase = (str: string) => {
-  return camelCase(str).replace(/^[a-z]/, (char) => char.toUpperCase());
+  return upperFirst(camelCase(str));
 };
