@@ -1,5 +1,11 @@
 # @auriclabs/sst-utils
 
+## 0.0.7
+
+### Patch Changes
+
+- 1af8530: Fix for linking of packages
+
 ## 0.0.6
 
 ### Patch Changes
