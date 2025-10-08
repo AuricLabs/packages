@@ -21,7 +21,7 @@ export function resolveVariables(
 
   // Check for different variable syntaxes
   const syntaxes: VariableSyntax[] = ['${}', '$', '{{}}'];
-  
+
   for (const syntax of syntaxes) {
     const resolved = resolveVariableSyntax(value, variables, syntax, logger);
     if (resolved !== value) {
@@ -71,7 +71,7 @@ function resolveVariableSyntax(
   if (match) {
     const propertyPath = extractPath(match[0]);
     const resolvedValue = resolveVariable(propertyPath, variables, logger);
-    
+
     if (resolvedValue === undefined) {
       const errorMsg = `Variable ${propertyPath} not found in variables`;
       logger?.warn(errorMsg);
@@ -92,7 +92,7 @@ function interpolateVariables(
   variables: Record<string, unknown>,
   logger?: { warn: (message: string, ...args: unknown[]) => void },
 ): string {
-  const syntaxes: Array<{ pattern: RegExp; extractPath: (match: string) => string }> = [
+  const syntaxes: { pattern: RegExp; extractPath: (match: string) => string }[] = [
     { pattern: /\${([^{}]+?)}/g, extractPath: (match) => match.slice(2, -1) },
     { pattern: /\$([a-zA-Z_][a-zA-Z0-9_.]*)/g, extractPath: (match) => match.slice(1) },
     { pattern: /{{([^{}]+?)}}/g, extractPath: (match) => match.slice(2, -2) },
@@ -106,13 +106,14 @@ function interpolateVariables(
       for (const match of matches) {
         const propertyPath = extractPath(match);
         const resolvedValue = resolveVariable(propertyPath, variables, logger);
-        
+
         if (resolvedValue === undefined) {
           const errorMsg = `Variable ${propertyPath} not found in variables`;
           logger?.warn(errorMsg);
           throw new Error(errorMsg);
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-base-to-string
         result = result.replace(match, String(resolvedValue));
       }
     }
