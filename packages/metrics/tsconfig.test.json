@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "vitest.config.ts", "__mocks__"],
+  "exclude": ["dist", "node_modules"]
+}
