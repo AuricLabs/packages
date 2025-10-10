@@ -1,5 +1,11 @@
 # @auriclabs/ts-config
 
+## 0.0.4
+
+### Patch Changes
+
+- 40464a7: Added strict null checks
+
 ## 0.0.3
 
 ### Patch Changes
