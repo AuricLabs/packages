@@ -1,3 +1,44 @@
+export type ComponentColor =
+  | 'cyan'
+  | 'magenta'
+  | 'blue'
+  | 'green'
+  | 'yellow'
+  | 'red'
+  | 'gray'
+  | 'white'
+  | 'brightBlue'
+  | 'brightGreen'
+  | 'brightYellow'
+  | 'brightMagenta'
+  | 'brightCyan';
+
+// Color codes for terminal output
+const colors = {
+  reset: '\x1b[0m',
+  gray: '\x1b[90m',
+  blue: '\x1b[34m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  bold: '\x1b[1m',
+  cyan: '\x1b[36m',
+  magenta: '\x1b[35m',
+  white: '\x1b[37m',
+  brightBlue: '\x1b[94m',
+  brightGreen: '\x1b[92m',
+  brightYellow: '\x1b[93m',
+  brightMagenta: '\x1b[95m',
+  brightCyan: '\x1b[96m',
+};
+
+const defaultComponentColor = (name: string): ComponentColor => {
+  // convert string to number and return the module index of colour list
+  const number = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const colorOptions = Object.keys(colors);
+  return colorOptions[number % colorOptions.length] as ComponentColor;
+};
+
 // Custom pretty formatter for local development that doesn't use worker threads
 export const createLocalPrettyTransport = () => {
   return {
@@ -16,17 +57,6 @@ export const createLocalPrettyTransport = () => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/prefer-nullish-coalescing
       const msg = log.msg || '';
 
-      // Color codes for terminal output
-      const colors = {
-        reset: '\x1b[0m',
-        gray: '\x1b[90m',
-        blue: '\x1b[34m',
-        green: '\x1b[32m',
-        yellow: '\x1b[33m',
-        red: '\x1b[31m',
-        bold: '\x1b[1m',
-      };
-
       const levelColors: Record<string, string> = {
         trace: colors.gray,
         debug: colors.blue,
@@ -40,9 +70,25 @@ export const createLocalPrettyTransport = () => {
       const coloredLevel = color + level + colors.reset;
       const coloredTimestamp = colors.gray + timestamp + colors.reset;
 
+      // Handle component name if present
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const component = log.component ? String(log.component) : undefined;
+      let componentString = '';
+      if (component) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        const componentColor = log.componentColor ?? defaultComponentColor(component);
+        const bracketedComponent = `[${component}]`;
+        if (componentColor && typeof componentColor === 'string' && componentColor in colors) {
+          const colorCode = colors[componentColor as keyof typeof colors];
+          componentString = `${colorCode}${bracketedComponent}${colors.reset} `;
+        } else {
+          componentString = `${bracketedComponent} `;
+        }
+      }
+
       // Use process.stdout.write for better control and to avoid console.log truncation
 
-      const output = `${coloredTimestamp} ${coloredLevel} ${msg}\n`;
+      const output = `${coloredTimestamp} ${coloredLevel}${componentString}${msg}\n`;
       process.stdout.write(output);
 
       // Handle error stack trace if err attribute exists
@@ -60,7 +106,18 @@ export const createLocalPrettyTransport = () => {
       }
 
       // Log additional context properties (excluding standard pino properties)
-      const standardProps = ['time', 'level', 'msg', 'pid', 'hostname', 'v', 'err', 'environment'];
+      const standardProps = [
+        'time',
+        'level',
+        'msg',
+        'pid',
+        'hostname',
+        'v',
+        'err',
+        'environment',
+        'component',
+        'componentColor',
+      ];
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const contextProps = Object.keys(log).filter((key) => !standardProps.includes(key));
 
