@@ -60,7 +60,7 @@ describe('writeMetricsToFile', () => {
     expect(lines[3]).toContain('1'); // 1 error
   });
 
-  it.only('should handle metrics with special characters in span names', async () => {
+  it('should handle metrics with special characters in span names', async () => {
     recordMetrics('api.users."John Doe"', 100);
     recordMetrics('metrics,with,commas', 200);
 
