@@ -1,5 +1,11 @@
 # @auriclabs/logger
 
+## 0.0.5
+
+### Patch Changes
+
+- 6680378: Added component level categorising
+
 ## 0.0.4
 
 ### Patch Changes
