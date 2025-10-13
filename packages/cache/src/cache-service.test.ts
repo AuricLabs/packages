@@ -677,4 +677,340 @@ describe('cacheService', () => {
       expect(getData).toHaveBeenCalledTimes(2); // Called again due to cache clear
     });
   });
+
+  describe('this binding', () => {
+    it('preserves this context for cached methods', async () => {
+      const service = {
+        value: 'test-value',
+        getData(id: string) {
+          // This method should have access to this.value
+          return `${this.value}-${id}`;
+        },
+        getUsers() {
+          // This method should have access to this.value
+          return [`${this.value}-user1`, `${this.value}-user2`];
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      // Test that cached methods can access this.value
+      const result1 = await cachedService.getData('1');
+      expect(result1).toBe('test-value-1');
+
+      const result2 = await cachedService.getData('1');
+      expect(result2).toBe('test-value-1'); // Should be cached
+
+      const users = await cachedService.getUsers();
+      expect(users).toEqual(['test-value-user1', 'test-value-user2']);
+    });
+
+    it('preserves this context for cached methods with custom prefix', async () => {
+      const service = {
+        prefix: 'custom',
+        fetchData(id: string) {
+          return `${this.prefix}-${id}`;
+        },
+        fetchUsers() {
+          return [`${this.prefix}-user1`, `${this.prefix}-user2`];
+        },
+      };
+
+      const cachedService = cacheService(service, { cacheFunctionPrefix: 'fetch' });
+
+      const result1 = await cachedService.fetchData('1');
+      expect(result1).toBe('custom-1');
+
+      const result2 = await cachedService.fetchData('1');
+      expect(result2).toBe('custom-1'); // Should be cached
+
+      const users = await cachedService.fetchUsers();
+      expect(users).toEqual(['custom-user1', 'custom-user2']);
+    });
+
+    it('preserves this context for methods that call other methods', async () => {
+      const service = {
+        baseValue: 'base',
+        getBaseValue() {
+          return this.baseValue;
+        },
+        getData(id: string) {
+          // This method accesses properties directly
+          return `${this.baseValue}-${id}`;
+        },
+        getUsers() {
+          // This method accesses properties directly
+          return [`${this.baseValue}-user1`, `${this.baseValue}-user2`];
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      const result1 = await cachedService.getData('1');
+      expect(result1).toBe('base-1');
+
+      const result2 = await cachedService.getData('1');
+      expect(result2).toBe('base-1'); // Should be cached
+
+      const users = await cachedService.getUsers();
+      expect(users).toEqual(['base-user1', 'base-user2']);
+    });
+
+    it('preserves this context for methods that modify service state', async () => {
+      const service = {
+        callCount: 0,
+        getData(id: string) {
+          this.callCount++;
+          return `${id}-${this.callCount}`;
+        },
+        getCallCount() {
+          return this.callCount;
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      // First call should increment callCount
+      const result1 = await cachedService.getData('1');
+      expect(result1).toBe('1-1');
+      expect(service.getCallCount()).toBe(1);
+
+      // Second call should be cached, so callCount shouldn't change
+      const result2 = await cachedService.getData('1');
+      expect(result2).toBe('1-1'); // Should return cached result
+      expect(service.getCallCount()).toBe(1); // Should still be 1
+
+      // Call with different parameter should increment callCount
+      const result3 = await cachedService.getData('2');
+      expect(result3).toBe('2-2');
+      expect(service.getCallCount()).toBe(2);
+    });
+
+    it('preserves this context for methods that access service properties', async () => {
+      const service = {
+        config: { timeout: 5000, retries: 3 },
+        getData(id: string) {
+          return {
+            id,
+            timeout: this.config.timeout,
+            retries: this.config.retries,
+          };
+        },
+        updateConfig(newConfig: Partial<typeof this.config>) {
+          this.config = { ...this.config, ...newConfig };
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      const result1 = await cachedService.getData('1');
+      expect(result1).toEqual({
+        id: '1',
+        timeout: 5000,
+        retries: 3,
+      });
+
+      // Update config
+      cachedService.updateConfig({ timeout: 10000 });
+
+      // Cached result should still have old config
+      const result2 = await cachedService.getData('1');
+      expect(result2).toEqual({
+        id: '1',
+        timeout: 5000, // Still old value due to caching
+        retries: 3,
+      });
+
+      // Clear cache and call again
+      await cachedService.clearAllCache();
+      const result3 = await cachedService.getData('1');
+      expect(result3).toEqual({
+        id: '1',
+        timeout: 10000, // Now has updated value
+        retries: 3,
+      });
+    });
+
+    it('preserves this context for methods with complex object interactions', async () => {
+      const service = {
+        cache: new Map<string, any>(),
+        getData(id: string) {
+          if (this.cache.has(id)) {
+            return this.cache.get(id) as unknown;
+          }
+
+          const result = { id, timestamp: Date.now() };
+          this.cache.set(id, result);
+          return result;
+        },
+        clearInternalCache() {
+          this.cache.clear();
+        },
+        getCacheSize() {
+          return this.cache.size;
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      const result1 = await cachedService.getData('1');
+      expect(result1).toHaveProperty('id', '1');
+      expect(result1).toHaveProperty('timestamp');
+      expect(service.getCacheSize()).toBe(1);
+
+      // Second call should be cached by cacheService, not by internal cache
+      const result2 = await cachedService.getData('1');
+      expect(result2).toEqual(result1); // Same result from cacheService
+      expect(service.getCacheSize()).toBe(1); // Internal cache unchanged
+
+      // Clear internal cache
+      cachedService.clearInternalCache();
+      expect(service.getCacheSize()).toBe(0);
+
+      // Cached result should still be returned by cacheService
+      const result3 = await cachedService.getData('1');
+      expect(result3).toEqual(result1); // Still cached by cacheService
+    });
+
+    it('preserves this context for serializeArgs function', async () => {
+      const service = {
+        prefix: 'test',
+        getData(obj: { id: string }) {
+          return `data-${obj.id}`;
+        },
+      };
+
+      // serializeArgs should have access to this.prefix
+      const serializeArgs = function (this: typeof service, key: string, args: unknown[]) {
+        if (key === 'getData') {
+          const obj = args[0] as { id: string };
+          return `${this.prefix}-${obj.id}`;
+        }
+        return JSON.stringify(args);
+      };
+
+      const cachedService = cacheService(service, { serializeArgs });
+
+      const result1 = await cachedService.getData({ id: '1' });
+      expect(result1).toBe('data-1');
+
+      // Same result should be cached
+      const result2 = await cachedService.getData({ id: '1' });
+      expect(result2).toBe('data-1');
+
+      // Different id should call the function again
+      const result3 = await cachedService.getData({ id: '2' });
+      expect(result3).toBe('data-2');
+    });
+
+    it('preserves this context for serializeArgs function with arrow function', async () => {
+      const service = {
+        prefix: 'arrow',
+        getData(obj: { id: string }) {
+          return `data-${obj.id}`;
+        },
+      };
+
+      // Arrow function won't have access to this, but we can test the binding
+      const serializeArgs = (key: string, args: unknown[]) => {
+        if (key === 'getData') {
+          const obj = args[0] as { id: string };
+          return `arrow-${obj.id}`;
+        }
+        return JSON.stringify(args);
+      };
+
+      const cachedService = cacheService(service, { serializeArgs });
+
+      const result1 = await cachedService.getData({ id: '1' });
+      expect(result1).toBe('data-1');
+
+      // Same result should be cached
+      const result2 = await cachedService.getData({ id: '1' });
+      expect(result2).toBe('data-1');
+    });
+
+    it('preserves this context for methods that return promises', async () => {
+      const service = {
+        asyncValue: 'async-value',
+        async getData(id: string) {
+          // Simulate async operation
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return `${this.asyncValue}-${id}`;
+        },
+        async getUsers() {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return [`${this.asyncValue}-user1`, `${this.asyncValue}-user2`];
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      const result1 = await cachedService.getData('1');
+      expect(result1).toBe('async-value-1');
+
+      const result2 = await cachedService.getData('1');
+      expect(result2).toBe('async-value-1'); // Should be cached
+
+      const users = await cachedService.getUsers();
+      expect(users).toEqual(['async-value-user1', 'async-value-user2']);
+    });
+
+    it('preserves this context for methods that throw errors', async () => {
+      const service = {
+        errorMessage: 'custom-error',
+        getData(id: string) {
+          if (id === 'error') {
+            throw new Error(this.errorMessage);
+          }
+          return `data-${id}`;
+        },
+        getErrorMessage() {
+          return this.errorMessage;
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      // Test successful call
+      const result1 = await cachedService.getData('1');
+      expect(result1).toBe('data-1');
+
+      // Test error case
+      await expect(cachedService.getData('error')).rejects.toThrow('custom-error');
+
+      // Test that we can still access other methods
+      expect(await cachedService.getErrorMessage()).toBe('custom-error');
+    });
+
+    it('preserves this context for methods with complex inheritance', async () => {
+      const service = {
+        baseValue: 'base',
+        extendedValue: 'extended',
+        getBaseValue() {
+          return this.baseValue;
+        },
+        getData(id: string) {
+          return `${this.baseValue}-${this.extendedValue}-${id}`;
+        },
+        getExtendedValue() {
+          return this.extendedValue;
+        },
+      };
+
+      const cachedService = cacheService(service);
+
+      const result1 = await cachedService.getData('1');
+      expect(result1).toBe('base-extended-1');
+
+      const result2 = await cachedService.getData('1');
+      expect(result2).toBe('base-extended-1'); // Should be cached
+
+      // Test access to inherited method
+      expect(await cachedService.getBaseValue()).toBe('base');
+
+      // Test access to extended method
+      expect(await cachedService.getExtendedValue()).toBe('extended');
+    });
+  });
 });

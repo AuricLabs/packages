@@ -94,7 +94,8 @@ export function cacheService<S extends Record<string, unknown>, P extends string
               key,
               {
                 ...descriptor,
-                value: cacheFunction(descriptor.value, {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+                value: cacheFunction((descriptor.value as Function).bind(newService), {
                   ttl,
                   store,
                   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
