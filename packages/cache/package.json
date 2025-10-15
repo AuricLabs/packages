@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/cache",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Cache for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
