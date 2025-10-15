@@ -24,22 +24,25 @@ export function cache<R>(
   fn: () => Promise<R> | R,
   { ttl, store = defaultCache }: CacheOptions = {},
 ): Promise<R> {
-  logger.debug({ key, ttl, storeNamespace: store.namespace }, 'Cache operation started');
+  logger.trace({ key, ttl, namespace: store.namespace }, 'Cache operation started');
 
-  return inflight(key, async () => {
-    logger.debug({ key }, 'Checking cache for key');
+  return inflight(`${store.namespace ?? ''}:${key}`, async () => {
+    logger.trace({ key, namespace: store.namespace }, 'Checking cache for key');
     const cached = (await store.get(key)) as R;
 
     if (cached !== undefined) {
-      logger.debug({ key }, 'Cache hit');
+      logger.trace({ key }, 'Cache hit');
       return cached;
     }
 
-    logger.debug({ key }, 'Cache miss, executing function');
+    logger.trace({ key, namespace: store.namespace }, 'Cache miss, executing function');
     const result = await fn();
-    logger.debug({ key, ttl }, 'Function executed, storing result in cache');
+    logger.trace(
+      { key, ttl, namespace: store.namespace },
+      'Function executed, storing result in cache',
+    );
     await store.set(key, result, ttl);
-    logger.debug({ key }, 'Cache operation completed');
+    logger.trace({ key, namespace: store.namespace }, 'Cache operation completed');
     return result;
   });
 }

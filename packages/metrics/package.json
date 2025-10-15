@@ -28,7 +28,7 @@
     "test:watch": "vitest"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com/@auriclabs"
+    "registry": "https://registry.npmjs.org/"
   },
   "repository": {
     "type": "git",
