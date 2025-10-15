@@ -94,7 +94,7 @@ describe('cacheService', () => {
     await cachedService.getData(...args);
     expect(getData).toHaveBeenCalledTimes(1);
 
-    const expectedKey = `test-namespace:${cachedService.getData.id}[${getData.name}]:${JSON.stringify(args)}`;
+    const expectedKey = `test-namespace:${cachedService.getData.id}[bound ${getData.name}]:${JSON.stringify(args)}`;
     await expect(defaultCache.has(expectedKey)).resolves.toBe(true);
   });
 
@@ -768,22 +768,24 @@ describe('cacheService', () => {
         },
       };
 
-      const cachedService = cacheService(service);
+      const cachedService = cacheService(service, {
+        ignoreMethods: ['getCallCount'],
+      });
 
       // First call should increment callCount
       const result1 = await cachedService.getData('1');
       expect(result1).toBe('1-1');
-      expect(service.getCallCount()).toBe(1);
+      expect(cachedService.getCallCount()).toBe(1);
 
       // Second call should be cached, so callCount shouldn't change
       const result2 = await cachedService.getData('1');
       expect(result2).toBe('1-1'); // Should return cached result
-      expect(service.getCallCount()).toBe(1); // Should still be 1
+      expect(cachedService.getCallCount()).toBe(1); // Should still be 1
 
       // Call with different parameter should increment callCount
       const result3 = await cachedService.getData('2');
       expect(result3).toBe('2-2');
-      expect(service.getCallCount()).toBe(2);
+      expect(cachedService.getCallCount()).toBe(2);
     });
 
     it('preserves this context for methods that access service properties', async () => {
