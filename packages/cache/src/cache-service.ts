@@ -81,7 +81,7 @@ export function cacheService<S extends Record<string, unknown>, P extends string
             !('isCacheFunction' in descriptor.value) &&
             !ignoreMethods.includes(key as keyof S)
           ) {
-            logger.debug(
+            logger.trace(
               {
                 methodName: key,
                 serviceNamespace,
@@ -114,7 +114,7 @@ export function cacheService<S extends Record<string, unknown>, P extends string
               configurable: true,
               // @ts-expect-error - clearAllCache is a function
               value: () => {
-                logger.debug(
+                logger.trace(
                   {
                     serviceNamespace,
                     storeNamespace: store.namespace,

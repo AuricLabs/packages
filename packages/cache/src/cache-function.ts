@@ -58,7 +58,7 @@ export function cacheFunction<T extends (...args: any[]) => any>(
 
   const cacheFn = async (...args: Parameters<T>) => {
     const key = serializeArgs(args);
-    logger.debug(
+    logger.trace(
       {
         functionName: fn.name,
         key,
@@ -75,7 +75,7 @@ export function cacheFunction<T extends (...args: any[]) => any>(
 
   cacheFn.clear = (...args: Parameters<T>) => {
     const key = serializeArgs(args);
-    logger.debug(
+    logger.trace(
       {
         functionName: fn.name,
         key,
@@ -86,7 +86,7 @@ export function cacheFunction<T extends (...args: any[]) => any>(
   };
 
   cacheFn.clearAll = () => {
-    logger.debug(
+    logger.trace(
       {
         functionName: fn.name,
         namespace: store.namespace,
@@ -110,7 +110,7 @@ export function cacheFunction<T extends (...args: any[]) => any>(
       throw new Error('Value is required');
     }
     const key = serializeArgs(args as unknown as Parameters<T>);
-    logger.debug(
+    logger.trace(
       {
         functionName: fn.name,
         key,
