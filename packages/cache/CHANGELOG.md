@@ -1,5 +1,11 @@
 # @auriclabs/cache
 
+## 0.0.7
+
+### Patch Changes
+
+- 8a38abe: Fix for cache function not working as expected
+
 ## 0.0.6
 
 ### Patch Changes
