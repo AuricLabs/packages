@@ -12,7 +12,7 @@ export function createCache(
   store?: KeyvStoreAdapter | KeyvOptions | Map<any, any> | Keyv,
   options?: Omit<KeyvOptions, 'store'>,
 ) {
-  logger.info(
+  logger.trace(
     {
       hasStore: !!store,
       options: options ? Object.keys(options) : [],
@@ -21,7 +21,7 @@ export function createCache(
   );
 
   if (store instanceof Keyv) {
-    logger.info(
+    logger.trace(
       {
         namespace: store.namespace,
       },
@@ -30,7 +30,7 @@ export function createCache(
     return store;
   } else {
     const newCache = new Keyv(store, options);
-    logger.info(
+    logger.trace(
       {
         namespace: newCache.namespace,
         ttl: options?.ttl,

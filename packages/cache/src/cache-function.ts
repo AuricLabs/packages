@@ -46,7 +46,7 @@ export function cacheFunction<T extends (...args: any[]) => any>(
     store: baseStore.store,
   });
 
-  logger.info(
+  logger.trace(
     {
       functionName: fn.name,
       uniqueId,

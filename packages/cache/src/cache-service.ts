@@ -54,7 +54,7 @@ export function cacheService<S extends Record<string, unknown>, P extends string
     ttl: baseStore.ttl,
   });
 
-  logger.info(
+  logger.trace(
     {
       serviceNamespace,
       cacheFunctionPrefix,

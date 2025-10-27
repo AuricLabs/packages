@@ -22,7 +22,7 @@ describe('createCache', () => {
 
       createCache(existingKeyv);
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           namespace: existingKeyv.namespace,
         },
@@ -35,7 +35,7 @@ describe('createCache', () => {
 
       createCache(existingKeyv);
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           hasStore: true,
           options: [],
@@ -80,7 +80,7 @@ describe('createCache', () => {
     it('should log creation info when no store provided', () => {
       createCache();
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           hasStore: false,
           options: [],
@@ -94,7 +94,7 @@ describe('createCache', () => {
 
       createCache(mapStore);
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           hasStore: true,
           options: [],
@@ -108,7 +108,7 @@ describe('createCache', () => {
 
       createCache(undefined, options);
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           hasStore: false,
           options: ['ttl', 'namespace'],
@@ -122,7 +122,7 @@ describe('createCache', () => {
 
       createCache(undefined, options);
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           namespace: 'creation-test',
           ttl: 2000,
@@ -136,7 +136,7 @@ describe('createCache', () => {
 
       createCache(undefined, options);
 
-      expect(logger.info).toHaveBeenCalledWith(
+      expect(logger.trace).toHaveBeenCalledWith(
         {
           namespace: 'no-ttl-test',
           ttl: undefined,

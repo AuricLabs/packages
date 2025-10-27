@@ -17,7 +17,7 @@ export function configureDefaultCache(
   store?: KeyvStoreAdapter | KeyvOptions | Map<any, any> | Keyv,
   options?: Omit<KeyvOptions, 'store'>,
 ) {
-  logger.info(
+  logger.trace(
     {
       hasStore: !!store,
       options: options ? Object.keys(options) : [],
