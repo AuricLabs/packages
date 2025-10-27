@@ -1,5 +1,11 @@
 # @auriclabs/logger
 
+## 0.0.6
+
+### Patch Changes
+
+- a619a3b: Made the streams also available on web
+
 ## 0.0.5
 
 ### Patch Changes
