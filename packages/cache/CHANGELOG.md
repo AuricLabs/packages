@@ -1,5 +1,11 @@
 # @auriclabs/cache
 
+## 0.0.8
+
+### Patch Changes
+
+- 3c7ce51: Changed info logs to be trace to silence them
+
 ## 0.0.7
 
 ### Patch Changes
