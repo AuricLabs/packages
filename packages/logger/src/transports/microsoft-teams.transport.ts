@@ -1,5 +1,3 @@
-import { Writable } from 'stream';
-
 import { getEnvironment } from '@auriclabs/env';
 import axios from 'axios';
 import pino from 'pino';
@@ -123,56 +121,55 @@ export const microsoftTeamsDestination = (
     getContext?: () => LambdaContext;
   },
 ): pino.StreamEntry => {
-  const writeable = new Writable({
-    defaultEncoding: 'utf8',
-    write(chunk: string, _encoding, callback) {
-      const data = JSON.parse(chunk) as Record<string, unknown>;
-      // implementation detail leaking. Oh well.
-      const context = (options.getContext?.() ?? {}) as LambdaContext;
+  // Create a web-compatible stream that works in both Node.js and browser environments
+  const stream = {
+    write(chunk: string) {
+      try {
+        const data = JSON.parse(chunk) as Record<string, unknown>;
+        // implementation detail leaking. Oh well.
+        const context = (options.getContext?.() ?? {}) as LambdaContext;
 
-      const { time, err, error } = data as {
-        time: number;
-        level: string;
-        msg: string;
-        err?: Record<string, unknown>;
-        error?: Record<string, unknown>;
-        stack: string;
-        [key: string]: unknown;
-      };
+        const { time, err, error } = data as {
+          time: number;
+          level: string;
+          msg: string;
+          err?: Record<string, unknown>;
+          error?: Record<string, unknown>;
+          stack: string;
+          [key: string]: unknown;
+        };
 
-      const { message: errMessage, stack: errStack } = (err ?? error ?? {}) as {
-        message: string;
-        stack: string;
-      };
+        const { message: errMessage, stack: errStack } = (err ?? error ?? {}) as {
+          message: string;
+          stack: string;
+        };
 
-      if (errMessage) {
-        const adaptiveCard = getAdpativeCard({
-          env: getEnvironment(),
-          time,
-          log: errMessage,
-          stack: errStack,
-          requestId: context.awsRequestId,
-          correlationId: context['x-correlation-id'] as string,
-        });
-
-        axios
-          .post(options.microsoftTeamsWebhookUrl, adaptiveCard, {
-            headers: { 'content-type': 'application/json' },
-          })
-          .catch(() => {
-            console.error('Failed to send error to Microsoft Teams');
-          })
-          .finally(() => {
-            callback();
+        if (errMessage) {
+          const adaptiveCard = getAdpativeCard({
+            env: getEnvironment(),
+            time,
+            log: errMessage,
+            stack: errStack,
+            requestId: context.awsRequestId,
+            correlationId: context['x-correlation-id'] as string,
           });
-      } else {
-        callback();
+
+          axios
+            .post(options.microsoftTeamsWebhookUrl, adaptiveCard, {
+              headers: { 'content-type': 'application/json' },
+            })
+            .catch(() => {
+              console.error('Failed to send error to Microsoft Teams');
+            });
+        }
+      } catch (error) {
+        console.error('Error processing Microsoft Teams log:', error);
       }
     },
-  });
+  };
 
   return {
     level: 'error',
-    stream: writeable,
+    stream,
   };
 };
