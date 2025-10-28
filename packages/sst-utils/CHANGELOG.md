@@ -1,5 +1,11 @@
 # @auriclabs/sst-utils
 
+## 0.0.11
+
+### Patch Changes
+
+- 549b3a9: Added typing overloads to require-env
+
 ## 0.0.10
 
 ### Patch Changes
