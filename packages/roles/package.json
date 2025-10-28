@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/roles",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "User abilities and roles library",
   "prettier": "@auriclabs/prettier-config",
   "keywords": [],

@@ -1,5 +1,11 @@
 # @auriclabs/roles
 
+## 0.0.7
+
+### Patch Changes
+
+- bf34bbd: Added scope to the scope roles
+
 ## 0.0.6
 
 ### Patch Changes
