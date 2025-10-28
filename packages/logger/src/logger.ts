@@ -14,6 +14,9 @@ export let logger: Logger;
 configureLogger();
 
 export function configureLogger(config?: CreateStreamsConfig) {
+  const streams = createStreams(config);
+  const isBrowser = typeof process === 'undefined';
+
   logger = pino(
     {
       level: resolveLogLevel(),
@@ -35,9 +38,25 @@ export function configureLogger(config?: CreateStreamsConfig) {
       hooks: {
         logMethod: mergeFlexibleArgsHook,
       },
+      // In browser environment, we need to handle streams differently
+      ...(isBrowser && { browser: { asObject: false, write: createMultiWrite(streams) } }),
     },
-    pino.multistream(createStreams(config)),
+    // Only use multistream in Node.js environments
+    isBrowser ? undefined : pino.multistream(streams),
   );
+}
+
+// Custom multi-write function for browser environments
+function createMultiWrite(streams: (pino.DestinationStream | pino.StreamEntry)[]) {
+  return (obj: object) => {
+    const chunk = JSON.stringify(obj);
+    streams.forEach((streamEntry) => {
+      const stream = 'stream' in streamEntry ? streamEntry.stream : streamEntry;
+      if ('write' in stream) {
+        stream.write(chunk);
+      }
+    });
+  };
 }
 
 /**
