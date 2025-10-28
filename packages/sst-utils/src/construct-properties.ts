@@ -113,7 +113,6 @@ function applyPropertiesFile(
         const arrayObject: unknown[] = get(result, key.slice(0, -2), []) as unknown[];
         arrayObject.push(processedValue);
         set(result, key.slice(0, -2), arrayObject);
-        console.log(result);
       } else {
         set(result, key, processedValue);
       }
