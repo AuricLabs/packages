@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/logger",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Logger for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "main": "dist/index.cjs",
