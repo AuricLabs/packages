@@ -196,6 +196,14 @@ describe('createAbility', () => {
       expect(ability.has([':role:read{}'], {})).toBe(false);
       expect(ability.has(['role:read{appId:"d84db635-5df0-4932-865b-02a510a57c8a"}'])).toBe(true);
     });
+
+    it('should not allow org layer org read when permission has root scope org read', () => {
+      const userPermissions: PermissionString[] = ['org:123:org:read'];
+      const requiredPermissions: PermissionString[] = [':org:read'];
+      ability = createAbility(userPermissions.map(parsePermission));
+      const result = ability.has(requiredPermissions);
+      expect(result).toBe(false);
+    });
   });
 
   describe('permission groups', () => {

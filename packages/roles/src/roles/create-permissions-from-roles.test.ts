@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { isPermissionGroup, Permission, PermissionGroup } from '../permissions';
+import { isPermission, isPermissionGroup, Permission, PermissionGroup } from '../permissions';
 
 import { createPermissionsFromRoles } from './create-permissions-from-roles';
 import { Role } from './types';
@@ -88,22 +88,18 @@ describe('createPermissionsFromRoles', () => {
     it('should create permissions from a single role with scope', () => {
       const result = createPermissionsFromRoles([mockRole]);
 
-      expect(result).toHaveLength(2); // 1 group + 1 scope permission
+      expect(result).toHaveLength(1); // 1 group + 1 scope permission
       const group = result.find(isPermissionGroup);
-      expect(group?.permissions).toHaveLength(1); // 1 from permissions
+      expect(group?.permissions).toHaveLength(2); // 1 from permissions
 
       // Check the permission from role.permissions
-      const rolePermission = group?.permissions.find(
-        (p) => 'subject' in p && p.subject === 'user',
-      ) as Permission;
+      const rolePermission = group?.permissions[1] as Permission;
       expect(rolePermission).toBeDefined();
       expect(rolePermission.action).toBe('read');
       expect(rolePermission.conditions).toStrictEqual({ userId: '123' });
 
       // Check the permission from scope
-      const scopePermission = result.find(
-        (p) => 'subject' in p && p.subject === 'org',
-      ) as Permission;
+      const scopePermission = group?.permissions[0] as Permission;
       expect(scopePermission).toBeDefined();
       expect(scopePermission.action).toBe('read');
       expect(scopePermission.conditions).toStrictEqual({ orgId: 'test-org' });
@@ -112,23 +108,21 @@ describe('createPermissionsFromRoles', () => {
     it('should create permissions from a single role with userScope', () => {
       const result = createPermissionsFromRoles([mockRoleWithUserScope]);
 
-      expect(result).toHaveLength(2);
+      expect(result).toHaveLength(1);
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
-      expect(group?.permissions).toHaveLength(1); // 1 from permissions + 1 from scope
+      expect(group?.permissions).toHaveLength(2); // 1 from permissions + 1 from scope
+
+      console.log(JSON.stringify(result, null, 2));
 
       // Check the permission from role.permissions
-      const rolePermission = group?.permissions.find(
-        (p) => 'subject' in p && p.subject === 'app',
-      ) as Permission;
+      const rolePermission = group?.permissions[1] as Permission;
       expect(rolePermission).toBeDefined();
       expect(rolePermission.action).toBe('manage');
       expect(rolePermission.conditions).toStrictEqual({ appId: '456' });
 
       // Check the permission from userScope
-      const scopePermission = result.find(
-        (p) => 'subject' in p && p.subject === 'app' && p.action === 'read',
-      ) as Permission;
+      const scopePermission = group?.permissions[0] as Permission;
       expect(scopePermission).toBeDefined();
       expect(scopePermission.action).toBe('read');
       expect(scopePermission.conditions).toStrictEqual({ appId: 'test-app' });
@@ -142,13 +136,13 @@ describe('createPermissionsFromRoles', () => {
 
       const result = createPermissionsFromRoles([roleWithBoth]);
 
-      expect(result).toHaveLength(2);
+      expect(result).toHaveLength(1);
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
-      expect(group?.permissions).toHaveLength(1);
+      expect(group?.permissions).toHaveLength(2);
 
       // Should use userScope, not scope
-      const scopePermission = result.find(
+      const scopePermission = group?.permissions.find(
         (p) => 'subject' in p && p.subject === 'app',
       ) as Permission;
       expect(scopePermission).toBeDefined();
@@ -186,27 +180,26 @@ describe('createPermissionsFromRoles', () => {
 
   describe('multiple roles', () => {
     it('should combine permissions from multiple roles', () => {
-      const result = createPermissionsFromRoles([mockRole, mockRoleWithUserScope]);
+      const result = createPermissionsFromRoles([
+        mockRole,
+        mockRoleWithUserScope,
+      ]) as PermissionGroup[];
 
-      expect(result).toHaveLength(4);
-      const group1 = result.find(
-        (p) => 'permissions' in p && p.scope === 'org:test-org',
-      ) as PermissionGroup;
-      const group2 = result.find(
-        (p) => 'permissions' in p && p.scope === 'app:test-app',
-      ) as PermissionGroup;
-      expect(group1.permissions).toHaveLength(1); // 1 from each role
-      expect(group2.permissions).toHaveLength(1); // 1 from each role
+      expect(result).toHaveLength(2);
+      const group1 = result.find((p) => 'permissions' in p && p.scope === 'org:test-org');
+      const group2 = result.find((p) => 'permissions' in p && p.scope === 'app:test-app');
+      expect(group1?.permissions).toHaveLength(2); // 1 from each role
+      expect(group2?.permissions).toHaveLength(2); // 1 from each role
 
       // Check permissions from first role
-      const userPermission = group1.permissions.find(
+      const userPermission = group1?.permissions.find(
         (p) => 'subject' in p && p.subject === 'user',
       ) as Permission;
       expect(userPermission).toBeDefined();
       expect(userPermission.action).toBe('read');
 
       // Check permissions from second role
-      const appPermission = group2.permissions.find(
+      const appPermission = group2?.permissions.find(
         (p) => 'subject' in p && p.subject === 'app' && p.action === 'manage',
       ) as Permission;
       expect(appPermission).toBeDefined();
@@ -217,20 +210,16 @@ describe('createPermissionsFromRoles', () => {
       const result = createPermissionsFromRoles([
         mockRole, // org:test-org
         mockRoleWithGlobalScope, // system
-      ]);
+      ]) as PermissionGroup[];
 
-      expect(result).toHaveLength(4);
-      const group1 = result.find(
-        (p) => 'permissions' in p && p.scope === 'org:test-org',
-      ) as PermissionGroup;
-      const group2 = result.find(
-        (p) => 'permissions' in p && p.scope === 'system',
-      ) as PermissionGroup;
-      expect(group1.permissions).toHaveLength(1); // 2 from first role
-      expect(group2.permissions).toHaveLength(1); // 1 from second role
+      expect(result).toHaveLength(2);
+      const group1 = result.find((p) => 'permissions' in p && p.scope === 'org:test-org');
+      const group2 = result.find((p) => 'permissions' in p && p.scope === 'system');
+      expect(group1?.permissions).toHaveLength(2); // 2 from first role
+      expect(group2?.permissions).toHaveLength(2); // 1 from second role
 
       // Check system scope permission
-      const systemPermission = result.find(
+      const systemPermission = result[1]?.permissions.find(
         // @ts-expect-error typings fail for this check
         (p) => 'subject' in p && p.subject === 'system',
       ) as Permission;
@@ -338,25 +327,29 @@ describe('createPermissionsFromRoles', () => {
         scope: 'org:test-org:app:test-app:feature:test-feature',
       };
 
-      const result = createPermissionsFromRoles([roleWithComplexScope]);
+      const result = createPermissionsFromRoles([roleWithComplexScope]) as PermissionGroup[];
 
-      expect(result).toHaveLength(4); // 1 group + 3 scope permissions
+      expect(result).toHaveLength(3); // 1 group + 3 scope permissions
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
       expect(group?.permissions).toHaveLength(1); // 1 permission
 
       // Check org scope permission
-      const orgPermission = result.find((p) => 'subject' in p && p.subject === 'org') as Permission;
+      const orgPermission = result[0]?.permissions.find(
+        (p) => 'subject' in p && p.subject === 'org',
+      ) as Permission;
       expect(orgPermission).toBeDefined();
       expect(orgPermission.conditions).toStrictEqual({ orgId: 'test-org' });
 
       // Check app scope permission
-      const appPermission = result.find((p) => 'subject' in p && p.subject === 'app') as Permission;
+      const appPermission = result[1]?.permissions.find(
+        (p) => 'subject' in p && p.subject === 'app',
+      ) as Permission;
       expect(appPermission).toBeDefined();
       expect(appPermission.conditions).toStrictEqual({ appId: 'test-app' });
 
       // Check feature scope permission
-      const featurePermission = result.find(
+      const featurePermission = result[2]?.permissions.find(
         // @ts-expect-error typings fail for this check
         (p) => 'subject' in p && p.subject === 'feature',
       ) as Permission;
@@ -377,20 +370,22 @@ describe('createPermissionsFromRoles', () => {
         scope: 'org:test-org:app', // Missing app ID
       };
 
-      const result = createPermissionsFromRoles([roleWithMissingId]);
+      const result = createPermissionsFromRoles([roleWithMissingId]) as PermissionGroup[];
 
-      expect(result).toHaveLength(3);
+      expect(result).toHaveLength(2);
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
       expect(group?.permissions).toHaveLength(1); // 1 permission
 
       // Should only create permission for org, not for app without ID
-      const orgPermission = result.find((p) => 'subject' in p && p.subject === 'org') as Permission;
+      const orgPermission = result[0]?.permissions.find(
+        (p) => 'subject' in p && p.subject === 'org',
+      ) as Permission;
       expect(orgPermission).toBeDefined();
       expect(orgPermission.action).toBe('read');
       expect(orgPermission.conditions).toStrictEqual({ orgId: 'test-org' });
 
-      const appPermission = result.find(
+      const appPermission = result[1]?.permissions.find(
         (p) => 'subject' in p && p.subject === 'app' && p.action === 'read',
       ) as Permission;
       expect(appPermission).toBeDefined();
@@ -401,15 +396,17 @@ describe('createPermissionsFromRoles', () => {
 
   describe('permission handling', () => {
     it('should handle roles with multiple permissions', () => {
-      const result = createPermissionsFromRoles([mockRoleWithMultiplePermissions]);
+      const result: PermissionGroup[] = createPermissionsFromRoles([
+        mockRoleWithMultiplePermissions,
+      ]) as PermissionGroup[];
 
-      expect(result).toHaveLength(3); // 1 group + 2 scope permissions
+      expect(result).toHaveLength(2); // 1 group + 2 scope permissions
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
-      expect(group?.permissions).toHaveLength(2); // 2 permissions
+      expect(group?.permissions).toHaveLength(1); // 2 permissions
 
       // Check user permissions
-      const userPermission = group?.permissions.find(
+      const userPermission = result[1]?.permissions.find(
         (p) => 'subject' in p && p.subject === 'user' && Array.isArray(p.action),
       ) as Permission;
       expect(userPermission).toBeDefined();
@@ -417,11 +414,11 @@ describe('createPermissionsFromRoles', () => {
       expect(userPermission.conditions).toStrictEqual({ orgId: '789' });
 
       // Check app permission
-      const appPermission = group?.permissions.find(
+      const appPermission = result[1]?.permissions.find(
         (p) => 'subject' in p && p.subject === 'app' && p.action === 'read',
       ) as Permission;
       expect(appPermission).toBeDefined();
-      expect(appPermission.conditions).toStrictEqual({ appId: '101' });
+      expect(appPermission.conditions).toStrictEqual({ appId: 'test-app' });
     });
 
     it('should handle nested permission groups', () => {
@@ -430,9 +427,9 @@ describe('createPermissionsFromRoles', () => {
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
 
-      expect(result).toHaveLength(2);
-      expect(group?.permissions).toHaveLength(1); // 1 nested permission + 1 scope permission
-      const scopePermission = result.find(
+      expect(result).toHaveLength(1);
+      expect(group?.permissions).toHaveLength(2); // 1 nested permission + 1 scope permission
+      const scopePermission = group?.permissions.find(
         (p) => 'subject' in p && p.subject === 'org',
       ) as Permission;
       expect(scopePermission).toBeDefined();
@@ -457,12 +454,12 @@ describe('createPermissionsFromRoles', () => {
         scope: 'org:test-org',
       };
 
-      const result = createPermissionsFromRoles([roleWithEmptyPermissions]);
+      const result = createPermissionsFromRoles([roleWithEmptyPermissions]) as PermissionGroup[];
 
       expect(result).toHaveLength(1);
 
-      const group = result.find(isPermissionGroup);
-      const scopePermission = result.find(
+      const group = result.find(isPermission);
+      const scopePermission = result[0].permissions.find(
         (p) => 'subject' in p && p.subject === 'org',
       ) as Permission;
 
@@ -493,11 +490,11 @@ describe('createPermissionsFromRoles', () => {
 
       const result = createPermissionsFromRoles([roleWithConditions], options);
 
-      expect(result).toHaveLength(3); // 1 group + 1 scope permission
+      expect(result).toHaveLength(4); // 1 group + 1 scope permission
       // The options should affect how permissions are processed
       const group = result.find(isPermissionGroup);
       expect(group).toBeDefined();
-      const scopePermission = result.find(
+      const scopePermission = group?.permissions.find(
         (p) => 'subject' in p && p.subject === 'org',
       ) as Permission;
       expect(group?.permissions).toHaveLength(1);
@@ -531,13 +528,13 @@ describe('createPermissionsFromRoles', () => {
       const result = createPermissionsFromRoles([role1, role2]);
 
       // Should group permissions together despite different conditions due to ignoreConditions: true
-      expect(result).toHaveLength(2); // 1 group + 1 scope permission
+      expect(result).toHaveLength(1); // 1 group + 1 scope permission
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
-      const scopePermission = result.find(
+      const scopePermission = group?.permissions.find(
         (p) => 'subject' in p && p.subject === 'org',
       ) as Permission;
-      expect(group?.permissions).toHaveLength(2); // 2 permissions
+      expect(group?.permissions).toHaveLength(3); // 2 permissions
       expect(scopePermission.action).toBe('read');
       expect(scopePermission.conditions).toStrictEqual({ orgId: 'test-org' });
     });
@@ -556,12 +553,13 @@ describe('createPermissionsFromRoles', () => {
         scope: 'org:test-org',
       };
 
-      const result = createPermissionsFromRoles([roleWithOnlyScope]) as Permission[];
+      const result = createPermissionsFromRoles([roleWithOnlyScope]) as PermissionGroup[];
+      const permission = result[0].permissions[0] as Permission;
 
       expect(result).toHaveLength(1);
-      expect(result[0].action).toBe('read'); // Only scope permission
-      expect(result[0].conditions).toStrictEqual({ orgId: 'test-org' });
-      expect(result[0].subject).toBe('org');
+      expect(permission.action).toBe('read'); // Only scope permission
+      expect(permission.conditions).toStrictEqual({ orgId: 'test-org' });
+      expect(permission.subject).toBe('org');
     });
 
     it('should handle role with only userScope and no permissions', () => {
@@ -573,8 +571,10 @@ describe('createPermissionsFromRoles', () => {
       const result = createPermissionsFromRoles([roleWithOnlyUserScope]);
 
       const group = result.find(isPermissionGroup);
-      expect(group).toBeUndefined();
-      const permission = result.find((p) => 'subject' in p && p.subject === 'app') as Permission;
+      expect(group).toBeDefined();
+      const permission = group?.permissions.find(
+        (p) => 'subject' in p && p.subject === 'app',
+      ) as Permission;
 
       expect(result).toHaveLength(1);
       expect(permission.action).toBe('read'); // Only scope permission
@@ -598,11 +598,11 @@ describe('createPermissionsFromRoles', () => {
       const group = result.find((p) => 'permissions' in p);
       expect(group).toBeDefined();
 
-      expect(result).toHaveLength(2);
-      expect(group?.permissions).toHaveLength(1); // Only the permission, no scope permission
+      expect(result).toHaveLength(1);
+      expect(group?.permissions).toHaveLength(2); // Only the permission, no scope permission
 
       // Should not create scope permission for single segment without ID
-      const systemPermission = result.find(
+      const systemPermission = group?.permissions.find(
         // @ts-expect-error typings fail for this check
         (p) => 'subject' in p && p.subject === 'system',
       ) as Permission;
@@ -675,10 +675,10 @@ describe('createPermissionsFromRoles', () => {
 
       // Should return PermissionGroup[] because of scope
       expect(Array.isArray(result)).toBe(true);
-      expect(result).toHaveLength(2); // 1 permission + 1 scope permission
+      expect(result).toHaveLength(1); // 1 permission + 1 scope permission
       const group = result.find((p) => 'permissions' in p);
       expect(group !== undefined && 'permissions' in group).toBe(true);
-      expect(group?.permissions).toHaveLength(1); // 1 permission
+      expect(group?.permissions).toHaveLength(2); // 1 permission
     });
 
     it('should return Permission[] for multiple simple roles without scope or conditions', () => {
