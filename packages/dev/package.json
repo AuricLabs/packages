@@ -30,7 +30,7 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsdown src/commands/scaffold.ts --format cjs,esm --dts",
+    "build": "tsdown src/commands/scaffold.ts --format cjs,esm --dts --no-hash",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",

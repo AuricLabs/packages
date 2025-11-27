@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
       - name: Build (affected packages only)
-        run: pnpm build:affected
+        run: pnpm build
       - name: Typecheck (affected packages only)
         run: pnpm typecheck:affected
       - name: Lint (affected packages only)

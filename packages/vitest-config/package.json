@@ -28,7 +28,7 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsdown src/* src/setup/* --dts",
+    "build": "tsdown src/* src/setup/* --dts --no-hash",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
