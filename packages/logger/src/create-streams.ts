@@ -26,7 +26,11 @@ export const createStreams = (config?: CreateStreamsConfig) => {
     });
   } else {
     if (typeof process !== 'undefined') {
-      streams.push(pinoLambdaDestination());
+      streams.push({
+        // @ts-expect-error - pino.Level does not support silent
+        level: 0 as Level,
+        stream: pinoLambdaDestination(),
+      });
     } else {
       // Browser environment: use browser transport
       streams.push({
