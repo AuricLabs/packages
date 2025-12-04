@@ -1,5 +1,12 @@
 # @auriclabs/cache
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [cc81ac4]
+  - @auriclabs/logger@0.0.8
+
 ## 0.0.10
 
 ### Patch Changes

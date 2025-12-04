@@ -1,5 +1,11 @@
 # @auriclabs/logger
 
+## 0.0.8
+
+### Patch Changes
+
+- cc81ac4: Added 0 log level for lambda destination
+
 ## 0.0.7
 
 ### Patch Changes
