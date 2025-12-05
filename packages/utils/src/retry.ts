@@ -11,7 +11,8 @@ export let defaultRetryConfig: Options = {
 
 export type RetryOptions = Exclude<Options, number[]> & {
   logger?: Logger;
-  failureLogLevel?: 'debug' | 'info' | 'warn' | 'error';
+  logFailure?: boolean;
+  failureLogLevel?: 'debug' | 'info' | 'warn' | 'error' | 'trace';
 };
 
 export const setDefaultRetryConfig = (config: Options) => {
@@ -20,7 +21,12 @@ export const setDefaultRetryConfig = (config: Options) => {
 
 export const retry = <T>(
   fn: () => Promise<T> | T,
-  { logger = defaultLogger, failureLogLevel = 'warn', ...options }: RetryOptions = {},
+  {
+    logger = defaultLogger,
+    failureLogLevel = 'warn',
+    logFailure = true,
+    ...options
+  }: RetryOptions = {},
 ): Promise<T> => {
   return pRetry(
     fn,
@@ -30,10 +36,12 @@ export const retry = <T>(
       options, // user options
       {
         async onFailedAttempt(error: FailedAttemptError) {
-          logger[failureLogLevel](
-            { err: error, attemptNumber: error.attemptNumber },
-            `Retry attempt failed. ${error.message}. Retrying...`,
-          );
+          if (logFailure) {
+            logger[failureLogLevel](
+              { err: error, attemptNumber: error.attemptNumber },
+              `Retry attempt failed. ${error.message}. Retrying...`,
+            );
+          }
           await options.onFailedAttempt?.(error);
         },
       } satisfies Options, // override options
