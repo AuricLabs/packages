@@ -1,5 +1,11 @@
 # @auriclabs/utils
 
+## 0.0.4
+
+### Patch Changes
+
+- e936907: Fix typings for retry
+
 ## 0.0.3
 
 ### Patch Changes
