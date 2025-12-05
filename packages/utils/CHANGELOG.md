@@ -1,5 +1,11 @@
 # @auriclabs/utils
 
+## 0.0.5
+
+### Patch Changes
+
+- 06458a7: Added trace logging and a flag whether or not to log the failure
+
 ## 0.0.4
 
 ### Patch Changes
