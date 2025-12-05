@@ -9,17 +9,19 @@ export let defaultRetryConfig: Options = {
   maxTimeout: 10000,
 };
 
-export interface RetryOptions extends Omit<Options, 'logger'> {
+export type RetryOptions = Exclude<Options, number[]> & {
   logger?: Logger;
   failureLogLevel?: 'debug' | 'info' | 'warn' | 'error';
-}
+};
 
 export const setDefaultRetryConfig = (config: Options) => {
   defaultRetryConfig = config;
 };
 
-export const retry = <T>(fn: () => Promise<T> | T, options?: RetryOptions): Promise<T> => {
-  const logger = options?.logger ?? defaultLogger;
+export const retry = <T>(
+  fn: () => Promise<T> | T,
+  { logger = defaultLogger, failureLogLevel = 'warn', ...options }: RetryOptions = {},
+): Promise<T> => {
   return pRetry(
     fn,
     merge(
@@ -28,11 +30,11 @@ export const retry = <T>(fn: () => Promise<T> | T, options?: RetryOptions): Prom
       options, // user options
       {
         async onFailedAttempt(error: FailedAttemptError) {
-          logger[options?.failureLogLevel ?? 'warn'](
+          logger[failureLogLevel](
             { err: error, attemptNumber: error.attemptNumber },
             `Retry attempt failed. ${error.message}. Retrying...`,
           );
-          await options?.onFailedAttempt?.(error);
+          await options.onFailedAttempt?.(error);
         },
       } satisfies Options, // override options
     ),
