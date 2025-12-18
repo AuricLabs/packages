@@ -1,5 +1,11 @@
 # @auriclabs/logger
 
+## 0.0.9
+
+### Patch Changes
+
+- 99c3898: Added safe JSON stringification for local logging
+
 ## 0.0.8
 
 ### Patch Changes

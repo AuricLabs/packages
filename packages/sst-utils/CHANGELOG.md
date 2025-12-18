@@ -1,5 +1,12 @@
 # @auriclabs/sst-utils
 
+## 0.0.13
+
+### Patch Changes
+
+- Updated dependencies [99c3898]
+  - @auriclabs/logger@0.0.9
+
 ## 0.0.12
 
 ### Patch Changes
