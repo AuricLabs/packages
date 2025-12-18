@@ -1,5 +1,12 @@
 # @auriclabs/pagination
 
+## 0.0.10
+
+### Patch Changes
+
+- Updated dependencies [99c3898]
+  - @auriclabs/logger@0.0.9
+
 ## 0.0.9
 
 ### Patch Changes
