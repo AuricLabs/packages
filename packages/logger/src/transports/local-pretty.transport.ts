@@ -1,3 +1,5 @@
+import { defaultJsonReplacer, safeStringify, type JsonReplacer } from '../util/safe-stringify';
+
 export type ComponentColor =
   | 'cyan'
   | 'magenta'
@@ -12,6 +14,14 @@ export type ComponentColor =
   | 'brightYellow'
   | 'brightMagenta'
   | 'brightCyan';
+
+export interface LocalPrettyTransportOptions {
+  /**
+   * Custom JSON replacer function for stringifying context data.
+   * If not provided, uses a default replacer that handles non-serializable values gracefully.
+   */
+  jsonReplacer?: JsonReplacer;
+}
 
 // Color codes for terminal output
 const colors = {
@@ -40,7 +50,9 @@ const defaultComponentColor = (name: string): ComponentColor => {
 };
 
 // Custom pretty formatter for local development that doesn't use worker threads
-export const createLocalPrettyTransport = () => {
+export const createLocalPrettyTransport = (options: LocalPrettyTransportOptions = {}) => {
+  const { jsonReplacer = defaultJsonReplacer } = options;
+
   return {
     write: (obj: string) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -129,7 +141,7 @@ export const createLocalPrettyTransport = () => {
         }, {});
 
         // Format context data with gray color on each line
-        const jsonString = JSON.stringify(contextData, null, 2);
+        const jsonString = safeStringify(contextData, jsonReplacer);
         const lines = jsonString.split('\n');
         const coloredLines = lines.map((line) => `${colors.gray}${line}${colors.reset}`);
         const contextOutput = `${colors.gray}  └─ ${coloredLines.join('\n')}\n`;
