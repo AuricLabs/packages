@@ -1,4 +1,4 @@
-# @auriclabs/sst-types
+# @auriclabs/api-core
 
 ## 0.1.0
 
@@ -8,8 +8,7 @@
   platform type declarations, removed aws-native provider dependency, and added new SST v4 globals
   to ESLint config.
 
-## 0.0.2
-
 ### Patch Changes
 
-- 732042e: Bump esm module exports
+- Updated dependencies [bf60a1f]
+  - @auriclabs/logger@0.1.0

@@ -1,5 +1,12 @@
 # @auriclabs/cache
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [bf60a1f]
+  - @auriclabs/logger@0.1.0
+
 ## 0.0.12
 
 ### Patch Changes
