@@ -1,4 +1,5 @@
-import type { BuildOptions, Loader } from "esbuild";
+import type { Loader } from "esbuild";
+import type { EsbuildOptions } from "../esbuild.js";
 import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Duration, DurationMinutes } from "../duration.js";
 import { Size } from "../size.js";
@@ -47,6 +48,41 @@ export type FunctionPermissionArgs = {
      * ```
      */
     resources: Input<Input<string>[]>;
+    /**
+     * Configure specific conditions for when the policy is in effect.
+     *
+     * @example
+     * ```js
+     * {
+     *   conditions: [
+     *     {
+     *       test: "StringEquals",
+     *       variable: "s3:x-amz-server-side-encryption",
+     *       values: ["AES256"]
+     *     },
+     *     {
+     *       test: "IpAddress",
+     *       variable: "aws:SourceIp",
+     *       values: ["10.0.0.0/16"]
+     *     }
+     *   ]
+     * }
+     * ```
+     */
+    conditions?: Input<Input<{
+        /**
+         * Name of the [IAM condition operator](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html) to evaluate.
+         */
+        test: Input<string>;
+        /**
+         * Name of a [Context Variable](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#AvailableKeys) to apply the condition to. Context variables may either be standard AWS variables starting with `aws:` or service-specific variables prefixed with the service name.
+         */
+        variable: Input<string>;
+        /**
+         * The values to evaluate the condition against. If multiple values are provided, the condition matches if at least one of them applies. That is, AWS evaluates multiple values as though using an "OR" boolean operation.
+         */
+        values: Input<Input<string>[]>;
+    }>[]>;
 };
 interface FunctionUrlCorsArgs {
     /**
@@ -258,16 +294,16 @@ export interface FunctionArgs {
      * Node.js and Golang are officially supported. While, Python and Rust are
      * community supported. Support for other runtimes are on the roadmap.
      *
-     * @default `"nodejs20.x"`
+     * @default `"nodejs24.x"`
      *
      * @example
      * ```js
      * {
-     *   runtime: "nodejs22.x"
+     *   runtime: "nodejs24.x"
      * }
      * ```
      */
-    runtime?: Input<"nodejs18.x" | "nodejs20.x" | "nodejs22.x" | "go" | "rust" | "provided.al2023" | "python3.9" | "python3.10" | "python3.11" | "python3.12">;
+    runtime?: Input<"nodejs18.x" | "nodejs20.x" | "nodejs22.x" | "nodejs24.x" | "go" | "rust" | "provided.al2" | "provided.al2023" | "python3.9" | "python3.10" | "python3.11" | "python3.12" | "python3.13">;
     /**
      * Path to the source code directory for the function. By default, the handler is
      * bundled with [esbuild](https://esbuild.github.io/). Use `bundle` to skip bundling.
@@ -565,17 +601,10 @@ export interface FunctionArgs {
     /**
      * Enable streaming for the function.
      *
-     * Streaming is only supported when using the function `url` is enabled and not when using it
-     * with API Gateway.
+     * Streaming is supported with both Function URLs and API Gateway REST API (V1). It is
+     * not supported with API Gateway HTTP API (V2).
      *
      * You'll also need to [wrap your handler](https://docs.aws.amazon.com/lambda/latest/dg/configuration-response-streaming.html) with `awslambda.streamifyResponse` to enable streaming.
-     *
-     * :::note
-     * Streaming is currently not supported in `sst dev`.
-     * :::
-     *
-     * While `sst dev` doesn't support streaming, you can use the
-     * [`lambda-stream`](https://github.com/astuyve/lambda-stream) package to test locally.
      *
      * Check out the [AWS Lambda streaming example](/docs/examples/#aws-lambda-streaming) for more
      * details.
@@ -946,7 +975,7 @@ export interface FunctionArgs {
          * [`BuildOptions`](https://esbuild.github.io/api/#build).
          * :::
          */
-        esbuild?: Input<BuildOptions>;
+        esbuild?: Input<EsbuildOptions>;
         /**
          * Disable if the function code is minified when bundled.
          *
@@ -1066,7 +1095,25 @@ export interface FunctionArgs {
          *
          * You can refer to [this example of using a container image](/docs/examples/#aws-lambda-python-container).
          */
-        container?: Input<boolean>;
+        container?: Input<boolean | {
+            /**
+             * Controls whether Docker build cache is enabled.
+             * @default `true`
+             * @example
+             * Disable Docker build caching, useful for environments like Localstack where
+             * ECR cache export is not supported.
+             * ```js
+             * {
+             *   python: {
+             *     container: {
+             *       cache: false
+             *     }
+             *   }
+             * }
+             * ```
+             */
+            cache?: Input<boolean>;
+        }>;
     }>;
     /**
      * Add additional files to copy into the function package. Takes a list of objects
@@ -1286,9 +1333,7 @@ export interface FunctionArgs {
      * Or reference an existing VPC.
      *
      * ```js title="sst.config.ts"
-     * const myVpc = sst.aws.Vpc.get("MyVpc", {
-     *   id: "vpc-12345678901234567"
-     * });
+     * const myVpc = sst.aws.Vpc.get("MyVpc", "vpc-12345678901234567");
      * ```
      *
      * And pass it in.
@@ -1553,6 +1598,7 @@ export declare class Function extends Component implements Link.Linkable {
     private urlEndpoint;
     private eventInvokeConfig?;
     private static readonly encryptionKey;
+    private static readonly devBridgeCode;
     static readonly appsync: () => Promise<any>;
     constructor(name: string, args: FunctionArgs, opts?: ComponentResourceOptions);
     /**
@@ -1570,11 +1616,11 @@ export declare class Function extends Component implements Link.Linkable {
         /**
          * The CloudWatch Log Group the function logs are stored.
          */
-        logGroup: Output<import("@pulumi/aws/cloudwatch/logGroup.js").LogGroup | undefined>;
+        logGroup: Output<import("@pulumi/aws/cloudwatch/logGroup.js").LogGroup>;
         /**
          * The Function Event Invoke Config resource if retries are configured.
          */
-        eventInvokeConfig: import("@pulumi/aws/lambda/functionEventInvokeConfig.js").FunctionEventInvokeConfig | undefined;
+        eventInvokeConfig: import("@pulumi/aws/lambda/functionEventInvokeConfig.js").FunctionEventInvokeConfig;
     };
     /**
      * The Lambda function URL if `url` is enabled.
@@ -1617,12 +1663,26 @@ export declare class Function extends Component implements Link.Linkable {
     getSSTLink(): {
         properties: {
             name: Output<string>;
-            url: Output<string | undefined>;
+            url: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                /**
+                 * Name of the [IAM condition operator](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html) to evaluate.
+                 */
+                test: Input<string>;
+                /**
+                 * Name of a [Context Variable](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html#AvailableKeys) to apply the condition to. Context variables may either be standard AWS variables starting with `aws:` or service-specific variables prefixed with the service name.
+                 */
+                variable: Input<string>;
+                /**
+                 * The values to evaluate the condition against. If multiple values are provided, the condition matches if at least one of them applies. That is, AWS evaluates multiple values as though using an "OR" boolean operation.
+                 */
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

@@ -1,7 +1,7 @@
 import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
-import { FunctionArgs, Function } from "./function";
+import { FunctionArgs, Function } from "./function.js";
 import { s3 } from "@pulumi/aws";
 export interface AuthArgs {
     authenticator: FunctionArgs;

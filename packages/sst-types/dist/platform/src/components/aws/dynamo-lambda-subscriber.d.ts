@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input } from "@pulumi/pulumi";
 import { Component } from "../component";
-import { FunctionArgs } from "./function";
+import { FunctionArgs } from "./function.js";
 import { DynamoSubscriberArgs } from "./dynamo";
 export interface Args extends DynamoSubscriberArgs {
     /**

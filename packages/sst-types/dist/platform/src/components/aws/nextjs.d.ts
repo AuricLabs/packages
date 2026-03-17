@@ -1,10 +1,12 @@
 import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Size } from "../size.js";
-import { Function } from "./function.js";
+import { Function, FunctionArgs } from "./function.js";
 import type { Input } from "../input.js";
 import { Queue } from "./queue.js";
 import { Plan, SsrSite, SsrSiteArgs } from "./ssr-site.js";
-import { Bucket } from "./bucket.js";
+import { Bucket, BucketArgs } from "./bucket.js";
+import { CdnArgs } from "./cdn.js";
+import { Transform } from "../component.js";
 export interface NextjsArgs extends SsrSiteArgs {
     /**
      * Configure how this component works in `sst dev`.
@@ -331,13 +333,15 @@ export interface NextjsArgs extends SsrSiteArgs {
      * Configure the [OpenNext](https://opennext.js.org) version used to build the Next.js app.
      *
      * :::note
-     * This does not automatically update to the latest OpenNext version. It remains pinned to the version of SST you have.
+     * The default OpenNext version is auto-detected based on your Next.js version and pinned to the version of SST you have.
      * :::
      *
-     * By default, this is pinned to the version of OpenNext that was released with the SST version you are using. You can [find this in the source](https://github.com/sst/sst/blob/dev/platform/src/components/aws/nextjs.ts#L30) under `DEFAULT_OPEN_NEXT_VERSION`.
+     * By default, SST auto-detects the Next.js version from your `package.json` and picks a compatible OpenNext version. For Next.js 15+, it uses `3.9.14`. For Next.js 14, it uses `3.6.6` since newer versions of OpenNext dropped Next.js 14 support. If set, this overrides the auto-detection.
+     *
+     * You can [find the defaults in the source](https://github.com/sst/sst/blob/dev/platform/src/components/aws/nextjs.ts#L30) under `DEFAULT_OPEN_NEXT_VERSION`.
      * OpenNext changed its package name from `open-next` to `@opennextjs/aws` in version `3.1.4`. SST will choose the correct one based on the version you provide.
      *
-     * @default The latest version of OpenNext pinned to the version of SST you are using.
+     * @default Auto-detected based on your Next.js version.
      * @example
      * ```js
      * {
@@ -406,6 +410,36 @@ export interface NextjsArgs extends SsrSiteArgs {
      * ```
      */
     cachePolicy?: SsrSiteArgs["cachePolicy"];
+    /**
+     * [Transform](/docs/components#transform) how this component creates its underlying
+     * resources.
+     */
+    transform?: {
+        /**
+         * Transform the Bucket resource used for uploading the assets.
+         */
+        assets?: Transform<BucketArgs>;
+        /**
+         * Transform the server Function resource.
+         */
+        server?: Transform<FunctionArgs>;
+        /**
+         * Transform the image optimizer Function resource.
+         */
+        imageOptimizer?: Transform<FunctionArgs>;
+        /**
+         * Transform the CloudFront CDN resource.
+         */
+        cdn?: Transform<CdnArgs>;
+        /**
+         * Transform the revalidation seeder Function resource used for ISR.
+         */
+        revalidationSeeder?: Transform<FunctionArgs>;
+        /**
+         * Transform the revalidation events subscriber Function resource used for ISR.
+         */
+        revalidationEventsSubscriber?: Transform<FunctionArgs>;
+    };
 }
 /**
  * The `Nextjs` component lets you deploy [Next.js](https://nextjs.org) apps on AWS. It uses
@@ -500,17 +534,17 @@ export declare class Nextjs extends SsrSite {
         /**
          * The Amazon SQS queue that triggers the ISR revalidator.
          */
-        revalidationQueue: Output<Queue | undefined> | undefined;
+        revalidationQueue: Output<Queue>;
         /**
          * The Amazon DynamoDB table that stores the ISR revalidation data.
          */
-        revalidationTable: Output<import("@pulumi/aws/dynamodb/table.js").Table | undefined> | undefined;
+        revalidationTable: Output<import("@pulumi/aws/dynamodb/table.js").Table>;
         /**
          * The Lambda function that processes the ISR revalidation.
          */
-        revalidationFunction: Output<Function | undefined> | undefined;
-        server: Output<Function> | undefined;
-        assets: Bucket | undefined;
-        cdn: sst.aws.Cdn | undefined;
+        revalidationFunction: Output<Function>;
+        server: Output<Function>;
+        assets: Bucket;
+        cdn: sst.aws.Cdn;
     };
 }

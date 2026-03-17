@@ -12,6 +12,10 @@ export interface RedisArgs {
      * - `"redis"`: The open-source version of Redis.
      * - `"valkey"`: [Valkey](https://valkey.io/) is a Redis-compatible in-memory key-value store.
      *
+     * :::danger
+     * Changing the engine will cause the database to be destroyed and recreated.
+     * :::
+     *
      * @default `"redis"`
      */
     engine?: Input<"redis" | "valkey">;
@@ -21,6 +25,10 @@ export interface RedisArgs {
      * The default is `"7.1"` for the `"redis"` engine and `"7.2"` for the `"valkey"` engine.
      *
      * Check out the [supported versions](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/supported-engine-versions.html).
+     *
+     * :::caution
+     * Changing the version will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
      *
      * @default `"7.1"` for Redis, `"7.2"` for Valkey
      * @example
@@ -33,6 +41,10 @@ export interface RedisArgs {
     version?: Input<string>;
     /**
      * The type of instance to use for the nodes of the Redis instance. Check out the [supported instance types](https://docs.aws.amazon.com/AmazonElastiCache/latest/red-ug/CacheNodes.SupportedTypes.html).
+     *
+     * :::caution
+     * Changing the instance type will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
      *
      * @default `"t4g.micro"`
      * @example
@@ -300,7 +312,7 @@ export declare class Redis extends Component implements Link.Linkable {
     /**
      * The password to connect to the Redis cluster.
      */
-    get password(): Output<string> | undefined;
+    get password(): Output<string>;
     /**
      * The host to connect to the Redis cluster.
      */
@@ -324,7 +336,7 @@ export declare class Redis extends Component implements Link.Linkable {
             host: Output<string>;
             port: $util.OutputInstance<number>;
             username: Output<string>;
-            password: Output<string> | undefined;
+            password: Output<string>;
         };
     };
     /**

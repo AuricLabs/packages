@@ -1,6 +1,10 @@
 export declare function parseFunctionArn(arn: string): {
     functionName: string;
 };
+export declare function splitQualifiedFunctionArn(arn: string): {
+    unqualifiedArn: string;
+    qualifier: string;
+};
 export declare function parseBucketArn(arn: string): {
     bucketName: string;
 };
@@ -26,9 +30,18 @@ export declare function parseEventBusArn(arn: string): {
 export declare function parseRoleArn(arn: string): {
     roleName: string;
 };
+export declare function parseLambdaEdgeArn(arn: string): {
+    functionName: string;
+    region: string;
+    version: string;
+};
 export declare function parseElasticSearch(arn: string): {
     tableName: string;
 };
 export declare function parseOpenSearch(arn: string): {
     tableName: string;
 };
+export declare function parseDsqlPublicEndpoint(arn: string): string;
+export declare function parseDsqlPrivateEndpoint(clusterArn: string, dnsEntries: {
+    dnsName?: string;
+}[]): string;

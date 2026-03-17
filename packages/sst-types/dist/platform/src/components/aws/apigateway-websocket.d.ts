@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Prettify, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { RETENTION } from "./logging";
 import { ApiGatewayV2DomainArgs } from "./helpers/apigatewayv2-domain";
 import { ApiGatewayV2Authorizer } from "./apigatewayv2-authorizer";
@@ -423,6 +423,12 @@ export declare class ApiGatewayWebSocket extends Component implements Link.Linka
      * will look for the specific route defined by the user. If no route matches, the `$default`
      * route will be invoked.
      *
+     * :::caution
+     * [API Gateway has strict rate limits](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html) for creating and updating resources. Creating one Lambda function for every route can significantly slow down your deployments.
+     *
+     * Use a single Lambda and handle routing in code if you don't need specific API Gateway features.
+     * :::
+     *
      * @param route The path for the route.
      * @param handler The function that'll be invoked.
      * @param args Configure the route.
@@ -506,7 +512,7 @@ export declare class ApiGatewayWebSocket extends Component implements Link.Linka
      * const authorizer = api.addAuthorizer({
      *   name: "myCognitoAuthorizer",
      *   jwt: {
-     *     issuer: $interpolate`https://cognito-idp.${aws.getRegionOutput().name}.amazonaws.com/${pool.id}`,
+     *     issuer: $interpolate`https://cognito-idp.${aws.getRegionOutput().region}.amazonaws.com/${pool.id}`,
      *     audiences: [poolClient.id]
      *   }
      * });
@@ -532,9 +538,14 @@ export declare class ApiGatewayWebSocket extends Component implements Link.Linka
             managementEndpoint: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

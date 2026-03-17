@@ -2,7 +2,7 @@ import { Output } from "@pulumi/pulumi";
 import { Duration } from "../../duration";
 import { Input } from "../../input";
 import { Prettify } from "../../component";
-import { Function, FunctionArgs, FunctionArn, FunctionPermissionArgs } from "../function";
+import { Function, FunctionArgs, FunctionArn, FunctionPermissionArgs } from "../function.js";
 import { CatchArgs, Failable, JSONata, Nextable, RetryArgs, State, StateArgs } from "./state";
 import { SnsTopic } from "../sns-topic";
 import { Queue } from "../queue";
@@ -275,11 +275,11 @@ export declare class Task extends State implements Nextable, Failable {
      */
     protected toJSON(): {
         Resource: Output<string>;
-        Credentials: "" | {
+        Credentials: {
             RoleArn: Input<string>;
-        } | undefined;
-        Timeout: $util.OutputInstance<number | `${number} second` | `${number} seconds` | `${number} minute` | `${number} minutes` | `${number} hour` | `${number} hours` | `${number} day` | `${number} days` | `{% ${string} %}`> | undefined;
-        Arguments: Input<Record<string, any>> | undefined;
+        };
+        Timeout: Output<number | `${number} minute` | `${number} minutes` | `${number} hour` | `${number} hours` | `${number} second` | `${number} seconds` | `${number} day` | `${number} days` | `{% ${string} %}`>;
+        Arguments: Input<Record<string, any>>;
         Type: string;
     };
 }
@@ -302,8 +302,16 @@ export interface LambdaInvokeArgs extends TaskBaseArgs {
      *   }
      * }
      * ```
+     *
+     * Or, you can pass in a JSONata expression that evaluates to the full payload.
+     *
+     * ```ts
+     * {
+     *   payload: "{% $states.input %}"
+     * }
+     * ```
      */
-    payload?: Record<string, Input<unknown>>;
+    payload?: Input<JSONata | Record<string, Input<unknown>>>;
 }
 export interface SnsPublishArgs extends TaskBaseArgs {
     /**

@@ -54,9 +54,9 @@ export declare class Fail extends State {
      * Serialize the state into JSON state definition.
      */
     protected toJSON(): {
-        End: undefined;
+        End: any;
         Type: string;
-        Error: Input<string> | undefined;
-        Cause: Input<string> | undefined;
+        Error: Input<string>;
+        Cause: Input<string>;
     };
 }

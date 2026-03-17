@@ -6,6 +6,7 @@ import { Input } from "../input.js";
 export interface CronArgs {
     /**
      * The worker that'll be executed when the cron job runs.
+     * @deprecated Use `worker` instead.
      *
      * @example
      *
@@ -26,7 +27,30 @@ export interface CronArgs {
      * }
      * ```
      */
-    job: Input<string | WorkerArgs>;
+    job?: Input<string | WorkerArgs>;
+    /**
+     * The worker that'll be executed when the cron job runs.
+     *
+     * @example
+     *
+     * ```ts
+     * {
+     *   worker: "src/cron.ts"
+     * }
+     * ```
+     *
+     * You can pass in the full worker props.
+     *
+     * ```ts
+     * {
+     *   worker: {
+     *     handler: "src/cron.ts",
+     *     link: [bucket]
+     *   }
+     * }
+     * ```
+     */
+    worker?: Input<string | WorkerArgs>;
     /**
      * The schedule for the cron job.
      *
@@ -79,21 +103,21 @@ export interface CronArgs {
  * };
  * ```
  *
- * Pass in a `schedules` and a `job` worker that'll be executed.
+ * Pass in a `schedules` and a `worker` that'll be executed.
  *
  * ```ts title="sst.config.ts"
  * new sst.cloudflare.Cron("MyCronJob", {
- *   job: "cron.ts",
+ *   worker: "cron.ts",
  *   schedules: ["* * * * *"]
  * });
  * ```
  *
- * #### Customize the function
+ * #### Customize the worker
  *
  * ```js title="sst.config.ts"
  * new sst.cloudflare.Cron("MyCronJob", {
  *   schedules: ["* * * * *"],
- *   job: {
+ *   worker: {
  *     handler: "cron.ts",
  *     link: [bucket]
  *   }

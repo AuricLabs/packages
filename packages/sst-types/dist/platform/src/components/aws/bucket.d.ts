@@ -2,8 +2,8 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Prettify, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
-import { Duration } from "../duration";
+import { FunctionArgs, FunctionArn } from "./function.js";
+import { Duration, DurationDays } from "../duration";
 import { BucketLambdaSubscriber } from "./bucket-lambda-subscriber";
 import { s3 } from "@pulumi/aws";
 import { BucketQueueSubscriber } from "./bucket-queue-subscriber";
@@ -61,7 +61,7 @@ interface BucketCorsArgs {
     allowMethods?: Input<Input<"DELETE" | "GET" | "HEAD" | "POST" | "PUT">[]>;
     /**
      * The HTTP headers you want to expose to an origin that calls the bucket.
-     * @default `[]`
+     * @default `["ETag"]`
      * @example
      * ```js
      * {
@@ -86,6 +86,69 @@ interface BucketCorsArgs {
      * ```
      */
     maxAge?: Input<Duration>;
+}
+interface BucketLifecycleArgs {
+    /**
+     * The unique identifier for the lifecycle rule.
+     *
+     * This ID must be unique across all lifecycle rules in the bucket and cannot exceed 255 characters.
+     * Whitespace-only values are not allowed.
+     *
+     * If not provided, SST will generate a unique ID based on the bucket component name and rule index.
+     *
+     * @example
+     * Use stable IDs to ensure rule identity is preserved when reordering rules.
+     * ```js
+     * {
+     *   id: "expire-tmp-files",
+     *   prefix: "/tmp",
+     *   expiresIn: "7 days"
+     * }
+     * ```
+     */
+    id?: Input<string>;
+    /**
+     * An S3 object key prefix that the lifecycle rule applies to.
+     * @example
+     * Applies to all the objects in the `images/` folder.
+     * ```js
+     * {
+     *   prefix: "images/"
+     * }
+     * ```
+     */
+    prefix?: Input<string>;
+    /**
+     * Whether the lifecycle rule is enabled.
+     * @example
+     * ```js
+     * {
+     *  enabled: true
+     * }
+     * ```
+     * @default `true`
+     */
+    enabled?: Input<boolean>;
+    /**
+     * Days after which the objects in the bucket should expire.
+     * @example
+     * ```js
+     * {
+     *  expiresIn: "30 days"
+     * }
+     * ```
+     */
+    expiresIn?: Input<DurationDays>;
+    /**
+     * Date after which the objects in the bucket should expire. Defaults to midnight UTC time.
+     * @example
+     * ```js
+     * {
+     *  expiresAt: "2023-08-22"
+     * }
+     * ```
+     */
+    expiresAt?: Input<string>;
 }
 export interface BucketArgs {
     /**
@@ -356,7 +419,7 @@ export interface BucketArgs {
      *     allowHeaders: ["*"],
      *     allowOrigins: ["*"],
      *     allowMethods: ["DELETE", "GET", "HEAD", "POST", "PUT"],
-     *     exposeHeaders: [],
+     *     exposeHeaders: ["ETag"],
      *     maxAge: "0 seconds"
      *   }
      * }
@@ -365,6 +428,40 @@ export interface BucketArgs {
      * @default `true`
      */
     cors?: Input<false | Prettify<BucketCorsArgs>>;
+    /**
+     * The lifecycle configuration for the bucket.
+     * @example
+     * Delete objects in the "/tmp" directory after 30 days.
+     * ```js
+     * {
+     *   lifecycle: [
+     *     {
+     *       prefix: "/tmp",
+     *       expiresIn: "30 days"
+     *     }
+     *   ]
+     * }
+     * ```
+     *
+     * Use stable IDs to preserve rule identity when reordering.
+     * ```js
+     * {
+     *   lifecycle: [
+     *     {
+     *       id: "expire-tmp-files",
+     *       prefix: "/tmp",
+     *       expiresIn: "7 days"
+     *     },
+     *     {
+     *       id: "archive-old-logs",
+     *       prefix: "/logs",
+     *       expiresIn: "90 days"
+     *     }
+     *   ]
+     * }
+     * ```
+     */
+    lifecycle?: Input<Input<Prettify<BucketLifecycleArgs>>[]>;
     /**
      * Enable versioning for the bucket.
      *
@@ -388,11 +485,11 @@ export interface BucketArgs {
         /**
          * Transform the S3 Bucket resource.
          */
-        bucket?: Transform<s3.BucketV2Args>;
+        bucket?: Transform<s3.BucketArgs>;
         /**
          * Transform the S3 Bucket CORS configuration resource.
          */
-        cors?: Transform<s3.BucketCorsConfigurationV2Args>;
+        cors?: Transform<s3.BucketCorsConfigurationArgs>;
         /**
          * Transform the S3 Bucket Policy resource.
          */
@@ -400,7 +497,11 @@ export interface BucketArgs {
         /**
          * Transform the S3 Bucket versioning resource.
          */
-        versioning?: Transform<s3.BucketVersioningV2Args>;
+        versioning?: Transform<s3.BucketVersioningArgs>;
+        /**
+         * Transform the S3 Bucket lifecycle resource.
+         * */
+        lifecycle?: Transform<s3.BucketLifecycleConfigurationArgs>;
         /**
          * Transform the public access block resource that's attached to the Bucket.
          *
@@ -688,7 +789,7 @@ export declare class Bucket extends Component implements Link.Linkable {
         /**
          * The Amazon S3 bucket.
          */
-        bucket: Output<import("@pulumi/aws/s3/bucketV2").BucketV2>;
+        bucket: Output<import("@pulumi/aws/s3/bucket").Bucket>;
     };
     /**
      * Reference an existing bucket with the given bucket name. This is useful when you
@@ -1104,9 +1205,14 @@ export declare class Bucket extends Component implements Link.Linkable {
             name: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

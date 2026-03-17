@@ -84,7 +84,7 @@ export declare class Wait extends State implements Nextable {
      */
     protected toJSON(): {
         Type: string;
-        Seconds: $util.OutputInstance<number | `${number} second` | `${number} seconds` | `${number} minute` | `${number} minutes` | `${number} hour` | `${number} hours` | `${number} day` | `${number} days` | `{% ${string} %}`> | undefined;
-        Timestamp: Input<string> | undefined;
+        Seconds: $util.Output<number | `${number} minute` | `${number} minutes` | `${number} hour` | `${number} hours` | `${number} second` | `${number} seconds` | `${number} day` | `${number} days` | `{% ${string} %}`>;
+        Timestamp: Input<string>;
     };
 }

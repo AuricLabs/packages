@@ -2,7 +2,7 @@ import { ComponentResourceOptions } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { AppSyncDataSource } from "./app-sync-data-source";
 import { AppSyncResolver } from "./app-sync-resolver";
 import { AppSyncFunction } from "./app-sync-function";

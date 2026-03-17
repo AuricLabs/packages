@@ -2,12 +2,37 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { BusLambdaSubscriber } from "./bus-lambda-subscriber";
 import { cloudwatch } from "@pulumi/aws";
 import { Queue } from "./queue";
 import { BusQueueSubscriber } from "./bus-queue-subscriber";
 export interface BusArgs {
+    /**
+     * Configure logging for the EventBus.
+     *
+     * @example
+     *
+     * ```js
+     * new sst.aws.Bus("MyBus", {
+     *   logging: {
+     *     level: "error",
+     *     detail: true,
+     *   },
+     * });
+     * ```
+     */
+    logging?: Input<{
+        /**
+         * The level of logging.
+         */
+        level: Input<"error" | "info" | "trace">;
+        /**
+         * Whether to include the event detail in the log.
+         * @default `false`
+         */
+        detail?: Input<boolean>;
+    }>;
     /**
      * [Transform](/docs/components#transform) how this component creates its underlying
      * resources.
@@ -362,9 +387,14 @@ export declare class Bus extends Component implements Link.Linkable {
             arn: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

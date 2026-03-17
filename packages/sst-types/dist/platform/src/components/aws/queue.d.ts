@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { QueueLambdaSubscriber } from "./queue-lambda-subscriber";
 import { lambda, sqs } from "@pulumi/aws";
 import { DurationHours, DurationMinutes } from "../duration";
@@ -271,6 +271,10 @@ export interface QueueSubscriberArgs {
          * Transform the Lambda Event Source Mapping resource.
          */
         eventSourceMapping?: Transform<lambda.EventSourceMappingArgs>;
+        /**
+         * Transform the subscriber Function resource.
+         */
+        function?: Transform<FunctionArgs>;
     };
 }
 /**
@@ -473,9 +477,14 @@ export declare class Queue extends Component implements Link.Linkable {
             url: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

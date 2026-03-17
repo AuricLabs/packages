@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { DynamoLambdaSubscriber } from "./dynamo-lambda-subscriber";
 import { dynamodb, lambda } from "@pulumi/aws";
 export interface DynamoArgs {
@@ -64,16 +64,49 @@ export interface DynamoArgs {
      *   }
      * }
      * ```
+     *
+     * Use an array to create a composite key with multiple attributes.
+     *
+     * ```js
+     * {
+     *   globalIndexes: {
+     *     RegionCategoryIndex: {
+     *       hashKey: ["region", "category"],
+     *       rangeKey: "createdAt"
+     *     }
+     *   }
+     * }
+     * ```
      */
     globalIndexes?: Input<Record<string, Input<{
         /**
          * The hash key field of the index. This field needs to be defined in the `fields`.
+         *
+         * You can also pass in an array of field names to create a composite key with
+         * up to 4 attributes using the [multi-attribute keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.DesignPattern.MultiAttributeKeys.html) pattern.
+         *
+         * @example
+         * ```js
+         * {
+         *   hashKey: ["region", "category"]
+         * }
+         * ```
          */
-        hashKey: Input<string>;
+        hashKey: Input<string | string[]>;
         /**
          * The range key field of the index. This field needs to be defined in the `fields`.
+         *
+         * You can also pass in an array of field names to create a composite key with
+         * up to 4 attributes using the [multi-attribute keys](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.DesignPattern.MultiAttributeKeys.html) pattern.
+         *
+         * @example
+         * ```js
+         * {
+         *   rangeKey: ["createdAt", "status"]
+         * }
+         * ```
          */
-        rangeKey?: Input<string>;
+        rangeKey?: Input<string | string[]>;
         /**
          * The fields to project into the index.
          * @default `"all"`
@@ -316,6 +349,28 @@ export interface DynamoSubscriberArgs {
  * });
  * ```
  *
+ * #### Add a composite key global index
+ *
+ * Use multi-attribute composite keys in a global index. This is useful when you want
+ * to combine multiple attributes into a single partition or sort key.
+ *
+ * ```ts {8-12} title="sst.config.ts"
+ * new sst.aws.Dynamo("MyTable", {
+ *   fields: {
+ *     region: "string",
+ *     category: "string",
+ *     createdAt: "number",
+ *   },
+ *   primaryIndex: { hashKey: "region", rangeKey: "createdAt" },
+ *   globalIndexes: {
+ *     RegionCategoryIndex: {
+ *       hashKey: ["region", "category"],
+ *       rangeKey: "createdAt"
+ *     }
+ *   }
+ * });
+ * ```
+ *
  * #### Add a local index
  *
  * Optionally add a local index to the table.
@@ -386,7 +441,6 @@ export declare class Dynamo extends Component implements Link.Linkable {
     private constructorName;
     private constructorOpts;
     private table;
-    private isStreamEnabled;
     constructor(name: string, args: DynamoArgs, opts?: ComponentResourceOptions);
     /**
      * The ARN of the DynamoDB Table.
@@ -559,9 +613,14 @@ export declare class Dynamo extends Component implements Link.Linkable {
             name: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

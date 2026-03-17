@@ -229,6 +229,17 @@ export interface CdnArgs {
      */
     tags?: Input<Record<string, Input<string>>>;
     /**
+     * The ARN of a WAF WebACL to associate with the CloudFront distribution.
+     *
+     * @example
+     * ```ts
+     * {
+     *   webAclArn: "arn:aws:wafv2:us-east-1:123456789012:global/webacl/my-acl/abc123"
+     * }
+     * ```
+     */
+    webAclArn?: Input<string>;
+    /**
      * [Transform](/docs/components#transform) how this component creates its underlying resources.
      */
     transform?: {
@@ -271,7 +282,7 @@ export declare class Cdn extends Component {
      * If the custom domain is enabled, this is the URL of the distribution with the
      * custom domain.
      */
-    get domainUrl(): Output<string | undefined>;
+    get domainUrl(): Output<string>;
     /**
      * The underlying [resources](/docs/components/#nodes) this component creates.
      */

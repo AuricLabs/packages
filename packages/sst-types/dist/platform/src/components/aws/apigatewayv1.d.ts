@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Prettify, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { RETENTION } from "./logging";
 import { ApiGatewayV1LambdaRoute } from "./apigatewayv1-lambda-route";
 import { ApiGatewayV1Authorizer } from "./apigatewayv1-authorizer";
@@ -593,6 +593,10 @@ export interface ApiGatewayV1RouteArgs {
      */
     apiKey?: Input<boolean>;
     /**
+     * @deprecated Set `streaming: true` on the function definition passed to `api.route()` instead.
+     */
+    streaming?: Input<boolean>;
+    /**
      * [Transform](/docs/components#transform) how this component creates its underlying
      * resources.
      */
@@ -742,11 +746,11 @@ export declare class ApiGatewayV1 extends Component implements Link.Linkable {
         /**
          * The Amazon API Gateway REST API stage
          */
-        stage: import("@pulumi/aws/apigateway/stage").Stage | undefined;
+        stage: import("@pulumi/aws/apigateway/stage").Stage;
         /**
          * The CloudWatch LogGroup for the access logs.
          */
-        logGroup: import("@pulumi/aws/cloudwatch/logGroup").LogGroup | undefined;
+        logGroup: import("@pulumi/aws/cloudwatch/logGroup").LogGroup;
         /**
          * The API Gateway REST API domain name.
          */
@@ -755,91 +759,97 @@ export declare class ApiGatewayV1 extends Component implements Link.Linkable {
     /**
      * Add a route to the API Gateway REST API. The route is a combination of an HTTP method and a path, `{METHOD} /{path}`.
      *
+     * :::caution
+     * [API Gateway has strict rate limits](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html) for creating and updating resources. Creating one Lambda function for every endpoint can significantly slow down your deployments.
+     *
+     * Use a single Lambda and handle routing in code if you don't need specific API Gateway features.
+     * :::
+     *
      * A method could be one of `GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `HEAD`, `OPTIONS`, or `ANY`. Here `ANY` matches any HTTP method.
-     *
-     * The path can be a combination of
-     * - Literal segments, `/notes`, `/notes/new`, etc.
-     * - Parameter segments, `/notes/{noteId}`, `/notes/{noteId}/attachments/{attachmentId}`, etc.
-     * - Greedy segments, `/{proxy+}`, `/notes/{proxy+}`,  etc. The `{proxy+}` segment is a greedy segment that matches all child paths. It needs to be at the end of the path.
-     *
-     * :::tip
-     * The `{proxy+}` is a greedy segment, it matches all its child paths.
-     * :::
-     *
-     * When a request comes in, the API Gateway will look for the most specific match.
-     *
-     * :::note
-     * You cannot have duplicate routes.
-     * :::
-     *
-     * @param route The path for the route.
-     * @param handler The function that'll be invoked.
-     * @param args Configure the route.
-     *
-     * @example
-     * Add a simple route.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /", "src/get.handler");
-     * ```
-     *
-     * Match any HTTP method.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("ANY /", "src/route.handler");
-     * ```
-     *
-     * Add a default or fallback route. Here for every request other than `GET /hi`,
-     * the `default.handler` function will be invoked.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /hi", "src/get.handler");
-     *
-     * api.route("ANY /", "src/default.handler");
-     * api.route("ANY /{proxy+}", "src/default.handler");
-     * ```
-     *
-     * The `/{proxy+}` matches any path that starts with `/`, so if you want a
-     * fallback route for the root `/` path, you need to add a `ANY /` route as well.
-     *
-     * Add a parameterized route.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /notes/{id}", "src/get.handler");
-     * ```
-     *
-     * Add a greedy route.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /notes/{proxy+}", "src/greedy.handler");
-     * ```
-     *
-     * Enable auth for a route.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /", "src/get.handler")
-     * api.route("POST /", "src/post.handler", {
-     *   auth: {
-     *     iam: true
-     *   }
-     * });
-     * ```
-     *
-     * Customize the route handler.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /", {
-     *   handler: "src/get.handler",
-     *   memory: "2048 MB"
-     * });
-     * ```
-     *
-     * Or pass in the ARN of an existing Lambda function.
-     *
-     * ```js title="sst.config.ts"
-     * api.route("GET /", "arn:aws:lambda:us-east-1:123456789012:function:my-function");
-     * ```
-     */
+    *
+    * The path can be a combination of
+    * - Literal segments, `/notes`, `/notes/new`, etc.
+    * - Parameter segments, `/notes/{noteId}`, `/notes/{noteId}/attachments/{attachmentId}`, etc.
+    * - Greedy segments, `/{proxy+}`, `/notes/{proxy+}`,  etc. The `{proxy+}` segment is a greedy segment that matches all child paths. It needs to be at the end of the path.
+    *
+    * :::tip
+    * The `{proxy+}` is a greedy segment, it matches all its child paths.
+    * :::
+    *
+    * When a request comes in, the API Gateway will look for the most specific match.
+    *
+    * :::note
+    * You cannot have duplicate routes.
+    * :::
+    *
+    * @param route The path for the route.
+    * @param handler The function that'll be invoked.
+    * @param args Configure the route.
+    *
+    * @example
+    * Add a simple route.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /", "src/get.handler");
+    * ```
+    *
+    * Match any HTTP method.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("ANY /", "src/route.handler");
+    * ```
+    *
+    * Add a default or fallback route. Here for every request other than `GET /hi`,
+    * the `default.handler` function will be invoked.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /hi", "src/get.handler");
+    *
+    * api.route("ANY /", "src/default.handler");
+    * api.route("ANY /{proxy+}", "src/default.handler");
+    * ```
+    *
+    * The `/{proxy+}` matches any path that starts with `/`, so if you want a
+    * fallback route for the root `/` path, you need to add a `ANY /` route as well.
+    *
+    * Add a parameterized route.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /notes/{id}", "src/get.handler");
+    * ```
+    *
+    * Add a greedy route.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /notes/{proxy+}", "src/greedy.handler");
+    * ```
+    *
+    * Enable auth for a route.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /", "src/get.handler")
+    * api.route("POST /", "src/post.handler", {
+    *   auth: {
+    *     iam: true
+    *   }
+    * });
+    * ```
+    *
+    * Customize the route handler.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /", {
+    *   handler: "src/get.handler",
+    *   memory: "2048 MB"
+    * });
+    * ```
+    *
+    * Or pass in the ARN of an existing Lambda function.
+    *
+    * ```js title="sst.config.ts"
+    * api.route("GET /", "arn:aws:lambda:us-east-1:123456789012:function:my-function");
+    * ```
+    */
     route(route: string, handler: Input<string | FunctionArgs | FunctionArn>, args?: ApiGatewayV1RouteArgs): ApiGatewayV1LambdaRoute;
     /**
      * Add a custom integration to the API Gateway REST API. [Learn more about

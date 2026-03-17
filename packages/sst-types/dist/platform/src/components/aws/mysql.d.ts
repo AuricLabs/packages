@@ -8,6 +8,11 @@ import { SizeGbTb } from "../size";
 export interface MysqlArgs {
     /**
      * The MySQL engine version. Check out the [available versions in your region](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/MySQL.Concepts.VersionMgmt.html).
+     *
+     * :::caution
+     * Changing the version will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
+     *
      * @default `"8.0.40"`
      * @example
      * ```js
@@ -20,7 +25,7 @@ export interface MysqlArgs {
     /**
      * The username of the master user.
      *
-     * :::caution
+     * :::danger
      * Changing the username will cause the database to be destroyed and recreated.
      * :::
      *
@@ -59,6 +64,10 @@ export interface MysqlArgs {
      * underscores. By default, it takes the name of the app, and replaces the hyphens with
      * underscores.
      *
+     * :::danger
+     * Changing the database name will cause the database to be destroyed and recreated.
+     * :::
+     *
      * @default Based on the name of the current app
      * @example
      * ```js
@@ -71,6 +80,10 @@ export interface MysqlArgs {
     /**
      * The type of instance to use for the database. Check out the [supported instance types](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Types.html).
      *
+     * :::caution
+     * Changing the instance type will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
+     *
      * @default `"t4g.micro"`
      * @example
      * ```js
@@ -78,10 +91,6 @@ export interface MysqlArgs {
      *   instance: "m7g.xlarge"
      * }
      * ```
-     *
-     * By default, these changes are not applied immediately by RDS. Instead, they are
-     * applied in the next maintenance window. Check out the [full list](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ModifyInstance.Settings.html)
-     * of props that are not applied immediately.
      */
     instance?: Input<string>;
     /**
@@ -440,7 +449,7 @@ export declare class Mysql extends Component implements Link.Linkable {
      */
     get host(): Output<string>;
     get nodes(): {
-        instance: import("@pulumi/aws/rds/instance").Instance | undefined;
+        instance: import("@pulumi/aws/rds/instance").Instance;
     };
     /** @internal */
     getSSTLink(): {

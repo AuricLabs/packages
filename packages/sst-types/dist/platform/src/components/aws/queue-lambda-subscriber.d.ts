@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input, Output } from "@pulumi/pulumi";
 import { Component } from "../component";
-import { Function, FunctionArgs } from "./function";
+import { Function, FunctionArgs } from "./function.js";
 import { QueueSubscriberArgs } from "./queue";
 export interface Args extends QueueSubscriberArgs {
     /**
@@ -16,6 +16,11 @@ export interface Args extends QueueSubscriberArgs {
      * The subscriber function.
      */
     subscriber: Input<string | FunctionArgs>;
+    /**
+     * [Transform](/docs/components#transform) how this component creates its underlying
+     * resources.
+     */
+    transform?: QueueSubscriberArgs["transform"];
 }
 /**
  * The `QueueLambdaSubscriber` component is internally used by the `Queue` component to

@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
-import { FunctionArgs } from "./function";
+import { FunctionArgs } from "./function.js";
 import { ApiGatewayV1BaseRouteArgs } from "./apigatewayv1-base-route";
 export interface Args extends ApiGatewayV1BaseRouteArgs {
     /**

@@ -217,8 +217,8 @@ export declare class Map extends State implements Nextable, Failable {
      */
     protected toJSON(): {
         Type: string;
-        Items: Input<any[] | `{% ${string} %}`> | undefined;
-        ItemSelector: Input<Record<string, any>> | undefined;
+        Items: Input<any[] | `{% ${string} %}`>;
+        ItemSelector: Input<Record<string, any>>;
         ItemProcessor: {
             ProcessorConfig: Output<{
                 Mode: string;
@@ -230,6 +230,6 @@ export declare class Map extends State implements Nextable, Failable {
             StartAt: string;
             States: Record<string, any>;
         };
-        MaxConcurrency: Input<number | `{% ${string} %}`> | undefined;
+        MaxConcurrency: Input<number | `{% ${string} %}`>;
     };
 }

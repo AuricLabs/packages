@@ -61,12 +61,12 @@ export declare class Choice extends State {
      */
     serialize(): {};
     protected toJSON(): {
-        End: undefined;
+        End: any;
         Type: string;
         Choices: {
             Condition: `{% ${string} %}`;
             Next: string;
         }[];
-        Default: string | undefined;
+        Default: string;
     };
 }

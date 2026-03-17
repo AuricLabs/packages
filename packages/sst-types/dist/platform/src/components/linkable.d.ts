@@ -1,3 +1,4 @@
+import { Output } from "@pulumi/pulumi";
 import { Link } from "./link";
 import { Component } from "./component";
 import { Input } from "./input";
@@ -166,13 +167,20 @@ export interface Definition<Properties extends Record<string, any> = Record<stri
  * ```
  *
  * This overrides the built-in link and lets you create your own.
+ *
+ * #### Exposing links as env vars
+ *
+ * If you want to pass link env vars to compute not managed by SST, like an ECS task
+ * definition or a Kubernetes pod, use `Linkable.env()`. It returns an `Output` of
+ * `SST_RESOURCE_*` env vars that you can pass to any provider.
+ * [Check out an example](/docs/examples/#aws-linkable-env).
  */
 export declare class Linkable<T extends Record<string, any>> extends Component implements Link.Linkable {
     private _name;
     private _definition;
     static wrappedResources: Set<string>;
     constructor(name: string, definition: Definition<T>);
-    get name(): $util.Output<string>;
+    get name(): Output<string>;
     get properties(): T;
     /** @internal */
     getSSTLink(): Definition<T>;
@@ -248,6 +256,28 @@ export declare class Linkable<T extends Record<string, any>> extends Component i
     static wrap<Resource>(cls: {
         new (...args: any[]): Resource;
     }, cb: (resource: Resource) => Definition): void;
+    /**
+     * Convert an array of resources into `SST_RESOURCE_*` environment variables so
+     * that `Resource.MyResource` works at runtime inside containers or functions
+     * deployed through an external provider.
+     *
+     * @param links Array of linkable resources.
+     *
+     * @example
+     *
+     * If the provider accepts a flat `Record<string, string>`, you can pass the
+     * output directly.
+     *
+     * ```ts title="sst.config.ts"
+     * const bucket = new sst.aws.Bucket("MyBucket");
+     *
+     * new vercel.Project("BadDecision", {
+     *   name: "bad-decision",
+     *   environment: sst.Linkable.env([bucket]),
+     * });
+     * ```
+     */
+    static env(links: Input<any[]>): Output<Record<string, string>>;
 }
 /**
  * @deprecated
@@ -257,7 +287,7 @@ export declare class Resource extends Component implements Link.Linkable {
     private _properties;
     private _name;
     constructor(name: string, properties: any);
-    get name(): $util.Output<string>;
+    get name(): Output<string>;
     get properties(): any;
     /** @internal */
     getSSTLink(): {

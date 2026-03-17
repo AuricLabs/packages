@@ -19,7 +19,7 @@ export declare class Succeed extends State {
      * Serialize the state into JSON state definition.
      */
     protected toJSON(): {
-        End: undefined;
+        End: any;
         Type: string;
     };
 }

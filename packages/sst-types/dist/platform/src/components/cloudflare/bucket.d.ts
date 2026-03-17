@@ -68,22 +68,10 @@ export declare class Bucket extends Component implements Link.Linkable {
         };
         include: {
             type: "cloudflare.binding";
-            binding: "kvNamespaceBindings" | "secretTextBindings" | "serviceBindings" | "plainTextBindings" | "queueBindings" | "r2BucketBindings" | "d1DatabaseBindings";
-            properties: {
-                namespaceId: import("../input").Input<string>;
-            } | {
-                text: import("../input").Input<string>;
-            } | {
-                service: import("../input").Input<string>;
-            } | {
-                text: import("../input").Input<string>;
-            } | {
-                queue: import("../input").Input<string>;
-            } | {
-                bucketName: import("../input").Input<string>;
-            } | {
-                id: import("../input").Input<string>;
-            };
+            binding: T;
+            properties: Extract<import("./binding.js").Binding, {
+                type: T;
+            }>["properties"];
         }[];
     };
     /**

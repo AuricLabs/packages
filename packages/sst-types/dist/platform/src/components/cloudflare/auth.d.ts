@@ -15,7 +15,7 @@ export declare class Auth extends Component implements Link.Linkable {
     constructor(name: string, args: AuthArgs, opts?: ComponentResourceOptions);
     get key(): import("@pulumi/tls/privateKey").PrivateKey;
     get authenticator(): Output<Worker>;
-    get url(): Output<string | undefined>;
+    get url(): Output<string>;
     /** @internal */
     getSSTLink(): Link.Definition;
 }

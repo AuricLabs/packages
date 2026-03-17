@@ -166,5 +166,5 @@ export declare class SolidStart extends SsrSite {
      * If the `domain` is set, this is the URL with the custom domain.
      * Otherwise, it's the auto-generated Worker URL.
      */
-    get url(): Output<string | undefined>;
+    get url(): Output<string>;
 }

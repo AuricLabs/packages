@@ -1,5 +1,5 @@
-import * as aws from "@pulumi/aws";
 import { Output } from "@pulumi/pulumi";
+import { kinesis, lambda } from "@pulumi/aws";
 import { Component, Transform } from "../component.js";
 import { Input } from "../input.js";
 import { Link } from "../link.js";
@@ -14,7 +14,7 @@ export interface KinesisStreamArgs {
         /**
          * Transform the Kinesis stream resource.
          */
-        stream?: Transform<aws.kinesis.StreamArgs>;
+        stream?: Transform<kinesis.StreamArgs>;
     };
 }
 export interface KinesisStreamLambdaSubscriberArgs {
@@ -65,7 +65,7 @@ export interface KinesisStreamLambdaSubscriberArgs {
         /**
          * Transform the Lambda Event Source Mapping resource.
          */
-        eventSourceMapping?: Transform<aws.lambda.EventSourceMappingArgs>;
+        eventSourceMapping?: Transform<lambda.EventSourceMappingArgs>;
     };
 }
 /**
@@ -239,9 +239,14 @@ export declare class KinesisStream extends Component implements Link.Linkable {
             name: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

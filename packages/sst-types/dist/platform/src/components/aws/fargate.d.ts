@@ -1,7 +1,7 @@
 import { ComponentResourceOptions } from "@pulumi/pulumi";
 import { Input } from "../input";
 import { Efs } from "./efs";
-import { FunctionArgs } from "./function";
+import { FunctionArgs } from "./function.js";
 import { RETENTION } from "./logging";
 import { ServiceArgs } from "./service";
 import { ImageArgs } from "@pulumi/docker-build";
@@ -167,9 +167,53 @@ export interface FargateContainerArgs {
          */
         args?: Input<Record<string, Input<string>>>;
         /**
+         * Key-value pairs of [build secrets](https://docs.docker.com/build/building/secrets/) to pass to the Docker build.
+         *
+         * Unlike build args, secrets are not persisted in the final image. They are
+         * available in the Dockerfile via [`--mount=type=secret`](https://docs.docker.com/build/building/secrets/#secret-mounts).
+         *
+         * @example
+         * ```js
+         * {
+         *   secrets: {
+         *     MY_TOKEN: "my-secret-token",
+         *   }
+         * }
+         * ```
+         *
+         * Then in the Dockerfile, reference it as a file:
+         * ```dockerfile title="Dockerfile"
+         * RUN --mount=type=secret,id=MY_TOKEN \
+         *   cat /run/secrets/MY_TOKEN
+         * ```
+         *
+         * Or as an environment variable:
+         * ```dockerfile title="Dockerfile"
+         * RUN --mount=type=secret,id=MY_TOKEN,env=MY_TOKEN \
+         *   echo $MY_TOKEN
+         * ```
+         */
+        secrets?: Input<Record<string, Input<string>>>;
+        /**
+         * Tags to apply to the Docker image.
+         * @example
+         * ```js
+         * {
+         *   tags: ["v1.0.0", "commit-613c1b2"]
+         * }
+         * ```
+         */
+        tags?: Input<Input<string>[]>;
+        /**
          * The stage to build up to. Same as the top-level [`image.target`](#image-target).
          */
         target?: Input<string>;
+        /**
+         * Controls whether Docker build cache is enabled. Same as the top-level
+         * [`image.cache`](#image-cache).
+         * @default `true`
+         */
+        cache?: Input<boolean>;
     }>;
     /**
      * The command to override the default command in the container. Same as the top-level
@@ -212,7 +256,7 @@ export interface FargateContainerArgs {
     ssm?: FargateBaseArgs["ssm"];
     /**
      * Mount Amazon EFS file systems into the container. Same as the top-level
-     * [`efs`](#efs).
+     * [`volumes`](#volumes).
      */
     volumes?: FargateBaseArgs["volumes"];
 }
@@ -432,6 +476,34 @@ export interface FargateBaseArgs {
          */
         args?: Input<Record<string, Input<string>>>;
         /**
+         * Key-value pairs of [build secrets](https://docs.docker.com/build/building/secrets/) to pass to the Docker build.
+         *
+         * Unlike build args, secrets are not persisted in the final image. They are
+         * available in the Dockerfile via [`--mount=type=secret`](https://docs.docker.com/build/building/secrets/#secret-mounts).
+         *
+         * @example
+         * ```js
+         * {
+         *   secrets: {
+         *     MY_TOKEN: "my-secret-token",
+         *   }
+         * }
+         * ```
+         *
+         * Then in the Dockerfile, reference it as a file:
+         * ```dockerfile title="Dockerfile"
+         * RUN --mount=type=secret,id=MY_TOKEN \
+         *   cat /run/secrets/MY_TOKEN
+         * ```
+         *
+         * Or as an environment variable:
+         * ```dockerfile title="Dockerfile"
+         * RUN --mount=type=secret,id=MY_TOKEN,env=MY_TOKEN \
+         *   echo $MY_TOKEN
+         * ```
+         */
+        secrets?: Input<Record<string, Input<string>>>;
+        /**
          * Tags to apply to the Docker image.
          * @example
          * ```js
@@ -451,6 +523,21 @@ export interface FargateBaseArgs {
          * ```
          */
         target?: Input<string>;
+        /**
+         * Controls whether Docker build cache is enabled.
+         * @default `true`
+         * @example
+         * Disable Docker build caching, useful for environments like Localstack where
+         * ECR cache export is not supported.
+         * ```js
+         * {
+         *   image: {
+         *     cache: false
+         *   }
+         * }
+         * ```
+         */
+        cache?: Input<boolean>;
     }>;
     /**
      * The command to override the default command in the container.
@@ -681,122 +768,11 @@ export interface FargateBaseArgs {
         logGroup?: Transform<cloudwatch.LogGroupArgs>;
     };
 }
-export declare function normalizeArchitecture(args: FargateBaseArgs): $util.Output<"arm64" | "x86_64">;
+export declare function normalizeArchitecture(args: FargateBaseArgs): $util.Output<"x86_64" | "arm64">;
 export declare function normalizeCpu(args: FargateBaseArgs): $util.Output<"0.25 vCPU" | "0.5 vCPU" | "1 vCPU" | "2 vCPU" | "4 vCPU" | "8 vCPU" | "16 vCPU">;
 export declare function normalizeMemory(cpu: ReturnType<typeof normalizeCpu>, args: FargateBaseArgs): $util.Output<`${number} GB`>;
 export declare function normalizeStorage(args: FargateBaseArgs): $util.Output<`${number} GB`>;
-export declare function normalizeContainers(type: "service" | "task", args: ServiceArgs, name: string, architecture: ReturnType<typeof normalizeArchitecture>): $util.Output<({
-    volumes: $util.Output<{
-        path: string;
-        efs: $util.UnwrappedObject<$util.UnwrappedObject<{
-            /**
-             * The ID of the EFS file system.
-             */
-            fileSystem: Input<string>;
-            /**
-             * The ID of the EFS access point.
-             */
-            accessPoint: Input<string>;
-        }>> | {
-            fileSystem: $util.Output<string>;
-            accessPoint: $util.Output<string>;
-        };
-    }[] | undefined>;
-    image: $util.Output<string | {
-        context: string;
-        platform: "linux/amd64" | "linux/arm64";
-        dockerfile?: string | undefined;
-        args?: $util.UnwrappedObject<$util.UnwrappedObject<Record<string, Input<string>>>> | undefined;
-        tags?: $util.UnwrappedArray<string> | undefined;
-        target?: string | undefined;
-    }>;
-    logging: $util.Output<{
-        retention: "1 day" | "3 days" | "5 days" | "1 week" | "2 weeks" | "1 month" | "2 months" | "3 months" | "4 months" | "5 months" | "6 months" | "1 year" | "13 months" | "18 months" | "2 years" | "3 years" | "5 years" | "6 years" | "7 years" | "8 years" | "9 years" | "10 years" | "forever";
-        name: string;
-    } | {
-        retention: "1 day" | "3 days" | "5 days" | "1 week" | "2 weeks" | "1 month" | "2 months" | "3 months" | "4 months" | "5 months" | "6 months" | "1 year" | "13 months" | "18 months" | "2 years" | "3 years" | "5 years" | "6 years" | "7 years" | "8 years" | "9 years" | "10 years" | "forever";
-        name: string;
-    } | {
-        retention: "1 day" | "3 days" | "5 days" | "1 week" | "2 weeks" | "1 month" | "2 months" | "3 months" | "4 months" | "5 months" | "6 months" | "1 year" | "13 months" | "18 months" | "2 years" | "3 years" | "5 years" | "6 years" | "7 years" | "8 years" | "9 years" | "10 years" | "forever";
-        name: string;
-    }>;
-    health?: $util.UnwrappedObject<{
-        command: Input<string[]>;
-        startPeriod?: Input<import("../duration").DurationMinutes>;
-        timeout?: Input<import("../duration").DurationMinutes>;
-        interval?: Input<import("../duration").DurationMinutes>;
-        retries?: Input<number>;
-    }> | undefined;
-    dev?: $util.UnwrappedObject<{
-        command: Input<string>;
-        autostart?: Input<boolean>;
-        directory?: Input<string>;
-    }> | undefined;
-    name: string;
-    cpu?: `${number} vCPU` | undefined;
-    memory?: `${number} GB` | undefined;
-    command?: $util.UnwrappedArray<string> | undefined;
-    entrypoint?: $util.UnwrappedArray<string> | undefined;
-    environment?: $util.UnwrappedObject<Record<string, Input<string>>> | undefined;
-    environmentFiles?: $util.UnwrappedArray<Input<string>> | undefined;
-    ssm?: $util.UnwrappedObject<Record<string, Input<string>>> | undefined;
-} | {
-    volumes: $util.Output<{
-        path: string;
-        efs: $util.UnwrappedObject<$util.UnwrappedObject<{
-            /**
-             * The ID of the EFS file system.
-             */
-            fileSystem: Input<string>;
-            /**
-             * The ID of the EFS access point.
-             */
-            accessPoint: Input<string>;
-        }>> | {
-            fileSystem: $util.Output<string>;
-            accessPoint: $util.Output<string>;
-        };
-    }[] | undefined>;
-    image: $util.Output<string | {
-        context: string;
-        platform: "linux/amd64" | "linux/arm64";
-        dockerfile?: string | undefined;
-        args?: $util.UnwrappedObject<$util.UnwrappedObject<Record<string, Input<string>>>> | undefined;
-        tags?: $util.UnwrappedArray<string> | undefined;
-        target?: string | undefined;
-    }>;
-    logging: $util.Output<{
-        retention: "1 day" | "3 days" | "5 days" | "1 week" | "2 weeks" | "1 month" | "2 months" | "3 months" | "4 months" | "5 months" | "6 months" | "1 year" | "13 months" | "18 months" | "2 years" | "3 years" | "5 years" | "6 years" | "7 years" | "8 years" | "9 years" | "10 years" | "forever";
-        name: string;
-    } | {
-        retention: "1 day" | "3 days" | "5 days" | "1 week" | "2 weeks" | "1 month" | "2 months" | "3 months" | "4 months" | "5 months" | "6 months" | "1 year" | "13 months" | "18 months" | "2 years" | "3 years" | "5 years" | "6 years" | "7 years" | "8 years" | "9 years" | "10 years" | "forever";
-        name: string;
-    } | {
-        retention: "1 day" | "3 days" | "5 days" | "1 week" | "2 weeks" | "1 month" | "2 months" | "3 months" | "4 months" | "5 months" | "6 months" | "1 year" | "13 months" | "18 months" | "2 years" | "3 years" | "5 years" | "6 years" | "7 years" | "8 years" | "9 years" | "10 years" | "forever";
-        name: string;
-    }>;
-    name: string;
-    cpu: undefined;
-    memory: undefined;
-    environment: $util.UnwrappedObject<Record<string, Input<string>>> | undefined;
-    environmentFiles: $util.UnwrappedArray<Input<string>> | undefined;
-    ssm: $util.UnwrappedObject<Record<string, Input<string>>> | undefined;
-    command: $util.UnwrappedArray<Input<string>> | undefined;
-    entrypoint: $util.UnwrappedArray<string> | undefined;
-    health: $util.UnwrappedObject<{
-        command: Input<string[]>;
-        startPeriod?: Input<import("../duration").DurationMinutes>;
-        timeout?: Input<import("../duration").DurationMinutes>;
-        interval?: Input<import("../duration").DurationMinutes>;
-        retries?: Input<number>;
-    }> | undefined;
-    dev: false | $util.UnwrappedObject<{
-        url?: Input<string>;
-        command?: Input<string>;
-        autostart?: Input<boolean>;
-        directory?: Input<string>;
-    }> | undefined;
-})[]>;
+export declare function normalizeContainers(type: "service" | "task", args: Omit<ServiceArgs, "public">, name: string, architecture: ReturnType<typeof normalizeArchitecture>): $util.Output<any[]>;
 export declare function createTaskRole(name: string, args: FargateBaseArgs, opts: ComponentResourceOptions, parent: Component, dev: boolean, additionalPermissions?: FunctionArgs["permissions"]): import("@pulumi/aws/iam/role").Role;
 export declare function createExecutionRole(name: string, args: FargateBaseArgs, opts: ComponentResourceOptions, parent: Component): import("@pulumi/aws/iam/role").Role;
-export declare function createTaskDefinition(name: string, args: ServiceArgs, opts: ComponentResourceOptions, parent: Component, containers: ReturnType<typeof normalizeContainers>, architecture: ReturnType<typeof normalizeArchitecture>, cpu: ReturnType<typeof normalizeCpu>, memory: ReturnType<typeof normalizeMemory>, storage: ReturnType<typeof normalizeStorage>, taskRole: ReturnType<typeof createTaskRole>, executionRole: ReturnType<typeof createExecutionRole>): $util.Output<import("@pulumi/aws/ecs/taskDefinition").TaskDefinition>;
+export declare function createTaskDefinition(name: string, args: Omit<ServiceArgs, "public">, opts: ComponentResourceOptions, parent: Component, containers: ReturnType<typeof normalizeContainers>, architecture: ReturnType<typeof normalizeArchitecture>, cpu: ReturnType<typeof normalizeCpu>, memory: ReturnType<typeof normalizeMemory>, storage: ReturnType<typeof normalizeStorage>, taskRole: ReturnType<typeof createTaskRole>, executionRole: ReturnType<typeof createExecutionRole>): $util.Output<import("@pulumi/aws/ecs/taskDefinition").TaskDefinition>;

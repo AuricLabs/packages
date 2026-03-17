@@ -7,11 +7,16 @@ type ACU = `${number} ACU`;
 export interface PostgresArgs {
     /**
      * The Postgres engine version. Check out the [available versions in your region](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.Aurora_Fea_Regions_DB-eng.Feature.ServerlessV2.html#Concepts.Aurora_Fea_Regions_DB-eng.Feature.ServerlessV2.apg).
-     * @default `"15.5"`
+     *
+     * :::caution
+     * Changing the version will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
+     *
+     * @default `"17"`
      * @example
      * ```js
      * {
-     *   version: "13.9"
+     *   version: "15.5"
      * }
      * ```
      */
@@ -274,9 +279,14 @@ export declare class Postgres extends Component implements Link.Linkable {
             host: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

@@ -40,7 +40,7 @@
     "@auriclabs/env": "^0.0.3",
     "axios": "^1.12.1",
     "pino-lambda": "^4.4.1",
-    "sst": "^3.17.10"
+    "sst": "^4.3.7"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

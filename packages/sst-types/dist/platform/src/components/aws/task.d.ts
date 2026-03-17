@@ -55,22 +55,30 @@ export interface TaskArgs extends FargateBaseArgs {
      */
     containers?: Input<Prettify<FargateContainerArgs>>[];
     /**
-     * Assign a public IP address to the task.
+     * Make the task publicly accessible from the internet.
      *
-     * Defaults:
-     * - If an SST VPC component is passed to the `vpc` property, tasks run in public subnets
-     * by default and `publicIp` defaults to `true`.
-     * - If a non-SST VPC is used, tasks run in the specified subnets and `publicIp` defaults
-     * to `false`.
+     * :::note
+     * Tasks in an SST VPC are placed in public subnets with a public IP by default for
+     * outbound internet access. The `public` property controls whether the task is
+     * _reachable_ from the internet.
+     * :::
+     *
+     * If you are using a custom VPC, you must also set `vpc.publicSubnets` on the Cluster.
+     *
+     * @default false
      *
      * @example
      * ```ts
      * {
-     *   publicIp: true
+     *   public: true
      * }
      * ```
      */
-    publicIp?: Input<boolean>;
+    public?: boolean;
+    /**
+     * @deprecated Use `public` instead.
+     */
+    publicIp?: boolean;
     /**
      * Configure how this component works in `sst dev`.
      *
@@ -232,8 +240,8 @@ export interface TaskArgs extends FargateBaseArgs {
  *
  * By default, this uses a _Linux/X86_ _Fargate_ container with 0.25 vCPUs at $0.04048 per
  * vCPU per hour and 0.5 GB of memory at $0.004445 per GB per hour. It includes 20GB of
- * _Ephemeral Storage_ for free with additional storage at $0.000111 per GB per hour. Each
- * container also gets a public IPv4 address at $0.005 per hour.
+ * _Ephemeral Storage_ for free with additional storage at $0.000111 per GB per hour. When
+ * using an SST VPC, each task also gets a public IPv4 address at $0.005 per hour.
  *
  * It works out to $0.04048 x 0.25 + $0.004445 x 0.5 + $0.005. Or **$0.02 per hour**
  * your task runs for.
@@ -247,11 +255,13 @@ export interface TaskArgs extends FargateBaseArgs {
  */
 export declare class Task extends Component implements Link.Linkable {
     private readonly _cluster;
+    private readonly publicSecurityGroup?;
     private readonly vpc;
     private readonly executionRole;
     private readonly taskRole;
     private readonly _taskDefinition;
-    private readonly _publicIp;
+    private readonly isPublic;
+    private readonly hasPublicIp;
     private readonly containerNames;
     private readonly dev;
     constructor(name: string, args: TaskArgs, opts?: ComponentResourceOptions);
@@ -273,12 +283,12 @@ export declare class Task extends Component implements Link.Linkable {
      * The security groups for the task.
      * @internal
      */
-    get securityGroups(): Output<Output<string>[]>;
+    get securityGroups(): Output<Input<string>[]>;
     /**
      * The subnets for the task.
      * @internal
      */
-    get subnets(): Output<Output<string>[]>;
+    get subnets(): Output<Input<string>[]>;
     /**
      * Whether to assign a public IP address to the task.
      * @internal
@@ -300,6 +310,11 @@ export declare class Task extends Component implements Link.Linkable {
          * The Amazon ECS Task Definition.
          */
         taskDefinition: Output<import("@pulumi/aws/ecs/taskDefinition.js").TaskDefinition>;
+        /**
+         * The AWS Security Group for public tasks. Only created when `public`
+         * is `true`.
+         */
+        publicSecurityGroup: import("@pulumi/aws/ec2/securityGroup.js").SecurityGroup;
     };
     /** @internal */
     getSSTLink(): {
@@ -307,14 +322,19 @@ export declare class Task extends Component implements Link.Linkable {
             cluster: Output<string>;
             containers: Output<Output<string>[]>;
             taskDefinition: Output<string>;
-            subnets: Output<Output<string>[]>;
-            securityGroups: Output<Output<string>[]>;
+            subnets: Output<Input<string>[]>;
+            securityGroups: Output<Input<string>[]>;
             assignPublicIp: $util.OutputInstance<boolean>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

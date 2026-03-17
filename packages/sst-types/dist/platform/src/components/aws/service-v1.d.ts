@@ -71,7 +71,7 @@ export declare class Service extends Component implements Link.Linkable {
     /** @internal */
     getSSTLink(): {
         properties: {
-            url: Output<string> | undefined;
+            url: Output<string>;
         };
     };
 }

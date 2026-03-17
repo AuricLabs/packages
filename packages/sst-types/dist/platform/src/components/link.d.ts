@@ -19,12 +19,12 @@ export declare namespace Link {
     function build(links: any[]): Output<{
         name: string;
         properties: {
-            type: string | undefined;
+            type: string;
         };
     }>[];
     function getProperties(links?: Input<any[]>): Output<{
         [k: string]: {
-            type: string | undefined;
+            type: string;
         };
     }>;
     function propertiesToEnv(properties: ReturnType<typeof getProperties>): Output<{

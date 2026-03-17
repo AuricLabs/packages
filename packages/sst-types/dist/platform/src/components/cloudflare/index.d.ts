@@ -8,6 +8,7 @@ export * from "./account-id";
 export * from "./auth";
 export * from "./queue";
 export * from "./cron";
+export * from "./ai";
 export { binding } from "./binding.js";
 /**
  * experimental packages, you may be fired for using

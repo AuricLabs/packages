@@ -3,9 +3,12 @@ import { Component, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
 import { Cdn, CdnArgs } from "./cdn";
-import { cloudfront } from "@pulumi/aws";
+import { cloudfront, cloudwatch, wafv2 } from "@pulumi/aws";
 import { Bucket } from "./bucket";
 import { DurationSeconds } from "../duration";
+import { FunctionArn } from "./function.js";
+import { Size } from "../size";
+import { RETENTION } from "./logging";
 interface InlineUrlRouteArgs extends InlineBaseRouteArgs {
     /**
      * The destination URL.
@@ -436,6 +439,221 @@ export interface RouterBucketRouteArgs extends RouteArgs {
         to: Input<string>;
     }>;
 }
+export interface WafLoggingArgs {
+    /**
+     * Filter which requests are logged.
+     *
+     * - `"all"` logs every request evaluated by the WAF.
+     * - `"blocked"` only logs requests that were blocked.
+     *
+     * @default `"all"`
+     * @example
+     * ```js
+     * {
+     *   waf: {
+     *     logging: {
+     *       include: "blocked"
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    include?: Input<"all" | "blocked">;
+    /**
+     * The duration the WAF logs are kept in CloudWatch.
+     *
+     * @default `"1 month"`
+     * @example
+     * ```js
+     * {
+     *   waf: {
+     *     logging: {
+     *       retention: "3 months"
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    retention?: Input<keyof typeof RETENTION>;
+    /**
+     * Configure which parts of the request are redacted from the logs. Redacted
+     * fields are replaced with `REDACTED` in the log output.
+     *
+     * By default, the query string and the `cookie` and `authorization` headers
+     * are redacted since they commonly contain PII or credentials.
+     *
+     * Set to `false` to disable all redaction.
+     *
+     * @default `{ queryString: true, headers: ["cookie", "authorization"] }`
+     * @example
+     *
+     * Disable all redaction.
+     *
+     * ```js
+     * {
+     *   waf: {
+     *     logging: {
+     *       redact: false
+     *     }
+     *   }
+     * }
+     * ```
+     *
+     * Redact everything.
+     *
+     * ```js
+     * {
+     *   waf: {
+     *     logging: {
+     *       redact: {
+     *         queryString: true,
+     *         uriPath: true,
+     *         method: true,
+     *         headers: ["cookie", "authorization"]
+     *       }
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    redact?: Input<false | {
+        /**
+         * Redact the query string from the logs. The query string is the
+         * part of a URL after the `?` and can contain tokens, user IDs,
+         * or other sensitive parameters.
+         * @default `true`
+         */
+        queryString?: Input<boolean>;
+        /**
+         * Redact the URI path from the logs. The URI path identifies the
+         * resource being accessed, like `/users/123/profile`.
+         * @default `false`
+         */
+        uriPath?: Input<boolean>;
+        /**
+         * Redact the HTTP method from the logs (GET, POST, etc.).
+         * @default `false`
+         */
+        method?: Input<boolean>;
+        /**
+         * A list of header names to redact from the logs. Must be lowercase.
+         * @default `["cookie", "authorization"]`
+         * @example
+         * ```js
+         * {
+         *   headers: ["cookie", "authorization", "x-api-key"]
+         * }
+         * ```
+         */
+        headers?: Input<string[]>;
+    }>;
+}
+export interface WafArgs {
+    /**
+     * The rate limit per IP address. Requests from an IP that exceed this limit
+     * within a 5-minute window will be blocked.
+     *
+     * @default `2000`
+     * @example
+     * ```js
+     * {
+     *   waf: {
+     *     rateLimitPerIp: 1000
+     *   }
+     * }
+     * ```
+     */
+    rateLimitPerIp?: Input<number>;
+    /**
+     * Configure which AWS managed rule groups to enable.
+     *
+     * @default All managed rules enabled
+     * @example
+     * ```js
+     * {
+     *   waf: {
+     *     managedRules: {
+     *       coreRuleSet: true,
+     *       knownBadInputs: true,
+     *       sqlInjection: false
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    managedRules?: Input<{
+        /**
+         * Enable the AWS Core Rule Set (CRS) which provides protection against common
+         * web vulnerabilities.
+         * @default `true`
+         */
+        coreRuleSet?: Input<boolean>;
+        /**
+         * Enable protection against known bad inputs, including Log4j vulnerabilities.
+         * @default `true`
+         */
+        knownBadInputs?: Input<boolean>;
+        /**
+         * Enable SQL injection protection.
+         * @default `true`
+         */
+        sqlInjection?: Input<boolean>;
+    }>;
+    /**
+     * Configure WAF logging to CloudWatch. When set to `true`, all WAF-evaluated
+     * requests are logged with a 1-month retention. Or pass in an object to
+     * customize what is logged, how long logs are retained, and which fields
+     * are redacted.
+     *
+     * :::tip
+     * WAF logging is off by default. Enabling it will incur additional
+     * [CloudWatch costs](https://aws.amazon.com/cloudwatch/pricing/) depending
+     * on log volume.
+     * :::
+     *
+     * @default Logging is disabled
+     * @example
+     *
+     * Enable with defaults.
+     *
+     * ```js
+     * {
+     *   waf: {
+     *     logging: true
+     *   }
+     * }
+     * ```
+     *
+     * Only log blocked requests.
+     *
+     * ```js
+     * {
+     *   waf: {
+     *     logging: {
+     *       include: "blocked",
+     *       retention: "3 months"
+     *     }
+     *   }
+     * }
+     * ```
+     *
+     * Redact sensitive fields.
+     *
+     * ```js
+     * {
+     *   waf: {
+     *     logging: {
+     *       redact: {
+     *         queryString: true,
+     *         headers: ["cookie"]
+     *       }
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    logging?: Input<boolean | WafLoggingArgs>;
+}
 export interface RouterArgs {
     /**
      * Set a custom domain for your Router.
@@ -787,6 +1005,128 @@ export interface RouterArgs {
         paths?: Input<Input<string>[]>;
     }>;
     /**
+     * Configure Lambda function URL protection through CloudFront Origin Access Control.
+     *
+     * When set, all Functions and SSR sites routing through this Router automatically
+     * inherit the protection mode.
+     *
+     * @default `"none"`
+     *
+     * The available options are:
+     * - `"none"`: Lambda URLs are publicly accessible.
+     * - `"oac"`: Lambda URLs protected by CloudFront Origin Access Control. Requires
+     *   manual `x-amz-content-sha256` header for POST requests.
+     * - `"oac-with-edge-signing"`: Full protection with automatic header signing via
+     *   Lambda@Edge. Works with external webhooks and callbacks. Higher cost and latency
+     *   but works out of the box.
+     *
+     * :::note
+     * Switching from `"none"` to `"oac"` or `"oac-with-edge-signing"` may cause brief
+     * 403 errors (~10-60s) during deployment while CloudFront edge nodes pick up the new
+     * signing configuration. For zero-disruption upgrades, set `protection` when first
+     * creating the Router.
+     * :::
+     *
+     * :::note
+     * When using `"oac-with-edge-signing"`, request bodies are limited to 1MB due to
+     * Lambda@Edge payload limits. For file uploads larger than 1MB, consider using
+     * presigned S3 URLs or the `"oac"` mode with manual header signing.
+     * :::
+     *
+     * :::note
+     * When removing a stage that uses `"oac-with-edge-signing"`, deletion may take
+     * 5-10 minutes while AWS removes the Lambda@Edge replicated functions from all
+     * edge locations.
+     * :::
+     *
+     * @example
+     * ```js
+     * {
+     *   protection: "oac"
+     * }
+     * ```
+     *
+     * @example
+     * ```js
+     * {
+     *   protection: "oac-with-edge-signing"
+     * }
+     * ```
+     *
+     * @example
+     * ```js
+     * // Custom Lambda@Edge configuration
+     * {
+     *   protection: {
+     *     mode: "oac-with-edge-signing",
+     *     edgeFunction: {
+     *       memory: "256 MB",
+     *       timeout: "10 seconds"
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    protection?: Input<"none" | "oac" | "oac-with-edge-signing" | {
+        mode: "oac-with-edge-signing";
+        edgeFunction?: {
+            /**
+             * Custom Lambda@Edge function ARN to use for request signing.
+             * If provided, this function will be used instead of creating a new one.
+             * Must be a qualified ARN (with version) and deployed in us-east-1.
+             */
+            arn?: Input<FunctionArn>;
+            /**
+             * Memory size for the auto-created Lambda@Edge function.
+             * Only used when arn is not provided.
+             * @default `"128 MB"`
+             */
+            memory?: Input<Size>;
+            /**
+             * Timeout for the auto-created Lambda@Edge function.
+             * Only used when arn is not provided.
+             * @default `"5 seconds"`
+             */
+            timeout?: Input<DurationSeconds>;
+        };
+    }>;
+    /**
+     * Enable AWS WAF (Web Application Firewall) to protect your Router from common
+     * web exploits and bots.
+     *
+     * :::tip
+     * WAF provides protection against SQL injection, cross-site scripting (XSS),
+     * and other common attacks.
+     * :::
+     *
+     * @default WAF is disabled
+     * @example
+     *
+     * Enable with sensible defaults.
+     *
+     * ```js
+     * {
+     *   waf: true
+     * }
+     * ```
+     *
+     * Or customize the configuration.
+     *
+     * ```js
+     * {
+     *   waf: {
+     *     rateLimitPerIp: 1000,
+     *     managedRules: {
+     *       coreRuleSet: true,
+     *       knownBadInputs: true,
+     *       sqlInjection: true
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    waf?: Input<boolean | WafArgs>;
+    /**
      * [Transform](/docs/components#transform) how this component creates its underlying
      * resources.
      */
@@ -799,6 +1139,18 @@ export interface RouterArgs {
          * Transform the CloudFront CDN resource.
          */
         cdn?: Transform<CdnArgs>;
+        /**
+         * Transform the WAF WebACL resource.
+         */
+        waf?: Transform<wafv2.WebAclArgs>;
+        /**
+         * Transform the CloudWatch LogGroup resource used for WAF logs.
+         */
+        wafLogGroup?: Transform<cloudwatch.LogGroupArgs>;
+        /**
+         * Transform the WAF WebACL logging configuration resource.
+         */
+        wafLogging?: Transform<wafv2.WebAclLoggingConfigurationArgs>;
     };
     /**
      * @internal
@@ -969,6 +1321,7 @@ export declare class Router extends Component implements Link.Linkable {
     private kvStoreArn?;
     private kvNamespace?;
     private hasInlineRoutes;
+    private _protectionMode;
     constructor(name: string, args?: RouterArgs, opts?: ComponentResourceOptions);
     /**
      * The ID of the Router distribution.
@@ -982,11 +1335,15 @@ export declare class Router extends Component implements Link.Linkable {
      */
     get url(): Output<string>;
     /** @internal */
-    get _kvStoreArn(): Output<string> | undefined;
+    get _kvStoreArn(): Output<string>;
     /** @internal */
-    get _kvNamespace(): Output<string> | undefined;
+    get _kvNamespace(): Output<string>;
     /** @internal */
     get _hasInlineRoutes(): $util.OutputInstance<boolean>;
+    /** @internal */
+    get _protection(): Output<ProtectionConfig>;
+    /** @internal */
+    get _distributionArn(): Output<string>;
     /**
      * The underlying [resources](/docs/components/#nodes) this component creates.
      */
@@ -1155,10 +1512,11 @@ export declare class Router extends Component implements Link.Linkable {
     static get(name: string, distributionID: Input<string>, opts?: ComponentResourceOptions): Router;
 }
 export declare const CF_BLOCK_CLOUDFRONT_URL_INJECTION = "\nif (event.request.headers.host.value.includes('cloudfront.net')) {\n  return {\n    statusCode: 403,\n    statusDescription: 'Forbidden',\n    body: {\n      encoding: \"text\",\n      data: '<html><head><title>403 Forbidden</title></head><body><center><h1>403 Forbidden</h1></center></body></html>'\n    }\n  };\n}";
-export declare const CF_ROUTER_INJECTION = "\nasync function routeSite(kvNamespace, metadata) {\n  const baselessUri = metadata.base\n    ? event.request.uri.replace(metadata.base, \"\")\n    : event.request.uri;\n\n  // Route to S3 files\n  try {\n    // check using baselessUri b/c files are stored in the root\n    const u = decodeURIComponent(baselessUri);\n    const postfixes = u.endsWith(\"/\")\n      ? [\"index.html\"]\n      : [\"\", \".html\", \"/index.html\"];\n    const v = await Promise.any(postfixes.map(p => cf.kvs().get(kvNamespace + \":\" + u + p).then(v => p)));\n    // files are stored in a subdirectory, add it to the request uri\n    event.request.uri = metadata.s3.dir + event.request.uri + v;\n    setS3Origin(metadata.s3.domain);\n    return;\n  } catch (e) {}\n\n  // Route to S3 routes\n  if (metadata.s3 && metadata.s3.routes) {\n    for (var i=0, l=metadata.s3.routes.length; i<l; i++) {\n      const route = metadata.s3.routes[i];\n      if (baselessUri.startsWith(route)) {\n        event.request.uri = metadata.s3.dir + event.request.uri;\n        // uri ends with /, ie. /usage/ -> /usage/index.html\n        if (event.request.uri.endsWith(\"/\")) {\n          event.request.uri += \"index.html\";\n        }\n        // uri ends with non-file, ie. /usage -> /usage/index.html\n        else if (!event.request.uri.split(\"/\").pop().includes(\".\")) {\n          event.request.uri += \"/index.html\";\n        }\n        setS3Origin(metadata.s3.domain);\n        return;\n      }\n    }\n  }\n\n  // Route to S3 custom 404 (no servers)\n  if (metadata.custom404) {\n    event.request.uri = metadata.s3.dir + (metadata.base ? metadata.base : \"\") + metadata.custom404;\n    setS3Origin(metadata.s3.domain);\n    return;\n  }\n\n  // Route to image optimizer\n  if (metadata.image && baselessUri.startsWith(metadata.image.route)) {\n    setUrlOrigin(metadata.image.host);\n    return;\n  }\n\n  // Route to servers\n  if (metadata.servers){\n    event.request.headers[\"x-forwarded-host\"] = event.request.headers.host;\n    \n    for (var key in event.request.querystring) {\n      if (key.includes(\"/\")) {\n        event.request.querystring[encodeURIComponent(key)] = event.request.querystring[key];\n        delete event.request.querystring[key];\n      }\n    }\n    setNextjsGeoHeaders();\n    setNextjsCacheKey();\n    setUrlOrigin(findNearestServer(metadata.servers), metadata.origin);\n  }\n\n  function setNextjsGeoHeaders() {\n    \n    if(event.request.headers[\"cloudfront-viewer-city\"]) {\n      event.request.headers[\"x-open-next-city\"] = event.request.headers[\"cloudfront-viewer-city\"];\n    }\n    if(event.request.headers[\"cloudfront-viewer-country\"]) {\n      event.request.headers[\"x-open-next-country\"] = event.request.headers[\"cloudfront-viewer-country\"];\n    }\n    if(event.request.headers[\"cloudfront-viewer-region\"]) {\n      event.request.headers[\"x-open-next-region\"] = event.request.headers[\"cloudfront-viewer-region\"];\n    }\n    if(event.request.headers[\"cloudfront-viewer-latitude\"]) {\n      event.request.headers[\"x-open-next-latitude\"] = event.request.headers[\"cloudfront-viewer-latitude\"];\n    }\n    if(event.request.headers[\"cloudfront-viewer-longitude\"]) {\n      event.request.headers[\"x-open-next-longitude\"] = event.request.headers[\"cloudfront-viewer-longitude\"];\n    }\n  }\n\n  function setNextjsCacheKey() {\n    \n    var cacheKey = \"\";\n    if (event.request.uri.startsWith(\"/_next/image\")) {\n      cacheKey = getHeader(\"accept\");\n    } else {\n      cacheKey =\n        getHeader(\"rsc\") +\n        getHeader(\"next-router-prefetch\") +\n        getHeader(\"next-router-state-tree\") +\n        getHeader(\"next-url\") +\n        getHeader(\"x-prerender-revalidate\");\n    }\n    if (event.request.cookies[\"__prerender_bypass\"]) {\n      cacheKey += event.request.cookies[\"__prerender_bypass\"]\n        ? event.request.cookies[\"__prerender_bypass\"].value\n        : \"\";\n    }\n    var crypto = require(\"crypto\");\n    var hashedKey = crypto.createHash(\"md5\").update(cacheKey).digest(\"hex\");\n    event.request.headers[\"x-open-next-cache-key\"] = { value: hashedKey };\n  }\n\n  function getHeader(key) {\n    var header = event.request.headers[key];\n    if (header) {\n      if (header.multiValue) {\n        return header.multiValue.map((header) => header.value).join(\",\");\n      }\n      if (header.value) {\n        return header.value;\n      }\n    }\n    return \"\";\n  }\n\n  function findNearestServer(servers) {\n    if (servers.length === 1) return servers[0][0];\n\n    const h = event.request.headers;\n    const lat = h[\"cloudfront-viewer-latitude\"] && h[\"cloudfront-viewer-latitude\"].value;\n    const lon = h[\"cloudfront-viewer-longitude\"] && h[\"cloudfront-viewer-longitude\"].value;\n    if (!lat || !lon) return servers[0][0];\n\n    return servers\n      .map((s) => ({\n        distance: haversineDistance(lat, lon, s[1], s[2]),\n        host: s[0],\n      }))\n      .sort((a, b) => a.distance - b.distance)[0]\n      .host;\n  }\n\n  function haversineDistance(lat1, lon1, lat2, lon2) {\n    const toRad = angle => angle * Math.PI / 180;\n    const radLat1 = toRad(lat1);\n    const radLat2 = toRad(lat2);\n    const dLat = toRad(lat2 - lat1);\n    const dLon = toRad(lon2 - lon1);\n    const a = Math.sin(dLat / 2) ** 2 + Math.cos(radLat1) * Math.cos(radLat2) * Math.sin(dLon / 2) ** 2;\n    return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));\n  }\n}\n\nfunction setUrlOrigin(urlHost, override) {\n  event.request.headers[\"x-forwarded-host\"] = event.request.headers.host;\n  const origin = {\n    domainName: urlHost,\n    customOriginConfig: {\n      port: 443,\n      protocol: \"https\",\n      sslProtocols: [\"TLSv1.2\"],\n    },\n    originAccessControlConfig: {\n      enabled: false,\n    }\n  };\n  override = override ?? {};\n  if (override.protocol === \"http\") {\n    delete origin.customOriginConfig;\n  }\n  if (override.connectionAttempts) {\n    origin.connectionAttempts = override.connectionAttempts;\n  }\n  if (override.timeouts) {\n    origin.timeouts = override.timeouts;\n  }\n  cf.updateRequestOrigin(origin);\n}\n\nfunction setS3Origin(s3Domain, override) {\n  delete event.request.headers[\"Cookies\"];\n  delete event.request.headers[\"cookies\"];\n  delete event.request.cookies;\n\n  const origin = {\n    domainName: s3Domain,\n    originAccessControlConfig: {\n      enabled: true,\n      signingBehavior: \"always\",\n      signingProtocol: \"sigv4\",\n      originType: \"s3\",\n    }\n  };\n  override = override ?? {};\n  if (override.connectionAttempts) {\n    origin.connectionAttempts = override.connectionAttempts;\n  }\n  if (override.timeouts) {\n    origin.timeouts = override.timeouts;\n  }\n  cf.updateRequestOrigin(origin);\n}";
+export declare const CF_ROUTER_INJECTION: string;
 export type KV_SITE_METADATA = {
     base?: string;
     custom404?: string;
+    errorResponseCode?: number;
     s3: {
         domain: string;
         dir: string;
@@ -1167,12 +1525,32 @@ export type KV_SITE_METADATA = {
     image?: {
         host: string;
         route: string;
+        originAccessControlConfig?: {
+            enabled: boolean;
+            signingBehavior: string;
+            signingProtocol: string;
+            originType: string;
+        };
     };
     servers?: [string, number, number][];
     origin?: {
         timeouts: {
             readTimeout: number;
         };
+        originAccessControlConfig?: {
+            enabled: boolean;
+            signingBehavior: string;
+            signingProtocol: string;
+            originType: string;
+        };
+    };
+};
+export type ProtectionConfig = {
+    mode: "none" | "oac" | "oac-with-edge-signing";
+    edgeFunction?: {
+        arn?: string;
+        memory?: Size;
+        timeout?: DurationSeconds;
     };
 };
 export type RouterRouteArgs = {
@@ -1255,11 +1633,13 @@ export type RouterRouteArgsDeprecated = {
     path?: Input<string>;
 };
 export declare function normalizeRouteArgs(route?: Input<RouterRouteArgs>, routeDeprecated?: Input<RouterRouteArgsDeprecated>): Output<{
-    hostPattern: string | undefined;
-    pathPrefix: string | undefined;
+    hostPattern: string;
+    pathPrefix: string;
     routerDistributionId: Output<string>;
     routerUrl: Output<string>;
     routerKvNamespace: Output<string>;
     routerKvStoreArn: Output<string>;
-}> | undefined;
+    routerProtection: Output<ProtectionConfig>;
+    routerDistributionArn: Output<string>;
+}>;
 export {};

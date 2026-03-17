@@ -9,4 +9,4 @@ export interface BaseSsrSiteArgs {
     link?: Input<any[]>;
     path?: Input<string>;
 }
-export declare function buildApp(parent: Resource, name: string, args: BaseSsrSiteArgs, sitePath: Output<string>, buildCommand?: Output<string>): Output<string>;
+export declare function buildApp(parent: Resource, name: string, args: BaseSsrSiteArgs, sitePath: Output<string>, buildCommand?: Output<string>): any;

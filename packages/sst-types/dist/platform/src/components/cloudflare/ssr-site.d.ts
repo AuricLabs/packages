@@ -31,7 +31,7 @@ export declare abstract class SsrSite extends Component implements Link.Linkable
      * If the `domain` is set, this is the URL with the custom domain.
      * Otherwise, it's the auto-generated CloudFront URL.
      */
-    get url(): Output<string | undefined>;
+    get url(): Output<string>;
     /**
      * The underlying [resources](/docs/components/#nodes) this component creates.
      */
@@ -44,7 +44,7 @@ export declare abstract class SsrSite extends Component implements Link.Linkable
     /** @internal */
     getSSTLink(): {
         properties: {
-            url: Output<string | undefined>;
+            url: Output<string>;
         };
     };
 }

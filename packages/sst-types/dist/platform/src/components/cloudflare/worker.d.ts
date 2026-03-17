@@ -1,6 +1,7 @@
 import { ComponentResourceOptions } from "@pulumi/pulumi";
 import * as cf from "@pulumi/cloudflare";
-import type { Loader, BuildOptions } from "esbuild";
+import type { Loader } from "esbuild";
+import type { EsbuildOptions } from "../esbuild.js";
 import { Component, Transform } from "../component";
 import { Link } from "../link.js";
 import type { Input } from "../input.js";
@@ -85,7 +86,7 @@ export interface WorkerArgs {
          * :::
          *
          */
-        esbuild?: Input<BuildOptions>;
+        esbuild?: Input<EsbuildOptions>;
         /**
          * Disable if the worker code should be minified when bundled.
          *
@@ -156,6 +157,36 @@ export interface WorkerArgs {
          * The directory containing the assets.
          */
         directory: Input<string>;
+    }>;
+    /**
+     * Configure [placement](https://developers.cloudflare.com/workers/configuration/placement/)
+     * for your Worker.
+     *
+     * @example
+     *
+     * #### Smart Placement
+     * ```js
+     * {
+     *   placement: {
+     *     mode: "smart"
+     *   }
+     * }
+     * ```
+     *
+     * #### Explicit region
+     * ```js
+     * {
+     *   placement: {
+     *     region: "aws:us-east-1"
+     *   }
+     * }
+     * ```
+     */
+    placement?: Input<{
+        mode?: Input<string>;
+        region?: Input<string>;
+        host?: Input<string>;
+        hostname?: Input<string>;
     }>;
     /**
      * [Transform](/docs/components/#transform) how this component creates its underlying
@@ -236,12 +267,13 @@ export interface WorkerArgs {
 export declare class Worker extends Component implements Link.Linkable {
     private script;
     private workerUrl;
+    private workerPlacement?;
     private workerDomain?;
     constructor(name: string, args: WorkerArgs, opts?: ComponentResourceOptions);
     /**
      * The Worker URL if `url` is enabled.
      */
-    get url(): $util.Output<string | undefined>;
+    get url(): $util.Output<string>;
     /**
      * The underlying [resources](/docs/components/#nodes) this component creates.
      */
@@ -249,7 +281,7 @@ export declare class Worker extends Component implements Link.Linkable {
         /**
          * The Cloudflare Worker script.
          */
-        worker: import("@pulumi/cloudflare/workersScript").WorkersScript;
+        worker: import("@pulumi/cloudflare/workersScript.js").WorkersScript;
     };
     /**
      * When you link a worker, say WorkerA, to another worker, WorkerB; it automatically creates
@@ -269,26 +301,14 @@ export declare class Worker extends Component implements Link.Linkable {
      */
     getSSTLink(): {
         properties: {
-            url: $util.Output<string | undefined>;
+            url: $util.Output<string>;
         };
         include: {
             type: "cloudflare.binding";
-            binding: "kvNamespaceBindings" | "secretTextBindings" | "serviceBindings" | "plainTextBindings" | "queueBindings" | "r2BucketBindings" | "d1DatabaseBindings";
-            properties: {
-                namespaceId: Input<string>;
-            } | {
-                text: Input<string>;
-            } | {
-                service: Input<string>;
-            } | {
-                text: Input<string>;
-            } | {
-                queue: Input<string>;
-            } | {
-                bucketName: Input<string>;
-            } | {
-                id: Input<string>;
-            };
+            binding: T;
+            properties: Extract<import("./binding.js").Binding, {
+                type: T;
+            }>["properties"];
         }[];
     };
 }

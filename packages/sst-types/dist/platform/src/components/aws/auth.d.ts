@@ -1,7 +1,7 @@
 import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
-import { Component } from "../component";
+import { Component, Transform } from "../component";
 import { Link } from "../link";
-import { FunctionArgs, Function, Dynamo, CdnArgs, Router } from ".";
+import { FunctionArgs, Function, Dynamo, CdnArgs, Router, RouterArgs } from ".";
 import { Auth as AuthV1 } from "./auth-v1";
 import { Input } from "../input";
 export interface AuthArgs {
@@ -106,6 +106,40 @@ export interface AuthArgs {
      * ```
      */
     domain?: CdnArgs["domain"];
+    /**
+     * [Transform](/docs/components#transform) how this component creates its underlying
+     * resources.
+     */
+    transform?: {
+        /**
+         * Transform the Router resource created for the custom domain.
+         *
+         * @example
+         *
+         * Attach a WAF to the CloudFront distribution.
+         *
+         * ```ts
+         * new sst.aws.Auth("MyAuth", {
+         *   issuer: "src/auth.handler",
+         *   domain: "auth.example.com",
+         *   transform: {
+         *     router: (args) => {
+         *       args.transform = {
+         *         cdn: {
+         *           transform: {
+         *             distribution: {
+         *               webAclId: "arn:aws:wafv2:...",
+         *             },
+         *           },
+         *         },
+         *       };
+         *     },
+         *   },
+         * });
+         * ```
+         */
+        router?: Transform<RouterArgs>;
+    };
     /**
      * Force upgrade from `Auth.v1` to the latest `Auth` version. The only valid value
      * is `v2`, which is the version of the new `Auth`.
@@ -220,7 +254,8 @@ export declare class Auth extends Component implements Link.Linkable {
     /**
      * The URL of the Auth component.
      *
-     * If the `domain` is set, this is the URL with the custom domain.
+     * If the `domain` is set, this is the URL of the Router created for the custom domain.
+     * If the `issuer` function is linked to a custom domain, this is the URL of the issuer.
      * Otherwise, it's the auto-generated function URL for the issuer.
      */
     get url(): Output<string>;
@@ -244,7 +279,7 @@ export declare class Auth extends Component implements Link.Linkable {
         /**
          * The Router component for the custom domain.
          */
-        router: Router | undefined;
+        router: Router;
     };
     /** @internal */
     getSSTLink(): {

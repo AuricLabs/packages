@@ -1,7 +1,5 @@
 import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Plan, SsrSite, SsrSiteArgs } from "./ssr-site.js";
-import { RouterRouteArgs } from "./router.js";
-import { Prettify } from "../component.js";
 export interface TanStackStartArgs extends SsrSiteArgs {
     /**
      * Configure how this component works in `sst dev`.
@@ -116,8 +114,8 @@ export interface TanStackStartArgs extends SsrSiteArgs {
     /**
      * Set in your TanStack Start app. These are made available:
      *
-     * 1. In `vinxi build`, they are loaded into `process.env`.
-     * 2. Locally while running `sst dev vinxi dev`.
+     * 1. In `vite build`, they are loaded into `process.env`.
+     * 2. Locally while running `sst dev`.
      *
      * :::tip
      * You can also `link` resources to your TanStack Start app and access them in a type-safe way with the [SDK](/docs/reference/sdk/). We recommend linking since it's more secure.
@@ -214,8 +212,24 @@ export interface TanStackStartArgs extends SsrSiteArgs {
      *   }
      * }
      * ```
+     *
+     * Finally, to serve your TanStack Start app **from a combined pattern** like
+     * `dev.example.com/docs`, you'll need to configure the domain in your `Router` to
+     * match the subdomain, and set the `domain` and the `path`.
+     *
+     * ```ts {4,5}
+     * {
+     *   router: {
+     *     instance: router,
+     *     domain: "dev.example.com",
+     *     path: "/docs"
+     *   }
+     * }
+     * ```
+     *
+     * Also, make sure to set this as the `base` in your `vite.config.ts`, and in your Nitro plugin config.
      */
-    router?: Prettify<Omit<RouterRouteArgs, "path">>;
+    router?: SsrSiteArgs["router"];
     /**
      * The command used internally to build your TanStack Start app.
      *
@@ -271,7 +285,7 @@ export interface TanStackStartArgs extends SsrSiteArgs {
  * The `TanStackStart` component lets you deploy a [TanStack Start](https://tanstack.com/start/latest) app to AWS.
  *
  * :::note
- * You need to make sure the `server.preset` value in the `app.config.ts` is set to `aws-lambda`.
+ * You need to make sure the `vite.config.ts` is configured with the `aws-lambda` nitro preset.
  * :::
  *
  * @example

@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input, Output } from "@pulumi/pulumi";
 import { Component } from "../component";
-import { Function } from "./function";
+import { Function } from "./function.js";
 import { AppSyncDataSourceArgs } from "./app-sync";
 export interface DataSourceArgs extends AppSyncDataSourceArgs {
     /**

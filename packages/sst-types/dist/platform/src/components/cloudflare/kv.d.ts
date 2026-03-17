@@ -14,6 +14,12 @@ export interface KvArgs {
         namespace?: Transform<cloudflare.WorkersKvNamespaceArgs>;
     };
 }
+export interface KvGetArgs {
+    /**
+     * The ID of the existing KV namespace.
+     */
+    namespaceId: string;
+}
 /**
  * The `Kv` component lets you add a [Cloudflare KV storage namespace](https://developers.cloudflare.com/kv/) to
  * your app.
@@ -50,6 +56,31 @@ export declare class Kv extends Component implements Link.Linkable {
     private namespace;
     constructor(name: string, args?: KvArgs, opts?: ComponentResourceOptions);
     /**
+     * Reference an existing KV namespace with the given name. This is useful when you
+     * create a KV namespace in one stage and want to share it in another.
+     *
+     * :::tip
+     * You can use the `static get` method to share KV namespaces across stages.
+     * :::
+     *
+     * @param name The name of the component.
+     * @param args The arguments to get the KV namespace.
+     * @param opts? Resource options.
+     *
+     * @example
+     * Imagine you create a KV namespace in the `dev` stage. And in your personal stage `frank`,
+     * instead of creating a new namespace, you want to share the same one from `dev`.
+     *
+     * ```ts title="sst.config.ts"
+     * const storage = $app.stage === "frank"
+     *   ? sst.cloudflare.Kv.get("MyStorage", {
+     *       namespaceId: "a1b2c3d4e5f6",
+     *     })
+     *   : new sst.cloudflare.Kv("MyStorage");
+     * ```
+     */
+    static get(name: string, args: KvGetArgs, opts?: ComponentResourceOptions): Kv;
+    /**
      * When you link a KV storage, the storage will be available to the worker and you can
      * interact with it using its [API methods](https://developers.cloudflare.com/kv/api/).
      *
@@ -63,31 +94,26 @@ export declare class Kv extends Component implements Link.Linkable {
      * @internal
      */
     getSSTLink(): {
-        properties: {};
+        properties: {
+            namespaceId: $util.Output<string>;
+        };
         include: {
             type: "cloudflare.binding";
-            binding: "kvNamespaceBindings" | "secretTextBindings" | "serviceBindings" | "plainTextBindings" | "queueBindings" | "r2BucketBindings" | "d1DatabaseBindings";
-            properties: {
-                namespaceId: import("../input").Input<string>;
-            } | {
-                text: import("../input").Input<string>;
-            } | {
-                service: import("../input").Input<string>;
-            } | {
-                text: import("../input").Input<string>;
-            } | {
-                queue: import("../input").Input<string>;
-            } | {
-                bucketName: import("../input").Input<string>;
-            } | {
-                id: import("../input").Input<string>;
-            };
+            binding: T;
+            properties: Extract<import("./binding").Binding, {
+                type: T;
+            }>["properties"];
         }[];
     };
     /**
      * The generated ID of the KV namespace.
+     * @deprecated Use `namespaceId` instead.
      */
     get id(): $util.Output<string>;
+    /**
+     * The generated ID of the KV namespace.
+     */
+    get namespaceId(): $util.Output<string>;
     /**
      * The underlying [resources](/docs/components/#nodes) this component creates.
      */

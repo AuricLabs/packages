@@ -1,4 +1,4 @@
-import { FunctionPermissionArgs } from "./function";
+import { FunctionPermissionArgs } from "./function.js";
 export declare const URL_UNAVAILABLE = "http://url-unavailable-in-dev.mode";
 /** @deprecated
  * instead try

@@ -999,6 +999,32 @@ export interface ServiceArgs extends FargateBaseArgs {
          * ```
          */
         requestCount?: Input<false | number>;
+        /**
+         * The amount of time, in seconds, after a scale-in activity completes before another scale-in activity can start.
+         * This prevents the auto scaler from removing too many tasks too quickly.
+         * @example
+         * ```js
+         * {
+         *   scaling: {
+         *     scaleInCooldown: "60 seconds"
+         *   }
+         * }
+         * ```
+         */
+        scaleInCooldown?: Input<DurationMinutes>;
+        /**
+         * The amount of time, in seconds, after a scale-out activity completes before another scale-out activity can start.
+         * This prevents the auto scaler from adding too many tasks too quickly.
+         * @example
+         * ```js
+         * {
+         *   scaling: {
+         *     scaleOutCooldown: "60 seconds"
+         *   }
+         * }
+         * ```
+         */
+        scaleOutCooldown?: Input<DurationMinutes>;
     }>;
     /**
      * Configure the capacity provider; regular Fargate or Fargate Spot, for this service.
@@ -1565,7 +1591,7 @@ export declare class Service extends Component implements Link.Linkable {
         /**
          * The Amazon ECS Execution Role.
          */
-        executionRole: import("@pulumi/aws/iam/role.js").Role | undefined;
+        executionRole: import("@pulumi/aws/iam/role.js").Role;
         /**
          * The Amazon ECS Task Role.
          */
@@ -1590,8 +1616,8 @@ export declare class Service extends Component implements Link.Linkable {
     /** @internal */
     getSSTLink(): {
         properties: {
-            url: Output<string> | undefined;
-            service: Output<Output<string> | undefined>;
+            url: Output<string>;
+            service: Output<string>;
         };
     };
 }

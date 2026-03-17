@@ -3,7 +3,6 @@ export default $config({
     return {
       name: 'sst-utils',
       home: 'aws',
-      providers: { 'aws-native': '1.26.0' },
     };
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

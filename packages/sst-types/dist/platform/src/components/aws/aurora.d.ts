@@ -10,6 +10,10 @@ export interface AuroraArgs {
     /**
      * The Aurora engine to use.
      *
+     * :::danger
+     * Changing the engine will cause the database to be destroyed and recreated.
+     * :::
+     *
      * @example
      * ```js
      * {
@@ -21,7 +25,7 @@ export interface AuroraArgs {
     /**
      * The version of the Aurora engine.
      *
-     * The default is `"16.4"` for Postgres and `"3.08.0"` for MySQL.
+     * The default is `"17"` for Postgres and `"3.08.0"` for MySQL.
      *
      * Check out the [available Postgres versions](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.Aurora_Fea_Regions_DB-eng.Feature.ServerlessV2.html#Concepts.Aurora_Fea_Regions_DB-eng.Feature.ServerlessV2.apg) and [available MySQL versions](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.Aurora_Fea_Regions_DB-eng.Feature.ServerlessV2.html#Concepts.Aurora_Fea_Regions_DB-eng.Feature.ServerlessV2.amy) in your region.
      *
@@ -36,11 +40,15 @@ export interface AuroraArgs {
      * - Aurora PostgresSQL 13.15 and higher
      * - Aurora MySQL 3.08.0 and higher
      *
-     * @default `"16.4"` for Postgres, `"3.08.0"` for MySQL
+     * :::caution
+     * Changing the version will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
+     *
+     * @default `"17"` for Postgres, `"3.08.0"` for MySQL
      * @example
      * ```js
      * {
-     *   version: "16.3"
+     *   version: "17.3"
      * }
      * ```
      */
@@ -87,6 +95,10 @@ export interface AuroraArgs {
      * underscores.
      *
      * By default, it takes the name of the app, and replaces the hyphens with underscores.
+     *
+     * :::danger
+     * Changing the database name will cause the database to be destroyed and recreated.
+     * :::
      *
      * @default Based on the name of the current app
      * @example
@@ -544,7 +556,7 @@ export interface AuroraArgs {
  *   -e POSTGRES_USER=postgres \
  *   -e POSTGRES_PASSWORD=password \
  *   -e POSTGRES_DB=local \
- *   postgres:16.4
+ *   postgres:17
  * ```
  *
  * You can connect to it in `sst dev` by configuring the `dev` prop.
@@ -644,8 +656,8 @@ export declare class Aurora extends Component implements Link.Linkable {
      */
     get reader(): Output<string>;
     get nodes(): {
-        cluster: import("@pulumi/aws/rds/cluster.js").Cluster | undefined;
-        instance: import("@pulumi/aws/rds/clusterInstance.js").ClusterInstance | undefined;
+        cluster: import("@pulumi/aws/rds/cluster.js").Cluster;
+        instance: import("@pulumi/aws/rds/clusterInstance.js").ClusterInstance;
     };
     /** @internal */
     getSSTLink(): {
@@ -657,12 +669,17 @@ export declare class Aurora extends Component implements Link.Linkable {
             password: Output<string>;
             port: $util.OutputInstance<number>;
             host: Output<string>;
-            reader: Output<string | undefined>;
+            reader: Output<any>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

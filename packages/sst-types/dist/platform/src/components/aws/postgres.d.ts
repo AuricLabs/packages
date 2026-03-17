@@ -10,11 +10,16 @@ export type { PostgresArgs as PostgresV1Args } from "./postgres-v1";
 export interface PostgresArgs {
     /**
      * The Postgres engine version. Check out the [available versions in your region](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.DBVersions.html).
-     * @default `"16.4"`
+     *
+     * :::caution
+     * Changing the version will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
+     *
+     * @default `"17"`
      * @example
      * ```js
      * {
-     *   version: "17.2"
+     *   version: "17.1"
      * }
      * ```
      */
@@ -22,7 +27,7 @@ export interface PostgresArgs {
     /**
      * The username of the master user.
      *
-     * :::caution
+     * :::danger
      * Changing the username will cause the database to be destroyed and recreated.
      * :::
      *
@@ -61,6 +66,10 @@ export interface PostgresArgs {
      * underscores. By default, it takes the name of the app, and replaces the hyphens with
      * underscores.
      *
+     * :::danger
+     * Changing the database name will cause the database to be destroyed and recreated.
+     * :::
+     *
      * @default Based on the name of the current app
      * @example
      * ```js
@@ -73,6 +82,10 @@ export interface PostgresArgs {
     /**
      * The type of instance to use for the database. Check out the [supported instance types](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.Types.html).
      *
+     * :::caution
+     * Changing the instance type will **immediately** apply the update on the next `sst deploy` possibly causing downtime.
+     * :::
+     *
      * @default `"t4g.micro"`
      * @example
      * ```js
@@ -80,10 +93,6 @@ export interface PostgresArgs {
      *   instance: "m7g.xlarge"
      * }
      * ```
-     *
-     * By default, these changes are not applied immediately by RDS. Instead, they are
-     * applied in the next maintenance window. Check out the [full list](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ModifyInstance.Settings.html)
-     * of props that are not applied immediately.
      */
     instance?: Input<string>;
     /**
@@ -369,7 +378,7 @@ export interface PostgresGetArgs {
  *   -e POSTGRES_USER=postgres \
  *   -e POSTGRES_PASSWORD=password \
  *   -e POSTGRES_DB=local \
- *   postgres:16.4
+ *   postgres:18
  * ```
  *
  * You can connect to it in `sst dev` by configuring the `dev` prop.
@@ -444,7 +453,7 @@ export declare class Postgres extends Component implements Link.Linkable {
      */
     get host(): Output<string>;
     get nodes(): {
-        instance: import("@pulumi/aws/rds/instance").Instance | undefined;
+        instance: import("@pulumi/aws/rds/instance").Instance;
     };
     /** @internal */
     getSSTLink(): {

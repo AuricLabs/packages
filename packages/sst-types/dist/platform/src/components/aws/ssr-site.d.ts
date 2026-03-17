@@ -1,7 +1,7 @@
 import type { Loader } from "esbuild";
 import { Output, Unwrap, ComponentResourceOptions } from "@pulumi/pulumi";
 import { Cdn, CdnArgs } from "./cdn.js";
-import { Function, FunctionArgs } from "./function.js";
+import { Function, FunctionArgs, FunctionArn } from "./function.js";
 import { Bucket, BucketArgs } from "./bucket.js";
 import { Input } from "../input.js";
 import { Component, Prettify, type Transform } from "../component.js";
@@ -9,6 +9,8 @@ import { BaseSiteFileOptions } from "../base/base-site.js";
 import { BaseSsrSiteArgs } from "../base/base-ssr-site.js";
 import { Link } from "../link.js";
 import { RouterRouteArgsDeprecated, RouterRouteArgs } from "./router.js";
+import { DurationSeconds } from "../duration.js";
+import { Size } from "../size.js";
 export type Plan = {
     base?: string;
     server?: Unwrap<FunctionArgs>;
@@ -38,6 +40,98 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
     route?: Prettify<RouterRouteArgsDeprecated>;
     router?: Prettify<RouterRouteArgs>;
     cachePolicy?: Input<string>;
+    /**
+     * Configure Lambda function protection through CloudFront.
+     *
+     * @default `"none"`
+     *
+     * The available options are:
+     * - `"none"`: Lambda URLs are publicly accessible.
+     * - `"oac"`: Lambda URLs protected by CloudFront Origin Access Control. Requires manual `x-amz-content-sha256` header for POST requests. Use when you control all POST requests.
+     * - `"oac-with-edge-signing"`: Full protection with automatic header signing via Lambda@Edge. Works with external webhooks and callbacks. Higher cost and latency but works out of the box.
+     *
+     * :::note
+     * When using `"oac-with-edge-signing"`, request bodies are limited to 1MB due to Lambda@Edge payload limits. For file uploads larger than 1MB, consider using presigned S3 URLs or the `"oac"` mode with manual header signing.
+     * :::
+     *
+     * :::note
+     * When removing a stage that uses `"oac-with-edge-signing"`, deletion may take 5-10 minutes while AWS removes the Lambda@Edge replicated functions from all edge locations.
+     * :::
+     *
+     * @example
+     * ```js
+     * // No protection (default)
+     * {
+     *   protection: "none"
+     * }
+     * ```
+     *
+     * @example
+     * ```js
+     * // OAC protection, manual header signing required
+     * {
+     *   protection: "oac"
+     * }
+     * ```
+     *
+     * @example
+     * ```js
+     * // Full protection with automatic Lambda@Edge
+     * {
+     *   protection: "oac-with-edge-signing"
+     * }
+     * ```
+     *
+     * @example
+     * ```js
+     * // Custom Lambda@Edge configuration
+     * {
+     *   protection: {
+     *     mode: "oac-with-edge-signing",
+     *     edgeFunction: {
+     *       memory: "256 MB",
+     *       timeout: "10 seconds"
+     *     }
+     *   }
+     * }
+     * ```
+     *
+     * @example
+     * ```js
+     * // Use existing Lambda@Edge function
+     * {
+     *   protection: {
+     *     mode: "oac-with-edge-signing",
+     *     edgeFunction: {
+     *       arn: "arn:aws:lambda:us-east-1:123456789012:function:my-signing-function:1"
+     *     }
+     *   }
+     * }
+     * ```
+     */
+    protection?: Input<"none" | "oac" | "oac-with-edge-signing" | {
+        mode: "oac-with-edge-signing";
+        edgeFunction?: {
+            /**
+             * Custom Lambda@Edge function ARN to use for request signing.
+             * If provided, this function will be used instead of creating a new one.
+             * Must be a qualified ARN (with version) and deployed in us-east-1.
+             */
+            arn?: Input<FunctionArn>;
+            /**
+             * Memory size for the auto-created Lambda@Edge function.
+             * Only used when arn is not provided.
+             * @default `"128 MB"`
+             */
+            memory?: Input<Size>;
+            /**
+             * Timeout for the auto-created Lambda@Edge function.
+             * Only used when arn is not provided.
+             * @default `"5 seconds"`
+             */
+            timeout?: Input<DurationSeconds>;
+        };
+    }>;
     invalidation?: Input<false | {
         /**
          * Configure if `sst deploy` should wait for the CloudFront cache invalidation to finish.
@@ -139,26 +233,22 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
         /**
          * The runtime environment for the server function.
          *
-         * @default `"nodejs20.x"`
+         * @default `"nodejs24.x"`
          * @example
          * ```js
          * {
          *   server: {
-         *     runtime: "nodejs22.x"
+         *     runtime: "nodejs24.x"
          *   }
          * }
          * ```
          */
-        runtime?: Input<"nodejs18.x" | "nodejs20.x" | "nodejs22.x">;
+        runtime?: Input<"nodejs18.x" | "nodejs20.x" | "nodejs22.x" | "nodejs24.x">;
         /**
          * The maximum amount of time the server function can run.
          *
          * While Lambda supports timeouts up to 900 seconds, your requests are served
          * through AWS CloudFront. And it has a default limit of 60 seconds.
-         *
-         * If you set a timeout that's longer than 60 seconds, this component will
-         * check if your account can allow for that timeout. If not, it'll throw an
-         * error.
          *
          * :::tip
          * If you need a timeout longer than 60 seconds, you'll need to request a
@@ -411,9 +501,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
      * Or reference an existing VPC.
      *
      * ```js title="sst.config.ts"
-     * const myVpc = sst.aws.Vpc.get("MyVpc", {
-     *   id: "vpc-12345678901234567"
-     * });
+     * const myVpc = sst.aws.Vpc.get("MyVpc", "vpc-12345678901234567");
      * ```
      *
      * And pass it in.
@@ -511,7 +599,7 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
         fileOptions?: Input<Prettify<BaseSiteFileOptions>[]>;
         /**
          * Configure if files from previous deployments should be purged from the bucket.
-         * @default `true`
+         * @default `false`
          * @example
          * ```js
          * {
@@ -543,6 +631,10 @@ export interface SsrSiteArgs extends BaseSsrSiteArgs {
          */
         server?: Transform<FunctionArgs>;
         /**
+         * Transform the image optimizer Function resource.
+         */
+        imageOptimizer?: Transform<FunctionArgs>;
+        /**
          * Transform the CloudFront CDN resource.
          */
         cdn?: Transform<CdnArgs>;
@@ -573,15 +665,15 @@ export declare abstract class SsrSite extends Component implements Link.Linkable
         /**
          * The AWS Lambda server function that renders the site.
          */
-        server: Output<Function> | undefined;
+        server: Output<Function>;
         /**
          * The Amazon S3 Bucket that stores the assets.
          */
-        assets: Bucket | undefined;
+        assets: Bucket;
         /**
          * The Amazon CloudFront CDN that serves the site.
          */
-        cdn: Cdn | undefined;
+        cdn: Cdn;
     };
     /** @internal */
     getSSTLink(): {

@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input, Output } from "@pulumi/pulumi";
 import { Component } from "../component";
-import { Function, FunctionArgs } from "./function";
+import { Function, FunctionArgs } from "./function.js";
 import { RealtimeSubscriberArgs } from "./realtime";
 export interface Args extends RealtimeSubscriberArgs {
     /**

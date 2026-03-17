@@ -114,7 +114,7 @@ export declare class Secret extends Component implements Link.Linkable {
     /**
      * The placeholder value of the secret.
      */
-    get placeholder(): Output<string> | undefined;
+    get placeholder(): Output<string>;
     /** @internal */
     getSSTLink(): {
         properties: {

@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Prettify, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { FunctionArgs, FunctionArn } from "./function";
+import { FunctionArgs, FunctionArn } from "./function.js";
 import { RETENTION } from "./logging";
 import { ApiGatewayV2DomainArgs } from "./helpers/apigatewayv2-domain";
 import { ApiGatewayV2LambdaRoute } from "./apigatewayv2-lambda-route";
@@ -214,9 +214,7 @@ export interface ApiGatewayV2Args {
      * Or reference an existing VPC.
      *
      * ```js title="sst.config.ts"
-     * const myVpc = sst.aws.Vpc.get("MyVpc", {
-     *   id: "vpc-12345678901234567"
-     * });
+     * const myVpc = sst.aws.Vpc.get("MyVpc", "vpc-12345678901234567");
      * ```
      *
      * And pass it in. The VPC link will be placed in the public subnets.
@@ -680,12 +678,18 @@ export declare class ApiGatewayV2 extends Component implements Link.Linkable {
         /**
          * The API Gateway HTTP API VPC link.
          */
-        vpcLink: import("@pulumi/aws/apigatewayv2/vpcLink").VpcLink | undefined;
+        vpcLink: import("@pulumi/aws/apigatewayv2/vpcLink").VpcLink;
     };
     /**
      * Add a route to the API Gateway HTTP API. The route is a combination of
      * - An HTTP method and a path, `{METHOD} /{path}`.
      * - Or a `$default` route.
+     *
+     * :::caution
+     * [API Gateway has strict rate limits](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html) for creating and updating resources. Creating one Lambda function for every endpoint can significantly slow down your deployments.
+     *
+     * Use a single Lambda and handle routing in code if you don't need specific API Gateway features.
+     * :::
      *
      * :::tip
      * The `$default` route is a default or catch-all route. It'll match if no other route matches.
@@ -903,7 +907,7 @@ export declare class ApiGatewayV2 extends Component implements Link.Linkable {
      * const authorizer = api.addAuthorizer({
      *   name: "myCognitoAuthorizer",
      *   jwt: {
-     *     issuer: $interpolate`https://cognito-idp.${aws.getRegionOutput().name}.amazonaws.com/${pool.id}`,
+     *     issuer: $interpolate`https://cognito-idp.${aws.getRegionOutput().region}.amazonaws.com/${pool.id}`,
      *     audiences: [poolClient.id]
      *   }
      * });

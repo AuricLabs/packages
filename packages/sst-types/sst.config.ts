@@ -2,9 +2,8 @@
 export default $config({
   app() {
     return {
-      name: 'sst-utils',
+      name: 'sst-types',
       home: 'aws',
-      providers: { 'aws-native': '1.26.0' },
     };
   },
   run() {

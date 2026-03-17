@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
 import type { Input } from "../input";
-import { Function, FunctionArgs, FunctionArn } from "./function";
+import { Function, FunctionArgs, FunctionArn } from "./function.js";
 import { RealtimeLambdaSubscriber } from "./realtime-lambda-subscriber";
 import { iot } from "@pulumi/aws";
 export interface RealtimeArgs {
@@ -222,9 +222,14 @@ export declare class Realtime extends Component implements Link.Linkable {
             authorizer: Output<string>;
         };
         include: {
-            effect?: "allow" | "deny" | undefined;
+            effect?: "allow" | "deny";
             actions: string[];
             resources: Input<Input<string>[]>;
+            conditions?: Input<Input<{
+                test: Input<string>;
+                variable: Input<string>;
+                values: Input<Input<string>[]>;
+            }>[]>;
             type: "aws.permission";
         }[];
     };

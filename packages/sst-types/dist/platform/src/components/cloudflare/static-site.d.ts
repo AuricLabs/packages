@@ -1,6 +1,6 @@
 import { ComponentResourceOptions } from "@pulumi/pulumi";
 import { Kv, KvArgs } from "./kv.js";
-import { Component, Transform } from "../component.js";
+import { Component, Prettify, Transform } from "../component.js";
 import { Link } from "../link.js";
 import { Input } from "../input.js";
 import { Worker } from "./worker.js";
@@ -71,7 +71,7 @@ export interface StaticSiteArgs extends BaseStaticSiteArgs {
      * ```
      * @default `Object`
      */
-    assets?: Input<BaseStaticSiteAssets & {}>;
+    assets?: Prettify<BaseStaticSiteAssets & {}>;
     /**
      * Set a custom domain for your static site. Supports domains hosted on Cloudflare.
      *
@@ -238,7 +238,7 @@ export declare class StaticSite extends Component implements Link.Linkable {
      * If the `domain` is set, this is the URL with the custom domain.
      * Otherwise, it's the auto-generated worker URL.
      */
-    get url(): $util.Output<string | undefined>;
+    get url(): $util.Output<string>;
     /**
      * The underlying [resources](/docs/components/#nodes) this component creates.
      */
@@ -255,7 +255,7 @@ export declare class StaticSite extends Component implements Link.Linkable {
     /** @internal */
     getSSTLink(): {
         properties: {
-            url: $util.Output<string | undefined>;
+            url: $util.Output<string>;
         };
     };
 }

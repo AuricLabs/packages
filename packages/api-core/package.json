@@ -49,7 +49,7 @@
     "@auriclabs/logger": "^0.0.1",
     "@auriclabs/env": "^0.0.4",
     "pino-lambda": "^4.4.1",
-    "sst": "^3.17.10",
+    "sst": "^4.3.7",
     "zod": "^4.0.5"
   },
   "publishConfig": {

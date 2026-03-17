@@ -720,11 +720,11 @@ export declare class StaticSite extends Component implements Link.Linkable {
         /**
          * The Amazon S3 Bucket that stores the assets.
          */
-        assets: Bucket | undefined;
+        assets: Bucket;
         /**
          * The Amazon CloudFront CDN that serves the site.
          */
-        cdn: Cdn | undefined;
+        cdn: Cdn;
     };
     /** @internal */
     getSSTLink(): {

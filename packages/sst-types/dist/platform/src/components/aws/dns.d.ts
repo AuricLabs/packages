@@ -88,6 +88,6 @@ export interface DnsArgs {
 export declare function dns(args?: DnsArgs): {
     provider: "aws";
     createAlias: (namePrefix: string, record: AliasRecord, opts: ComponentResourceOptions) => $util.Output<import("@pulumi/aws/route53/record").Record>[];
-    createCaa: (namePrefix: string, recordName: string, opts: ComponentResourceOptions) => undefined;
+    createCaa: (namePrefix: string, recordName: string, opts: ComponentResourceOptions) => any;
     createRecord: (namePrefix: string, record: Record, opts: ComponentResourceOptions) => $util.Output<import("@pulumi/aws/route53/record").Record>;
 };

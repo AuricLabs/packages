@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input, Output } from "@pulumi/pulumi";
 import { Component } from "../component";
-import { Function, FunctionArgs } from "./function";
+import { Function, FunctionArgs } from "./function.js";
 import { BusBaseSubscriberArgs } from "./bus-base-subscriber";
 export interface Args extends BusBaseSubscriberArgs {
     /**

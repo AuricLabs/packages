@@ -2,7 +2,7 @@ import { ComponentResourceOptions, Output } from "@pulumi/pulumi";
 import { Component, Transform } from "../component";
 import { Link } from "../link";
 import { Input } from "../input.js";
-import { iam, opensearch } from "@pulumi/aws";
+import { opensearch } from "@pulumi/aws";
 import { SizeGbTb } from "../size";
 export interface OpenSearchArgs {
     /**
@@ -131,7 +131,7 @@ export interface OpenSearchArgs {
         /**
          * Transform the OpenSearch domain policy.
          */
-        policy?: Transform<iam.PolicyDocument>;
+        policy?: Transform<opensearch.DomainPolicyArgs>;
     };
 }
 /**
@@ -247,7 +247,7 @@ export declare class OpenSearch extends Component implements Link.Linkable {
      */
     get url(): Output<string>;
     get nodes(): {
-        domain: import("@pulumi/aws/opensearch/domain").Domain | undefined;
+        domain: import("@pulumi/aws/opensearch/domain").Domain;
     };
     /** @internal */
     getSSTLink(): {
@@ -276,11 +276,11 @@ export declare class OpenSearch extends Component implements Link.Linkable {
      *
      * ```ts title="sst.config.ts"
      * const search = $app.stage === "frank"
-     *   ? sst.aws.OpenSearch.get("MyOpenSearch", "arn:aws:es:us-east-1:123456789012:domain/app-dev-myopensearch-efsmkrbt")
+     *   ? sst.aws.OpenSearch.get("MyOpenSearch", "app-dev-myopensearch-efsmkrbt")
      *   : new sst.aws.OpenSearch("MyOpenSearch");
      * ```
      *
-     * Here `arn:aws:es:us-east-1:123456789012:domain/app-dev-myopensearch-efsmkrbt` is the
+     * Here `app-dev-myopensearch-efsmkrbt` is the
      * ID of the OpenSearch component created in the `dev` stage.
      * You can find this by outputting the ID in the `dev` stage.
      *

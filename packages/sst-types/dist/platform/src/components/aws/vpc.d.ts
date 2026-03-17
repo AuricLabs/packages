@@ -132,6 +132,26 @@ export interface VpcArgs {
              * ```
              */
             ami?: Input<string>;
+            /**
+             * The Name of an existing IAM role to use for the NAT instance.
+             *
+             * By default, a new IAM role with SSM managed instance core permissions is created.
+             * Use this to provide a custom role with additional permissions or to comply with
+             * organizational policies.
+             *
+             * @default A new IAM role is created
+             * @example
+             * ```ts
+             * {
+             *   nat: {
+             *     ec2: {
+             *       role: "my-nat-instance-role"
+             *     }
+             *   }
+             * }
+             * ```
+             */
+            role?: Input<string>;
         }>;
     }>;
     /**
@@ -139,7 +159,8 @@ export interface VpcArgs {
      *
      * When enabled, an EC2 instance of type `t4g.nano` with the bastion AMI will be launched
      * in a public subnet. The instance will have AWS SSM (AWS Session Manager) enabled for
-     * secure access without the need for SSH key.
+     * secure access without the need for SSH key. You can optionally provide an existing
+     * IAM instance profile by name for the bastion.
      *
      * It costs roughly $3 per month to run the `t4g.nano` instance.
      *
@@ -162,8 +183,24 @@ export interface VpcArgs {
      *   bastion: true
      * }
      * ```
+     *
+     * Use an existing instance profile by name.
+     * Bastion is automatically enabled when you provide an instance profile.
+     * @example
+     * ```ts
+     * {
+     *   bastion: {
+     *     instanceProfile: "my-bastion-profile"
+     *   }
+     * }
+     * ```
      */
-    bastion?: Input<boolean>;
+    bastion?: Input<boolean | {
+        /**
+         * The name of an existing IAM instance profile to use for the bastion.
+         */
+        instanceProfile: Input<string>;
+    }>;
     /**
      * [Transform](/docs/components#transform) how this component creates its underlying
      * resources.
@@ -269,8 +306,8 @@ export interface VpcArgs {
  *
  * ### Cost
  *
- * By default, this component is **free**. Following is the cost to enable the `nat` or `bastion`
- * options.
+ * By default, this component costs **$0.50 per month** for the CloudMap hosted zone used for
+ * service discovery. Following is the cost to enable the `nat` or `bastion` options.
  *
  * #### Managed NAT
  *
@@ -395,7 +432,7 @@ export declare class Vpc extends Component implements Link.Linkable {
         /**
          * The Amazon EC2 bastion instance.
          */
-        bastionInstance: Output<import("@pulumi/aws/ec2/instance").Instance | undefined>;
+        bastionInstance: Output<import("@pulumi/aws/ec2/instance").Instance>;
         /**
          * The AWS Cloudmap namespace.
          */
@@ -437,7 +474,7 @@ export declare class Vpc extends Component implements Link.Linkable {
     /** @internal */
     getSSTLink(): {
         properties: {
-            bastion: Output<Output<string> | undefined>;
+            bastion: Output<string>;
         };
     };
 }

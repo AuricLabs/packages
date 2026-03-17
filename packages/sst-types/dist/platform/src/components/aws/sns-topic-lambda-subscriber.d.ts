@@ -1,6 +1,6 @@
 import { ComponentResourceOptions, Input, Output } from "@pulumi/pulumi";
 import { Component } from "../component";
-import { Function, FunctionArgs } from "./function";
+import { Function, FunctionArgs } from "./function.js";
 import { SnsTopicSubscriberArgs } from "./sns-topic";
 export interface Args extends SnsTopicSubscriberArgs {
     /**
