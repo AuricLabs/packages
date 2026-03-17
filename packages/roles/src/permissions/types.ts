@@ -5,16 +5,8 @@ import { Scope, ScopeString } from '../scope';
 export type ActionType = 'can' | 'cannot';
 export type CRUDAction = 'manage' | 'read' | 'create' | 'update' | 'delete';
 
-export interface PermissionDefinitions {
-  all: CRUDAction;
-  org: CRUDAction;
-  app: CRUDAction | 'assign' | 'unassign';
-  role: CRUDAction | 'assign' | 'unassign';
-  user: CRUDAction | 'invite' | 'remove';
-  webhook: CRUDAction;
-  webhookSecret: CRUDAction | 'refresh';
-  webhookSubscription: CRUDAction;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface PermissionDefinitions {}
 
 export interface BasePermission<C extends Context = Context> {
   conditions?: ConditionsQuery<C> | C;

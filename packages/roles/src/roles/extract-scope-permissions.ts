@@ -1,4 +1,4 @@
-import { Permission, Subject } from '../permissions';
+import { Action, Permission, Subject } from '../permissions';
 import { parseScope, Scope, scopeKeyId } from '../scope';
 
 export const extractScopePermissions = (scope?: Scope) => {
@@ -8,7 +8,7 @@ export const extractScopePermissions = (scope?: Scope) => {
   scopeArray.forEach(({ type, id }, index) => {
     scopePermissions.push({
       subject: type as Subject,
-      action: 'read',
+      action: 'read' as Action,
       conditions: id ? { [scopeKeyId(type)]: id } : undefined,
       scope: scopeArray.slice(0, index + 1),
     });

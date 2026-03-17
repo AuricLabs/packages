@@ -60,13 +60,11 @@ function createCanCannotProxy<T extends ActionType>(type: T) {
           argArray: [SubjectsWithActions<Action>, ConditionsQuery, ScopeString],
         ) {
           const [subject, conditions, scope] = argArray;
-          // @ts-expect-error action fails type assertions
           return permission(subject, action, type, conditions, scope);
         },
         get(_innerTarget, subject: SubjectsWithActions<Action>) {
           return permission({
             subject,
-            // @ts-expect-error action fails type assertions
             action,
             type,
           });

@@ -1,5 +1,4 @@
-import { isScope, stringifyScope } from '../scope';
-import { Scope } from '../scope/types';
+import { isScope, stringifyScope, Scope } from '../scope';
 
 import { ActionType, ConditionsQuery, Permission, Subject, Context, Action } from './types';
 

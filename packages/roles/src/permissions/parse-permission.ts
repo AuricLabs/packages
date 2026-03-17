@@ -1,8 +1,10 @@
 import { parsePermissionString } from './parse-permission-string';
-import { Permission, PermissionOrGroupOrString, PermissionString } from './types';
+import { ActionType, Permission, PermissionOrGroupOrString, PermissionString } from './types';
 
 export type ParsedPermission<T extends PermissionOrGroupOrString> =
-  T extends PermissionString<infer S, infer A, infer T> ? Permission<S, A, T> : T;
+  T extends PermissionString<infer S, infer A, infer T>
+    ? Permission<S, A, T extends ActionType ? T : ActionType>
+    : T;
 
 export const parsePermission = <T extends PermissionOrGroupOrString>(
   permission: T,
