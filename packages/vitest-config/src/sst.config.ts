@@ -8,6 +8,6 @@ export default defineConfig({
   ...nodeConfig,
   test: {
     ...nodeConfig.test,
-    setupFiles: [path.join(import.meta.dirname, './setup/sst.setup.js')],
+    setupFiles: [path.join(import.meta.dirname, './setup/sst.setup.mjs')],
   },
 });
