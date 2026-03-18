@@ -5,10 +5,10 @@
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
   "bin": {
-    "auricdev": "./dist/command.js"
+    "auricdev": "./dist/command.mjs"
   },
   "exports": {
-    ".": "./dist/command.js"
+    ".": "./dist/command.mjs"
   },
   "dependencies": {
     "commander": "^14.0.0",

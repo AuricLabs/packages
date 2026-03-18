@@ -5,8 +5,8 @@
   "prettier": "@auriclabs/prettier-config",
   "keywords": [],
   "author": "",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/index.mjs",
+  "types": "dist/index.d.mts",
   "browser": {
     "dotenv": false
   },
@@ -14,13 +14,13 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
     "./configure": {
-      "types": "./dist/configure.d.ts",
-      "import": "./dist/configure.js",
+      "types": "./dist/configure.d.mts",
+      "import": "./dist/configure.mjs",
       "require": "./dist/configure.cjs"
     }
   },

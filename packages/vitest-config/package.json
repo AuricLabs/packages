@@ -5,22 +5,22 @@
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
   "main": "dist/node.config.cjs",
-  "module": "dist/node.config.js",
-  "types": "dist/node.config.d.ts",
+  "module": "dist/node.config.mjs",
+  "types": "dist/node.config.d.mts",
   "exports": {
     ".": {
-      "types": "./dist/node.config.d.ts",
-      "import": "./dist/node.config.js",
+      "types": "./dist/node.config.d.mts",
+      "import": "./dist/node.config.mjs",
       "require": "./dist/node.config.cjs"
     },
     "./node": {
-      "types": "./dist/node.config.d.ts",
-      "import": "./dist/node.config.js",
+      "types": "./dist/node.config.d.mts",
+      "import": "./dist/node.config.mjs",
       "require": "./dist/node.config.cjs"
     },
     "./sst": {
-      "types": "./dist/sst.config.d.ts",
-      "import": "./dist/sst.config.js",
+      "types": "./dist/sst.config.d.mts",
+      "import": "./dist/sst.config.mjs",
       "require": "./dist/sst.config.cjs"
     }
   },
@@ -28,7 +28,7 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsdown src/* src/setup/* --dts --no-hash",
+    "build": "tsdown src/*.ts src/setup/*.ts --format cjs,esm --dts --no-hash",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
