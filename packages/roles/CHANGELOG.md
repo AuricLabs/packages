@@ -1,5 +1,12 @@
 # @auriclabs/roles
 
+## 0.1.0
+
+### Minor Changes
+
+- e46d6b0: Synced roles package with nohara/ba-oidc: exact scope matching with $ anchor, \*\*
+  wildcard support, generic PermissionDefinitions interface, type safety improvements
+
 ## 0.0.7
 
 ### Patch Changes

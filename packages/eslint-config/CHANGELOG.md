@@ -1,5 +1,13 @@
 # @auriclabs/eslint-config
 
+## 0.1.0
+
+### Minor Changes
+
+- bf60a1f: Upgrade SST from v3 to v4. Updated Pulumi AWS provider from v6 to v7, regenerated
+  platform type declarations, removed aws-native provider dependency, and added new SST v4 globals
+  to ESLint config.
+
 ## 0.0.6
 
 ### Patch Changes
