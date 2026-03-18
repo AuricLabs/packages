@@ -52,7 +52,7 @@ function createCanCannotProxy<T extends ActionType>(type: T) {
       ];
       return permission(subject, action, type, conditions, scope);
     },
-    get(_: unknown, action: Action) {
+    get(_: unknown, action: string) {
       return new Proxy(createPermission, {
         apply(
           _target,
@@ -60,14 +60,20 @@ function createCanCannotProxy<T extends ActionType>(type: T) {
           argArray: [SubjectsWithActions<Action>, ConditionsQuery, ScopeString],
         ) {
           const [subject, conditions, scope] = argArray;
-          return permission(subject, action, type, conditions, scope);
-        },
-        get(_innerTarget, subject: SubjectsWithActions<Action>) {
-          return permission({
-            subject,
-            action,
+          return createPermission(
+            subject as Subject,
+            action as unknown as Action,
             type,
-          });
+            conditions,
+            scope,
+          );
+        },
+        get(_innerTarget, subject: string) {
+          return createPermission({
+            subject: subject as unknown as Subject,
+            action: action as unknown as Action,
+            type,
+          } as Permission<Subject, Action, typeof type>);
         },
       });
     },
