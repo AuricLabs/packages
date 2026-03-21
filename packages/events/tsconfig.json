@@ -1,0 +1,17 @@
+{
+  "extends": "@auriclabs/ts-config/node-package",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "vitest.config.ts"
+  ]
+}

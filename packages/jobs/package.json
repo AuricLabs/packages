@@ -1,0 +1,59 @@
+{
+  "name": "@auriclabs/jobs",
+  "version": "0.1.0",
+  "description": "Job queue system with DynamoDB + SQS + Lambda execution",
+  "prettier": "@auriclabs/prettier-config",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash",
+    "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "ts-config-typecheck",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@auriclabs/api-core": "workspace:*",
+    "@auriclabs/logger": "workspace:*",
+    "@auriclabs/pagination": "workspace:*",
+    "@types/aws-lambda": "^8.10.148",
+    "@types/uuid": "^10.0.0"
+  },
+  "peerDependencies": {
+    "@auriclabs/api-core": "^0.1.0",
+    "@auriclabs/logger": "^0.1.0",
+    "@auriclabs/pagination": "^0.1.0",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-lambda": "^3.0.0",
+    "@aws-sdk/client-sqs": "^3.0.0",
+    "@aws-sdk/util-dynamodb": "^3.0.0",
+    "electrodb": "^3.0.0",
+    "http-errors-enhanced": "^3.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/jobs"
+  }
+}
