@@ -57,7 +57,7 @@ export const registerApiRoutes = (
         .replace(/\/index$/, ''); // Convert /index to / for root routes
 
       // Format the route with the HTTP method and path
-      const route = `${method.toUpperCase()} ${pathPrefix}/${routePath}`;
+      const route = `${method.toUpperCase()} ${pathPrefix}${routePath ? `/${routePath}` : ''}`;
 
       logger.debug(`Registering route ${route} from ${routesDir}/${file}`);
 
