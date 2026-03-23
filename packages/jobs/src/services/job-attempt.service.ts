@@ -112,6 +112,7 @@ export function createJobAttemptService(
       options?: QueryOptions,
     ): Promise<PaginationResponse<JobAttemptItem>> {
       return normalizePaginationResponse(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         JobAttempt.query.jobAttempts({ jobId }).go(options as any),
       );
     },

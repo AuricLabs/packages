@@ -81,7 +81,9 @@ describe('jobQueueService', () => {
       expect(result).toBe('msg-456');
       expect(mockSend).toHaveBeenCalledWith(
         expect.objectContaining({
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           input: expect.objectContaining({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
             DelaySeconds: expect.any(Number),
           }),
         }),
@@ -103,10 +105,11 @@ describe('jobQueueService', () => {
     it('throws and logs when SQS send fails', async () => {
       const error = new Error('SQS error');
       mockSend.mockRejectedValue(error);
-      const { logger } = vi.mocked(await import('@auriclabs/logger'));
+
+      const loggerModule: typeof import('@auriclabs/logger') = await import('@auriclabs/logger');
 
       await expect(service.addToQueue('lambda', 'job-1', 1)).rejects.toThrow('SQS error');
-      expect(logger.error).toHaveBeenCalledWith(
+      expect(vi.mocked(loggerModule.logger.error)).toHaveBeenCalledWith(
         expect.objectContaining({ err: error, jobId: 'job-1' }),
         expect.any(String),
       );

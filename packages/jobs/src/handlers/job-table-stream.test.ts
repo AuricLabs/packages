@@ -1,5 +1,4 @@
-import { marshall } from '@aws-sdk/util-dynamodb';
-import { DynamoDBStreamEvent } from 'aws-lambda';
+import { DynamoDBRecord, DynamoDBStreamEvent } from 'aws-lambda';
 
 const mockJobService = {
   getJob: vi.fn(),
@@ -40,9 +39,9 @@ describe('createJobTableStreamHandler', () => {
         {
           eventName: 'INSERT',
           dynamodb: {
-            NewImage: jobAttempt as any,
+            NewImage: jobAttempt as unknown as DynamoDBRecord['dynamodb'],
           },
-        } as any,
+        } as unknown as DynamoDBRecord,
       ],
     };
 
@@ -70,10 +69,10 @@ describe('createJobTableStreamHandler', () => {
         {
           eventName: 'MODIFY',
           dynamodb: {
-            OldImage: prevAttempt as any,
-            NewImage: newAttempt as any,
+            OldImage: prevAttempt as unknown as DynamoDBRecord['dynamodb'],
+            NewImage: newAttempt as unknown as DynamoDBRecord['dynamodb'],
           },
-        } as any,
+        } as unknown as DynamoDBRecord,
       ],
     };
 
@@ -97,10 +96,10 @@ describe('createJobTableStreamHandler', () => {
         {
           eventName: 'MODIFY',
           dynamodb: {
-            OldImage: prevAttempt as any,
-            NewImage: newAttempt as any,
+            OldImage: prevAttempt as unknown as DynamoDBRecord['dynamodb'],
+            NewImage: newAttempt as unknown as DynamoDBRecord['dynamodb'],
           },
-        } as any,
+        } as unknown as DynamoDBRecord,
       ],
     };
 
@@ -116,7 +115,7 @@ describe('createJobTableStreamHandler', () => {
         {
           eventName: 'REMOVE',
           dynamodb: {},
-        } as any,
+        } as unknown as DynamoDBRecord,
       ],
     };
 
@@ -139,12 +138,12 @@ describe('createJobTableStreamHandler', () => {
       Records: [
         {
           eventName: 'INSERT',
-          dynamodb: { NewImage: attempt1 as any },
-        } as any,
+          dynamodb: { NewImage: attempt1 as unknown as DynamoDBRecord['dynamodb'] },
+        } as unknown as DynamoDBRecord,
         {
           eventName: 'INSERT',
-          dynamodb: { NewImage: attempt2 as any },
-        } as any,
+          dynamodb: { NewImage: attempt2 as unknown as DynamoDBRecord['dynamodb'] },
+        } as unknown as DynamoDBRecord,
       ],
     };
 

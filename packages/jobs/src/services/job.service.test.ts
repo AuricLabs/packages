@@ -2,6 +2,7 @@ import { ElectroError } from 'electrodb';
 import { NotFoundError } from 'http-errors-enhanced';
 
 import { JobErrorCodes } from '../errors';
+import { JobCreateFields, JobEntity } from '../models';
 import { jobStatus } from '../types';
 
 import { createJobService, JobServiceInstance } from './job.service';
@@ -36,7 +37,7 @@ describe('jobService', () => {
 
   beforeEach(() => {
     mocks = createMockJobEntity();
-    service = createJobService(mocks.entity as any);
+    service = createJobService(mocks.entity as unknown as JobEntity);
   });
 
   describe('getJob', () => {
@@ -76,7 +77,7 @@ describe('jobService', () => {
         new ElectroError(1000, {
           message: 'condition failed',
           sections: {},
-        } as any),
+        } as unknown as ErrorConstructor),
       );
 
       const result = await service.updateJobStatus('job-1', jobStatus.running, jobStatus.pending);
@@ -115,7 +116,7 @@ describe('jobService', () => {
         new ElectroError(1000, {
           message: 'condition failed',
           sections: {},
-        } as any),
+        } as unknown as ErrorConstructor),
       );
 
       await expect(service.updateJob('job-1', { status: jobStatus.completed })).rejects.toThrow(
@@ -141,7 +142,7 @@ describe('jobService', () => {
         queue: 'test',
         fn: 'handler',
         payload: {},
-      } as any);
+      } as JobCreateFields);
 
       expect(result).toBe(mockJob);
       expect(mocks.entity.create).toHaveBeenCalledWith({
@@ -177,7 +178,7 @@ describe('jobService', () => {
         new ElectroError(1000, {
           message: 'condition failed',
           sections: {},
-        } as any),
+        } as unknown as ErrorConstructor),
       );
 
       await expect(service.prepareNextJobAttempt('job-1')).rejects.toThrow(NotFoundError);

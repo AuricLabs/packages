@@ -30,10 +30,10 @@ describe('dispatchEvents', () => {
   });
 
   it('dispatches events sequentially with inOrder: true', async () => {
-    const callOrder: number[] = [];
-    mockDispatchEvent.mockImplementation(async (event) => {
+    const callOrder: string[] = [];
+    mockDispatchEvent.mockImplementation((event: { aggregateId: string }) => {
       callOrder.push(event.aggregateId);
-      return { pk: 'pk', sk: 'sk', version: 1 };
+      return Promise.resolve({ pk: 'pk', sk: 'sk', version: 1 });
     });
 
     const events = [

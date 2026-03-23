@@ -22,13 +22,14 @@ vi.mock('../helpers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../helpers')>();
   return {
     ...actual,
-    executeJob: (...args: unknown[]) => mockExecuteJob(...args),
+    executeJob: (...args: unknown[]) => mockExecuteJob(...args) as unknown,
   };
 });
 
 import { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 
 import { JobExecutionError } from '../helpers';
+import { JobItem } from '../models';
 import { jobStatus } from '../types';
 
 import { createLambdaExecutorHandler } from './lambda-executor';
@@ -97,7 +98,7 @@ describe('createLambdaExecutorHandler', () => {
 
       const executionError = new JobExecutionError(new Error('exec failed'), {
         status: jobStatus.running,
-      } as any);
+      } as unknown as JobItem);
       mockExecuteJob.mockRejectedValue(executionError);
 
       const event: SQSEvent = {
@@ -119,11 +120,13 @@ describe('createLambdaExecutorHandler', () => {
       mockJobService.getJob.mockResolvedValue(job);
 
       mockExecuteJob
-        .mockImplementationOnce(async () => {
+        .mockImplementationOnce(() => {
           callOrder.push(1);
+          return Promise.resolve();
         })
-        .mockImplementationOnce(async () => {
+        .mockImplementationOnce(() => {
           callOrder.push(2);
+          return Promise.resolve();
         });
 
       const event: SQSEvent = {
@@ -180,7 +183,7 @@ describe('createLambdaExecutorHandler', () => {
 
       const executionError = new JobExecutionError(new Error('exec failed'), {
         status: jobStatus.running,
-      } as any);
+      } as unknown as JobItem);
 
       mockExecuteJob.mockRejectedValueOnce(executionError).mockResolvedValueOnce(undefined);
 

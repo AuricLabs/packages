@@ -10,19 +10,26 @@ vi.mock('../init', () => ({
   getJobAttemptService: () => mockJobAttemptService,
 }));
 
+import { JobAttemptItem, JobItem } from '../models';
 import { jobStatus } from '../types';
 
 import { stopJob } from './stop-job';
 
-describe('stopJob', () => {
-  const baseJob = { id: 'job-1', status: jobStatus.running } as any;
-  const baseAttempt = {
+function makeJob(overrides: Partial<JobItem> = {}): JobItem {
+  return { id: 'job-1', status: jobStatus.running, ...overrides } as unknown as JobItem;
+}
+
+function makeAttempt(overrides: Partial<JobAttemptItem> = {}): JobAttemptItem {
+  return {
     jobId: 'job-1',
     attempt: 1,
     startedAt: '2025-01-01T00:00:00.000Z',
     status: jobStatus.running,
-  } as any;
+    ...overrides,
+  } as unknown as JobAttemptItem;
+}
 
+describe('stopJob', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -31,7 +38,7 @@ describe('stopJob', () => {
     mockJobAttemptService.updateJobAttempt.mockResolvedValue(undefined);
 
     const result = await stopJob(
-      { job: baseJob, jobAttempt: baseAttempt },
+      { job: makeJob(), jobAttempt: makeAttempt() },
       { success: true, data: { result: 'ok' } },
     );
 
@@ -40,10 +47,13 @@ describe('stopJob', () => {
     expect(mockJobAttemptService.updateJobAttempt).toHaveBeenCalledWith(
       'job-1',
       1,
+
       expect.objectContaining({
         status: jobStatus.completed,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         duration: expect.any(Number),
         response: { result: 'ok' },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         completedAt: expect.any(String),
       }),
     );
@@ -53,7 +63,7 @@ describe('stopJob', () => {
     mockJobAttemptService.updateJobAttempt.mockResolvedValue(undefined);
 
     const result = await stopJob(
-      { job: { ...baseJob }, jobAttempt: { ...baseAttempt } },
+      { job: makeJob(), jobAttempt: makeAttempt() },
       { success: false, error: 'something went wrong' },
     );
 
@@ -62,10 +72,13 @@ describe('stopJob', () => {
     expect(mockJobAttemptService.updateJobAttempt).toHaveBeenCalledWith(
       'job-1',
       1,
+
       expect.objectContaining({
         status: jobStatus.failed,
         error: 'something went wrong',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         failedAt: expect.any(String),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         duration: expect.any(Number),
       }),
     );
@@ -76,7 +89,7 @@ describe('stopJob', () => {
     const err = new Error('test error');
 
     const result = await stopJob(
-      { job: { ...baseJob }, jobAttempt: { ...baseAttempt } },
+      { job: makeJob(), jobAttempt: makeAttempt() },
       { success: false, error: err },
     );
 
@@ -91,20 +104,17 @@ describe('stopJob', () => {
   });
 
   it('throws when no startedAt', async () => {
-    const attemptNoStart = { ...baseAttempt, startedAt: undefined };
+    const attemptNoStart = makeAttempt({ startedAt: undefined });
 
     await expect(
-      stopJob({ job: baseJob, jobAttempt: attemptNoStart }, { success: true }),
+      stopJob({ job: makeJob(), jobAttempt: attemptNoStart }, { success: true }),
     ).rejects.toThrow('Job attempt has no startedAt');
   });
 
   it('returns success false when updateJobAttempt throws', async () => {
     mockJobAttemptService.updateJobAttempt.mockRejectedValue(new Error('update failed'));
 
-    const result = await stopJob(
-      { job: { ...baseJob }, jobAttempt: { ...baseAttempt } },
-      { success: true },
-    );
+    const result = await stopJob({ job: makeJob(), jobAttempt: makeAttempt() }, { success: true });
 
     expect(result.success).toBe(false);
   });
@@ -113,7 +123,7 @@ describe('stopJob', () => {
     mockJobAttemptService.updateJobAttempt.mockResolvedValue(undefined);
 
     const result = await stopJob(
-      { job: { ...baseJob }, jobAttempt: { ...baseAttempt } },
+      { job: makeJob(), jobAttempt: makeAttempt() },
       { data: { info: 'some data' } },
     );
 
@@ -125,7 +135,7 @@ describe('stopJob', () => {
     mockJobAttemptService.updateJobAttempt.mockResolvedValue(undefined);
 
     const result = await stopJob(
-      { job: { ...baseJob }, jobAttempt: { ...baseAttempt } },
+      { job: makeJob(), jobAttempt: makeAttempt() },
       { error: 'failed' },
     );
 

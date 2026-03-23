@@ -33,8 +33,10 @@ describe('createJobModel', () => {
 
   it('passes the table name to the Entity constructor', () => {
     createJobModel('my-table');
+
     expect(MockEntity).toHaveBeenCalledWith(
       expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         model: expect.objectContaining({
           entity: 'job',
           version: '1',

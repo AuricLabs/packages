@@ -27,6 +27,41 @@ import { TransactWriteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dyn
 
 import { createEventService } from './event-service';
 
+interface TransactItem {
+  TableName?: string;
+  Key?: Record<string, string>;
+  Item?: {
+    pk?: string;
+    sk?: string;
+    itemType?: string;
+    eventType?: string;
+    payload?: unknown;
+    version?: number;
+    source?: string;
+    schemaVersion?: number;
+    occurredAt?: string;
+    correlationId?: string;
+    causationId?: string;
+    actorId?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+interface TransactWriteInput {
+  TransactItems?: {
+    Update?: TransactItem;
+    Put?: TransactItem;
+    [key: string]: unknown;
+  }[];
+}
+
+interface QueryInput {
+  ExpressionAttributeValues?: Record<string, unknown>;
+  Limit?: number;
+  [key: string]: unknown;
+}
+
 describe('event-service', () => {
   const TABLE_NAME = 'test-events';
 
@@ -64,24 +99,24 @@ describe('event-service', () => {
       });
 
       expect(TransactWriteCommand).toHaveBeenCalledTimes(1);
-      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0];
+      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0] as TransactWriteInput;
 
       // Check Update item (HEAD)
-      const updateItem = cmdInput.TransactItems![0].Update!;
-      expect(updateItem.TableName).toBe(TABLE_NAME);
-      expect(updateItem.Key).toEqual({ pk: 'AGG#order#order-123', sk: 'HEAD' });
+      const updateItem = cmdInput.TransactItems?.[0]?.Update;
+      expect(updateItem?.TableName).toBe(TABLE_NAME);
+      expect(updateItem?.Key).toEqual({ pk: 'AGG#order#order-123', sk: 'HEAD' });
 
       // Check Put item (event)
-      const putItem = cmdInput.TransactItems![1].Put!;
-      expect(putItem.TableName).toBe(TABLE_NAME);
-      expect(putItem.Item!.pk).toBe('AGG#order#order-123');
-      expect(putItem.Item!.sk).toBe('EVT#000000001');
-      expect(putItem.Item!.itemType).toBe('event');
-      expect(putItem.Item!.eventType).toBe('OrderCreated');
-      expect(putItem.Item!.payload).toEqual({ total: 100 });
-      expect(putItem.Item!.version).toBe(1);
-      expect(putItem.Item!.source).toBe('order-service');
-      expect(putItem.Item!.schemaVersion).toBe(1);
+      const putItem = cmdInput.TransactItems?.[1]?.Put;
+      expect(putItem?.TableName).toBe(TABLE_NAME);
+      expect(putItem?.Item?.pk).toBe('AGG#order#order-123');
+      expect(putItem?.Item?.sk).toBe('EVT#000000001');
+      expect(putItem?.Item?.itemType).toBe('event');
+      expect(putItem?.Item?.eventType).toBe('OrderCreated');
+      expect(putItem?.Item?.payload).toEqual({ total: 100 });
+      expect(putItem?.Item?.version).toBe(1);
+      expect(putItem?.Item?.source).toBe('order-service');
+      expect(putItem?.Item?.schemaVersion).toBe(1);
     });
 
     it('pads version number to 9 digits', async () => {
@@ -98,10 +133,10 @@ describe('event-service', () => {
         eventType: 'T',
       });
 
-      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0];
-      const putItem = cmdInput.TransactItems![1].Put!;
-      expect(putItem.Item!.sk).toBe('EVT#000000042');
-      expect(putItem.Item!.version).toBe(42);
+      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0] as TransactWriteInput;
+      const putItem = cmdInput.TransactItems?.[1]?.Put;
+      expect(putItem?.Item?.sk).toBe('EVT#000000042');
+      expect(putItem?.Item?.version).toBe(42);
     });
 
     it('returns pk, sk, and version', async () => {
@@ -140,9 +175,9 @@ describe('event-service', () => {
         occurredAt: '2025-01-01T00:00:00.000Z',
       });
 
-      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0];
-      const putItem = cmdInput.TransactItems![1].Put!;
-      expect(putItem.Item!.occurredAt).toBe('2025-01-01T00:00:00.000Z');
+      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0] as TransactWriteInput;
+      const putItem = cmdInput.TransactItems?.[1]?.Put;
+      expect(putItem?.Item?.occurredAt).toBe('2025-01-01T00:00:00.000Z');
     });
 
     it('includes optional metadata fields', async () => {
@@ -163,12 +198,12 @@ describe('event-service', () => {
         schemaVersion: 2,
       });
 
-      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0];
-      const putItem = cmdInput.TransactItems![1].Put!;
-      expect(putItem.Item!.correlationId).toBe('corr-1');
-      expect(putItem.Item!.causationId).toBe('cause-1');
-      expect(putItem.Item!.actorId).toBe('user-1');
-      expect(putItem.Item!.schemaVersion).toBe(2);
+      const cmdInput = vi.mocked(TransactWriteCommand).mock.calls[0][0] as TransactWriteInput;
+      const putItem = cmdInput.TransactItems?.[1]?.Put;
+      expect(putItem?.Item?.correlationId).toBe('corr-1');
+      expect(putItem?.Item?.causationId).toBe('cause-1');
+      expect(putItem?.Item?.actorId).toBe('user-1');
+      expect(putItem?.Item?.schemaVersion).toBe(2);
     });
 
     it('throws OCC error on ConditionalCheckFailedException', async () => {
@@ -285,9 +320,9 @@ describe('event-service', () => {
         fromVersionExclusive: 5,
       });
 
-      const cmdInput = vi.mocked(QueryCommand).mock.calls[0][0];
+      const cmdInput = vi.mocked(QueryCommand).mock.calls[0][0] as QueryInput;
       // fromVersionExclusive=5 means start from version 6
-      expect(cmdInput.ExpressionAttributeValues![':from']).toBe('EVT#000000006');
+      expect(cmdInput.ExpressionAttributeValues?.[':from']).toBe('EVT#000000006');
     });
 
     it('respects toVersionInclusive', async () => {
@@ -300,8 +335,8 @@ describe('event-service', () => {
         toVersionInclusive: 10,
       });
 
-      const cmdInput = vi.mocked(QueryCommand).mock.calls[0][0];
-      expect(cmdInput.ExpressionAttributeValues![':to']).toBe('EVT#000000010');
+      const cmdInput = vi.mocked(QueryCommand).mock.calls[0][0] as QueryInput;
+      expect(cmdInput.ExpressionAttributeValues?.[':to']).toBe('EVT#000000010');
     });
 
     it('respects limit parameter', async () => {
@@ -314,7 +349,7 @@ describe('event-service', () => {
         limit: 25,
       });
 
-      const cmdInput = vi.mocked(QueryCommand).mock.calls[0][0];
+      const cmdInput = vi.mocked(QueryCommand).mock.calls[0][0] as QueryInput;
       expect(cmdInput.Limit).toBe(25);
     });
 

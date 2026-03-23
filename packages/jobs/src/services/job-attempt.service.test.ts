@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import { ElectroError } from 'electrodb';
 import { NotFoundError } from 'http-errors-enhanced';
 
-import { JobErrorCodes } from '../errors';
+import { JobAttemptEntity } from '../models';
 import { jobStatus } from '../types';
 
 import { createJobAttemptService, JobAttemptServiceInstance } from './job-attempt.service';
@@ -50,7 +51,7 @@ describe('jobAttemptService', () => {
   beforeEach(() => {
     mocks = createMockJobAttemptEntity();
     mockJobService = createMockJobService();
-    service = createJobAttemptService(mocks.entity as any, mockJobService);
+    service = createJobAttemptService(mocks.entity as unknown as JobAttemptEntity, mockJobService);
   });
 
   describe('scheduleJobAttempt', () => {
@@ -131,6 +132,7 @@ describe('jobAttemptService', () => {
       expect(mocks.mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           status: jobStatus.running,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           startedAt: expect.any(String),
         }),
       );
@@ -150,7 +152,7 @@ describe('jobAttemptService', () => {
         new ElectroError(1000, {
           message: 'condition failed',
           sections: {},
-        } as any),
+        } as unknown as ErrorConstructor),
       );
 
       const result = await service.markJobAttemptAsRunning('job-1', 1);
@@ -207,7 +209,7 @@ describe('jobAttemptService', () => {
         new ElectroError(1000, {
           message: 'condition failed',
           sections: {},
-        } as any),
+        } as unknown as ErrorConstructor),
       );
 
       await expect(

@@ -32,7 +32,7 @@ import { SendMessageBatchCommand } from '@aws-sdk/client-sqs';
 
 import { createStreamHandler } from './stream-handler';
 
-import type { DynamoDBStreamEvent } from 'aws-lambda';
+import type { DynamoDBRecord, DynamoDBStreamEvent } from 'aws-lambda';
 
 const makeEventRecord = (overrides = {}) => ({
   pk: 'AGG#order#o-1',
@@ -50,11 +50,18 @@ const makeEventRecord = (overrides = {}) => ({
   ...overrides,
 });
 
-const makeStreamRecord = (eventName: string, newImage: object | undefined = {}) => ({
+const makeStreamRecord = (
+  eventName: string,
+  newImage: object | undefined = {},
+): DynamoDBRecord => ({
   eventID: '1',
   eventVersion: '1.1',
   dynamodb: {
-    NewImage: newImage,
+    NewImage: newImage as DynamoDBRecord['dynamodb'] extends infer D
+      ? D extends { NewImage?: infer N }
+        ? N
+        : never
+      : never,
     StreamViewType: 'NEW_IMAGE',
   },
   awsRegion: 'us-east-1',
@@ -62,6 +69,25 @@ const makeStreamRecord = (eventName: string, newImage: object | undefined = {}) 
   eventSourceARN: 'arn:aws:dynamodb:us-east-1:123:table/events/stream',
   eventSource: 'aws:dynamodb',
 });
+
+interface SqsBatchInput {
+  QueueUrl?: string;
+  Entries?: {
+    Id?: string;
+    MessageBody: string;
+    MessageGroupId?: string;
+    MessageDeduplicationId?: string;
+  }[];
+}
+
+interface EbPutEventsInput {
+  Entries?: {
+    EventBusName?: string;
+    DetailType?: string;
+    Source?: string;
+    Detail: string;
+  }[];
+}
 
 describe('stream-handler', () => {
   const config = {
@@ -90,7 +116,7 @@ describe('stream-handler', () => {
         makeStreamRecord('INSERT', { data: { S: 'x' } }),
         makeStreamRecord('MODIFY', { data: { S: 'y' } }),
         makeStreamRecord('REMOVE', undefined),
-      ] as any,
+      ],
     };
 
     await handler(event);
@@ -110,16 +136,16 @@ describe('stream-handler', () => {
       Records: [
         makeStreamRecord('INSERT', { a: { S: '1' } }),
         makeStreamRecord('INSERT', { b: { S: '2' } }),
-      ] as any,
+      ],
     };
 
     await handler(event);
 
     // Only eventRecord (itemType='event') should be sent
     expect(SendMessageBatchCommand).toHaveBeenCalledTimes(1);
-    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0];
+    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
     expect(sqsInput.Entries).toHaveLength(1);
-    expect(JSON.parse(sqsInput.Entries![0].MessageBody)).toEqual(eventRecord);
+    expect(JSON.parse(sqsInput.Entries?.[0]?.MessageBody ?? '')).toEqual(eventRecord);
   });
 
   it('sends to all configured queues', async () => {
@@ -136,14 +162,14 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(multiQueueConfig);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await handler(event);
 
     expect(SendMessageBatchCommand).toHaveBeenCalledTimes(2);
-    const call1 = vi.mocked(SendMessageBatchCommand).mock.calls[0][0];
-    const call2 = vi.mocked(SendMessageBatchCommand).mock.calls[1][0];
+    const call1 = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
+    const call2 = vi.mocked(SendMessageBatchCommand).mock.calls[1][0] as SqsBatchInput;
     expect(call1.QueueUrl).toBe('https://sqs.us-east-1.amazonaws.com/123/queue-1');
     expect(call2.QueueUrl).toBe('https://sqs.us-east-1.amazonaws.com/123/queue-2');
   });
@@ -154,18 +180,18 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await handler(event);
 
     expect(PutEventsCommand).toHaveBeenCalledTimes(1);
-    const ebInput = vi.mocked(PutEventsCommand).mock.calls[0][0];
+    const ebInput = vi.mocked(PutEventsCommand).mock.calls[0][0] as EbPutEventsInput;
     expect(ebInput.Entries).toHaveLength(1);
-    expect(ebInput.Entries![0].EventBusName).toBe('test-bus');
-    expect(ebInput.Entries![0].DetailType).toBe('CreditAdded');
-    expect(ebInput.Entries![0].Source).toBe('billing');
-    expect(JSON.parse(ebInput.Entries![0].Detail)).toEqual(eventRecord);
+    expect(ebInput.Entries?.[0]?.EventBusName).toBe('test-bus');
+    expect(ebInput.Entries?.[0]?.DetailType).toBe('CreditAdded');
+    expect(ebInput.Entries?.[0]?.Source).toBe('billing');
+    expect(JSON.parse(ebInput.Entries?.[0]?.Detail ?? '')).toEqual(eventRecord);
   });
 
   it('uses kebabCase of aggregateType as source fallback when source is undefined', async () => {
@@ -174,14 +200,14 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await handler(event);
 
-    const ebInput = vi.mocked(PutEventsCommand).mock.calls[0][0];
+    const ebInput = vi.mocked(PutEventsCommand).mock.calls[0][0] as EbPutEventsInput;
     // kebabCase splits on '.', takes first part 'Order', which becomes 'order'
-    expect(ebInput.Entries![0].Source).toBe('order');
+    expect(ebInput.Entries?.[0]?.Source).toBe('order');
   });
 
   it('uses aggregateId as MessageGroupId', async () => {
@@ -190,13 +216,13 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await handler(event);
 
-    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0];
-    expect(sqsInput.Entries![0].MessageGroupId).toBe('agg-123');
+    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
+    expect(sqsInput.Entries?.[0]?.MessageGroupId).toBe('agg-123');
   });
 
   it('uses eventId as MessageDeduplicationId', async () => {
@@ -205,37 +231,35 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await handler(event);
 
-    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0];
-    expect(sqsInput.Entries![0].MessageDeduplicationId).toBe('evt-dedup-1');
+    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
+    expect(sqsInput.Entries?.[0]?.MessageDeduplicationId).toBe('evt-dedup-1');
   });
 
   it('batches correctly (respects BATCH_SIZE of 10)', async () => {
     // Create 12 event records to trigger 2 batches
     const records = Array.from({ length: 12 }, (_, i) =>
-      makeEventRecord({ eventId: `evt-${i}`, version: i + 1 }),
+      makeEventRecord({ eventId: `evt-${String(i)}`, version: i + 1 }),
     );
 
-    mockUnmarshall.mockImplementation((_, i) => records[i]);
-    // Reset to return each record in sequence
     mockUnmarshall.mockReset();
     records.forEach((r) => mockUnmarshall.mockReturnValueOnce(r));
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: records.map((_, i) => makeStreamRecord('INSERT', { idx: { N: String(i) } })) as any,
+      Records: records.map((_r, i) => makeStreamRecord('INSERT', { idx: { N: String(i) } })),
     };
 
     await handler(event);
 
     // 2 batches for SQS (10 + 2), 1 queue = 2 calls
     expect(SendMessageBatchCommand).toHaveBeenCalledTimes(2);
-    const firstBatch = vi.mocked(SendMessageBatchCommand).mock.calls[0][0];
-    const secondBatch = vi.mocked(SendMessageBatchCommand).mock.calls[1][0];
+    const firstBatch = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
+    const secondBatch = vi.mocked(SendMessageBatchCommand).mock.calls[1][0] as SqsBatchInput;
     expect(firstBatch.Entries).toHaveLength(10);
     expect(secondBatch.Entries).toHaveLength(2);
 
@@ -250,13 +274,13 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { bad: { S: 'data' } })] as any,
+      Records: [makeStreamRecord('INSERT', { bad: { S: 'data' } })],
     };
 
     await handler(event);
 
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.any(Error) }),
+      expect.objectContaining({ error: expect.any(Error) as unknown }),
       'Error unmarshalling event record',
     );
     // Should not send to queues since no valid records
@@ -281,7 +305,7 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await expect(handler(event)).rejects.toThrow('SQS error');
@@ -295,7 +319,7 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })] as any,
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
     await expect(handler(event)).rejects.toThrow();

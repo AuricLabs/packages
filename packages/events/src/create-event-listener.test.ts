@@ -14,13 +14,13 @@ import { logger } from '@auriclabs/logger';
 
 import { createEventListener } from './create-event-listener';
 
-import type { SQSEvent } from 'aws-lambda';
+import type { SQSEvent, SQSRecordAttributes } from 'aws-lambda';
 
 const makeRecord = (body: object, messageId = 'msg-1') => ({
   messageId,
   body: JSON.stringify(body),
   receiptHandle: 'handle',
-  attributes: {} as any,
+  attributes: {} as SQSRecordAttributes,
   messageAttributes: {},
   md5OfBody: '',
   eventSource: 'aws:sqs',
@@ -186,7 +186,7 @@ describe('createEventListener', () => {
     await handler(sqsEvent);
 
     expect(logger.debug).toHaveBeenCalledWith(
-      { event: expect.objectContaining({ eventType: 'OrderCreated' }) },
+      { event: expect.objectContaining({ eventType: 'OrderCreated' }) as unknown },
       'Processing event',
     );
   });
@@ -219,7 +219,7 @@ describe('createEventListener', () => {
     await handler(sqsEvent);
 
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ error, event: expect.any(Object) }),
+      expect.objectContaining({ error, event: expect.any(Object) as unknown }),
       'Error processing event',
     );
   });

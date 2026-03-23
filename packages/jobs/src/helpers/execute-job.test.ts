@@ -6,13 +6,14 @@ const mockStartJob = vi.fn();
 const mockStopJob = vi.fn();
 
 vi.mock('./start-job', () => ({
-  startJob: (...args: unknown[]) => mockStartJob(...args),
+  startJob: (...args: unknown[]) => mockStartJob(...args) as unknown,
 }));
 
 vi.mock('./stop-job', () => ({
-  stopJob: (...args: unknown[]) => mockStopJob(...args),
+  stopJob: (...args: unknown[]) => mockStopJob(...args) as unknown,
 }));
 
+import { JobAttemptItem, JobItem } from '../models';
 import { jobStatus } from '../types';
 
 import { executeJob, JobExecutionError } from './execute-job';
@@ -106,8 +107,8 @@ describe('executeJob', () => {
 describe('JobExecutionError', () => {
   it('has correct properties', () => {
     const originalError = new Error('original');
-    const job = { id: 'job-1', status: jobStatus.running } as any;
-    const jobAttempt = { jobId: 'job-1', attempt: 1 } as any;
+    const job = { id: 'job-1', status: jobStatus.running } as unknown as JobItem;
+    const jobAttempt = { jobId: 'job-1', attempt: 1 } as unknown as JobAttemptItem;
     const response = { success: false, error: 'failed' };
 
     const error = new JobExecutionError(originalError, job, jobAttempt, response);
@@ -123,12 +124,16 @@ describe('JobExecutionError', () => {
   });
 
   it('started is false when job is not running', () => {
-    const error = new JobExecutionError('error', { status: jobStatus.pending } as any);
+    const error = new JobExecutionError('error', {
+      status: jobStatus.pending,
+    } as unknown as JobItem);
     expect(error.started).toBe(false);
   });
 
   it('completed is true when job is completed', () => {
-    const error = new JobExecutionError('error', { status: jobStatus.completed } as any);
+    const error = new JobExecutionError('error', {
+      status: jobStatus.completed,
+    } as unknown as JobItem);
     expect(error.completed).toBe(true);
   });
 
