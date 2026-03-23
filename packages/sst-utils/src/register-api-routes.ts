@@ -66,7 +66,6 @@ export const registerApiRoutes = (
         file,
         {
           ...variables,
-          aws,
           $app,
           $dev,
         },

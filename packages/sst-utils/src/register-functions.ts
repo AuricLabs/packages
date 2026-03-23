@@ -58,7 +58,6 @@ export const registerFunctions = ({
         file,
         {
           ...variables,
-          aws,
           $app,
           $dev,
         },
