@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/utils",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Utility functions for AuricLabs projects",
   "prettier": "@auriclabs/prettier-config",
   "main": "dist/index.cjs",
@@ -36,7 +36,7 @@
     "@types/lodash-es": "4.17.12"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.0.1"
+    "@auriclabs/logger": "^0.1.1"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

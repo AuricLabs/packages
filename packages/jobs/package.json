@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/jobs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Job queue system with DynamoDB + SQS + Lambda execution",
   "prettier": "@auriclabs/prettier-config",
   "main": "dist/index.cjs",
@@ -38,9 +38,9 @@
     "@types/uuid": "^10.0.0"
   },
   "peerDependencies": {
-    "@auriclabs/api-core": "^0.1.0",
-    "@auriclabs/logger": "^0.1.0",
-    "@auriclabs/pagination": "^0.1.0",
+    "@auriclabs/api-core": "^0.1.1",
+    "@auriclabs/logger": "^0.1.1",
+    "@auriclabs/pagination": "^1.0.1",
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-lambda": "^3.0.0",
     "@aws-sdk/client-sqs": "^3.0.0",

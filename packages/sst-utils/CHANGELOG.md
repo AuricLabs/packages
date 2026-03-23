@@ -1,5 +1,19 @@
 # @auriclabs/sst-utils
 
+## 1.0.1
+
+### Patch Changes
+
+- eeb513b: Fix ReferenceError when `aws` global is accessed from node_modules. The `aws` identifier
+  is only available at the type level via SST's `export import` declaration and is not set on
+  `globalThis` at runtime. Removed hardcoded `aws` from constructProperties calls — consumers should
+  pass it through the `variables` option instead.
+- 1c34bf8: Fix route path extraction for root-level handler files (e.g. `get.ts`, `post.ts` at the
+  top of the routesDir). The regex now makes the leading `/` optional so root-level method files
+  resolve to the prefix path correctly instead of producing routes like `GET /agents/get`.
+- Updated dependencies [eeb513b]
+  - @auriclabs/logger@0.1.1
+
 ## 1.0.0
 
 ### Minor Changes
