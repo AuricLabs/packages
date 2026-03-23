@@ -48,11 +48,7 @@ export function createJobAttemptService(
       return jobAttempt;
     },
 
-    async rescheduleJobAttempt(
-      jobId: string,
-      attempt: number,
-      scheduledAt: string,
-    ): Promise<void> {
+    async rescheduleJobAttempt(jobId: string, attempt: number, scheduledAt: string): Promise<void> {
       await JobAttempt.patch({ jobId, attempt }).set({ scheduledAt }).go();
     },
 
@@ -91,11 +87,7 @@ export function createJobAttemptService(
       }
     },
 
-    async updateJobAttempt(
-      jobId: string,
-      attempt: number,
-      updateFields: JobAttemptUpdateFields,
-    ) {
+    async updateJobAttempt(jobId: string, attempt: number, updateFields: JobAttemptUpdateFields) {
       try {
         await JobAttempt.patch({ jobId, attempt })
           .set(updateFields)
@@ -119,8 +111,9 @@ export function createJobAttemptService(
       jobId: string,
       options?: QueryOptions,
     ): Promise<PaginationResponse<JobAttemptItem>> {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return normalizePaginationResponse(JobAttempt.query.jobAttempts({ jobId }).go(options as any));
+      return normalizePaginationResponse(
+        JobAttempt.query.jobAttempts({ jobId }).go(options as any),
+      );
     },
   };
 }

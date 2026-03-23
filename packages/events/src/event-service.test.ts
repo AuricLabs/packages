@@ -23,8 +23,9 @@ vi.mock('@auriclabs/pagination', () => ({
   normalizePaginationResponse: vi.fn((input: unknown) => input),
 }));
 
-import { createEventService } from './event-service';
 import { TransactWriteCommand, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+
+import { createEventService } from './event-service';
 
 describe('event-service', () => {
   const TABLE_NAME = 'test-events';

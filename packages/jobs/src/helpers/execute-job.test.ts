@@ -14,6 +14,7 @@ vi.mock('./stop-job', () => ({
 }));
 
 import { jobStatus } from '../types';
+
 import { executeJob, JobExecutionError } from './execute-job';
 
 describe('executeJob', () => {
@@ -122,18 +123,12 @@ describe('JobExecutionError', () => {
   });
 
   it('started is false when job is not running', () => {
-    const error = new JobExecutionError(
-      'error',
-      { status: jobStatus.pending } as any,
-    );
+    const error = new JobExecutionError('error', { status: jobStatus.pending } as any);
     expect(error.started).toBe(false);
   });
 
   it('completed is true when job is completed', () => {
-    const error = new JobExecutionError(
-      'error',
-      { status: jobStatus.completed } as any,
-    );
+    const error = new JobExecutionError('error', { status: jobStatus.completed } as any);
     expect(error.completed).toBe(true);
   });
 

@@ -10,8 +10,10 @@ vi.mock('./context', () => ({
   setEventContext: mockSetEventContext,
 }));
 
-import { createEventListener } from './create-event-listener';
 import { logger } from '@auriclabs/logger';
+
+import { createEventListener } from './create-event-listener';
+
 import type { SQSEvent } from 'aws-lambda';
 
 const makeRecord = (body: object, messageId = 'msg-1') => ({

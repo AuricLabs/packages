@@ -82,7 +82,10 @@ describe('init', () => {
       expect(mockCreateJobModel).toHaveBeenCalledWith('test-table');
       expect(mockCreateJobAttemptModel).toHaveBeenCalledWith('test-table');
       expect(mockCreateJobService).toHaveBeenCalledWith(mockJobEntity);
-      expect(mockCreateJobAttemptService).toHaveBeenCalledWith(mockJobAttemptEntity, mockJobService);
+      expect(mockCreateJobAttemptService).toHaveBeenCalledWith(
+        mockJobAttemptEntity,
+        mockJobService,
+      );
       expect(mockCreateJobQueueService).toHaveBeenCalled();
       expect(mockCreateLambdaExecutorService).toHaveBeenCalled();
     });

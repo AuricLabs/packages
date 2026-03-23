@@ -8,7 +8,11 @@ import { JobStatus, jobStatus } from '../types';
 export interface JobServiceInstance {
   getJob(jobId: string): Promise<JobItem>;
   updateJobStatus(jobId: string, status: JobStatus, expectedStatus: JobStatus): Promise<boolean>;
-  updateJob(jobId: string, updateFields: JobUpdateFields, requiredStatus?: JobStatus): Promise<void>;
+  updateJob(
+    jobId: string,
+    updateFields: JobUpdateFields,
+    requiredStatus?: JobStatus,
+  ): Promise<void>;
   createJob(definition: JobCreateFields): Promise<JobItem>;
   prepareNextJobAttempt(jobId: string): Promise<number>;
 }
@@ -48,11 +52,7 @@ export function createJobService(Job: JobEntity): JobServiceInstance {
       }
     },
 
-    async updateJob(
-      jobId: string,
-      updateFields: JobUpdateFields,
-      requiredStatus?: JobStatus,
-    ) {
+    async updateJob(jobId: string, updateFields: JobUpdateFields, requiredStatus?: JobStatus) {
       let action = Job.patch({ id: jobId }).set(updateFields);
 
       if (requiredStatus) {

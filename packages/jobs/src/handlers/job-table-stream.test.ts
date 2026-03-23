@@ -132,9 +132,7 @@ describe('createJobTableStreamHandler', () => {
     const mockJob1 = { id: 'job-1', queue: 'lambda' };
     const mockJob2 = { id: 'job-2', queue: 'other' };
 
-    mockJobService.getJob
-      .mockResolvedValueOnce(mockJob1)
-      .mockResolvedValueOnce(mockJob2);
+    mockJobService.getJob.mockResolvedValueOnce(mockJob1).mockResolvedValueOnce(mockJob2);
     mockJobQueueService.addToQueue.mockResolvedValue('msg-1');
 
     const event: DynamoDBStreamEvent = {

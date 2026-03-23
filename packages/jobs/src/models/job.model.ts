@@ -102,4 +102,6 @@ export type JobCreateFields = Omit<
   CreateEntityItem<JobEntity>,
   'id' | 'createdAt' | 'updatedAt' | 'totalAttempts'
 >;
-export type JobUpdateFields = Partial<Omit<UpdateEntityItem<JobEntity>, 'updatedAt' | 'totalAttempts'>>;
+export type JobUpdateFields = Partial<
+  Omit<UpdateEntityItem<JobEntity>, 'updatedAt' | 'totalAttempts'>
+>;

@@ -168,10 +168,7 @@ export function createEventService(tableName: string): EventService {
       return { pk, sk, version: nextVersion };
     },
 
-    async getHead(
-      aggregateType: string,
-      aggregateId: string,
-    ): Promise<AggregateHead | undefined> {
+    async getHead(aggregateType: string, aggregateId: string): Promise<AggregateHead | undefined> {
       const pk = pkFor(aggregateType, aggregateId);
       const res = await ddb.send(new GetCommand({ TableName: TABLE, Key: { pk, sk: 'HEAD' } }));
       return res.Item as AggregateHead | undefined;

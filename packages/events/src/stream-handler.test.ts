@@ -26,10 +26,12 @@ vi.mock('lodash-es', () => ({
   kebabCase: vi.fn((s: string) => s.toLowerCase().replace(/[.\s]+/g, '-')),
 }));
 
-import { createStreamHandler } from './stream-handler';
-import { SendMessageBatchCommand } from '@aws-sdk/client-sqs';
-import { PutEventsCommand } from '@aws-sdk/client-eventbridge';
 import { logger } from '@auriclabs/logger';
+import { PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { SendMessageBatchCommand } from '@aws-sdk/client-sqs';
+
+import { createStreamHandler } from './stream-handler';
+
 import type { DynamoDBStreamEvent } from 'aws-lambda';
 
 const makeEventRecord = (overrides = {}) => ({
@@ -48,10 +50,7 @@ const makeEventRecord = (overrides = {}) => ({
   ...overrides,
 });
 
-const makeStreamRecord = (
-  eventName: string,
-  newImage: object | undefined = {},
-) => ({
+const makeStreamRecord = (eventName: string, newImage: object | undefined = {}) => ({
   eventID: '1',
   eventVersion: '1.1',
   dynamodb: {
@@ -104,9 +103,7 @@ describe('stream-handler', () => {
     const headRecord = { pk: 'AGG#order#o-1', sk: 'HEAD', itemType: 'head' };
     const eventRecord = makeEventRecord();
 
-    mockUnmarshall
-      .mockReturnValueOnce(headRecord)
-      .mockReturnValueOnce(eventRecord);
+    mockUnmarshall.mockReturnValueOnce(headRecord).mockReturnValueOnce(eventRecord);
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
@@ -122,7 +119,7 @@ describe('stream-handler', () => {
     expect(SendMessageBatchCommand).toHaveBeenCalledTimes(1);
     const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0];
     expect(sqsInput.Entries).toHaveLength(1);
-    expect(JSON.parse(sqsInput.Entries![0].MessageBody!)).toEqual(eventRecord);
+    expect(JSON.parse(sqsInput.Entries![0].MessageBody)).toEqual(eventRecord);
   });
 
   it('sends to all configured queues', async () => {
@@ -168,7 +165,7 @@ describe('stream-handler', () => {
     expect(ebInput.Entries![0].EventBusName).toBe('test-bus');
     expect(ebInput.Entries![0].DetailType).toBe('CreditAdded');
     expect(ebInput.Entries![0].Source).toBe('billing');
-    expect(JSON.parse(ebInput.Entries![0].Detail!)).toEqual(eventRecord);
+    expect(JSON.parse(ebInput.Entries![0].Detail)).toEqual(eventRecord);
   });
 
   it('uses kebabCase of aggregateType as source fallback when source is undefined', async () => {
@@ -230,9 +227,7 @@ describe('stream-handler', () => {
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: records.map((_, i) =>
-        makeStreamRecord('INSERT', { idx: { N: String(i) } }),
-      ) as any,
+      Records: records.map((_, i) => makeStreamRecord('INSERT', { idx: { N: String(i) } })) as any,
     };
 
     await handler(event);

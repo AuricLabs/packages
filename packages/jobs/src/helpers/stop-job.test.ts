@@ -11,6 +11,7 @@ vi.mock('../init', () => ({
 }));
 
 import { jobStatus } from '../types';
+
 import { stopJob } from './stop-job';
 
 describe('stopJob', () => {

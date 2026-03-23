@@ -1,8 +1,7 @@
 import { logger } from '@auriclabs/logger';
 
 import { getJobService, getJobAttemptService, getJobQueueService } from '../init';
-import { JobAttemptItem } from '../models';
-import { JobItem } from '../models';
+import { JobAttemptItem, JobItem } from '../models';
 import { JobMessage, jobStatus } from '../types';
 
 export interface StartJobContext {

@@ -18,7 +18,10 @@ vi.mock('@auriclabs/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
-import { createLambdaExecutorService, LambdaExecutorServiceInstance } from './lambda-executor.service';
+import {
+  createLambdaExecutorService,
+  LambdaExecutorServiceInstance,
+} from './lambda-executor.service';
 
 describe('lambdaExecutorService', () => {
   let service: LambdaExecutorServiceInstance;

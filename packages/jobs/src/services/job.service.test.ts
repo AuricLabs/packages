@@ -118,17 +118,17 @@ describe('jobService', () => {
         } as any),
       );
 
-      await expect(
-        service.updateJob('job-1', { status: jobStatus.completed }),
-      ).rejects.toThrow(NotFoundError);
+      await expect(service.updateJob('job-1', { status: jobStatus.completed })).rejects.toThrow(
+        NotFoundError,
+      );
     });
 
     it('throws non-ElectroError errors', async () => {
       mocks.mockGo.mockRejectedValue(new Error('network error'));
 
-      await expect(
-        service.updateJob('job-1', { status: jobStatus.completed }),
-      ).rejects.toThrow('network error');
+      await expect(service.updateJob('job-1', { status: jobStatus.completed })).rejects.toThrow(
+        'network error',
+      );
     });
   });
 

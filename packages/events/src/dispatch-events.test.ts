@@ -61,9 +61,7 @@ describe('dispatchEvents', () => {
   });
 
   it('defaults inOrder to false when options not provided', async () => {
-    const events = [
-      { aggregateType: 'order', aggregateId: '1', source: 'test', eventType: 'A' },
-    ];
+    const events = [{ aggregateType: 'order', aggregateId: '1', source: 'test', eventType: 'A' }];
 
     await dispatchEvents(events);
 

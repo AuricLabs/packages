@@ -2,9 +2,9 @@ import { retry } from '@auriclabs/api-core';
 import { logger } from '@auriclabs/logger';
 import { ulid } from 'ulid';
 
+import { getEventContext } from './context';
 import { AppendArgs, AppendEventResult } from './event-service';
 import { getEventService } from './init';
-import { getEventContext } from './context';
 
 export type DispatchEventArgs = Omit<
   AppendArgs,

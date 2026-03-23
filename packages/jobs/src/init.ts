@@ -1,8 +1,8 @@
-import { createJobModel, JobEntity } from './models/job.model';
 import { createJobAttemptModel, JobAttemptEntity } from './models/job-attempt.model';
-import { createJobService, JobServiceInstance } from './services/job.service';
+import { createJobModel, JobEntity } from './models/job.model';
 import { createJobAttemptService, JobAttemptServiceInstance } from './services/job-attempt.service';
 import { createJobQueueService, JobQueueServiceInstance } from './services/job-queue.service';
+import { createJobService, JobServiceInstance } from './services/job.service';
 import {
   createLambdaExecutorService,
   LambdaExecutorServiceInstance,
@@ -32,30 +32,36 @@ function assertInitialized(): void {
 
 export function getJobModel(): JobEntity {
   assertInitialized();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guaranteed by assertInitialized
   return _Job!;
 }
 
 export function getJobAttemptModel(): JobAttemptEntity {
   assertInitialized();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guaranteed by assertInitialized
   return _JobAttempt!;
 }
 
 export function getJobService(): JobServiceInstance {
   assertInitialized();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guaranteed by assertInitialized
   return _jobService!;
 }
 
 export function getJobAttemptService(): JobAttemptServiceInstance {
   assertInitialized();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guaranteed by assertInitialized
   return _jobAttemptService!;
 }
 
 export function getJobQueueService(): JobQueueServiceInstance {
   assertInitialized();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guaranteed by assertInitialized
   return _jobQueueService!;
 }
 
 export function getLambdaExecutorService(): LambdaExecutorServiceInstance {
   assertInitialized();
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guaranteed by assertInitialized
   return _lambdaExecutorService!;
 }

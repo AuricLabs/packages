@@ -114,6 +114,4 @@ export type JobAttemptCreateFields = Pick<
   CreateEntityItem<JobAttemptEntity>,
   'jobId' | 'attempt' | 'scheduledAt'
 >;
-export type JobAttemptUpdateFields = Partial<
-  Omit<UpdateEntityItem<JobAttemptEntity>, 'updatedAt'>
->;
+export type JobAttemptUpdateFields = Partial<Omit<UpdateEntityItem<JobAttemptEntity>, 'updatedAt'>>;

@@ -77,9 +77,7 @@ describe('createLambdaExecutorHandler', () => {
     it('reports batch failures for non-FIFO queue', async () => {
       const job = { id: 'job-1', fn: 'myFn', payload: {} };
       mockJobService.getJob.mockResolvedValue(job);
-      mockExecuteJob
-        .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new Error('failed'));
+      mockExecuteJob.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('failed'));
 
       const event: SQSEvent = {
         Records: [
@@ -97,16 +95,13 @@ describe('createLambdaExecutorHandler', () => {
       const job = { id: 'job-1', fn: 'myFn', payload: {} };
       mockJobService.getJob.mockResolvedValue(job);
 
-      const executionError = new JobExecutionError(
-        new Error('exec failed'),
-        { status: jobStatus.running } as any,
-      );
+      const executionError = new JobExecutionError(new Error('exec failed'), {
+        status: jobStatus.running,
+      } as any);
       mockExecuteJob.mockRejectedValue(executionError);
 
       const event: SQSEvent = {
-        Records: [
-          createSqsRecord('msg-1', { jobId: 'job-1', queue: 'lambda', attempt: 1 }),
-        ],
+        Records: [createSqsRecord('msg-1', { jobId: 'job-1', queue: 'lambda', attempt: 1 })],
       };
 
       const response = await handler(event);
@@ -124,8 +119,12 @@ describe('createLambdaExecutorHandler', () => {
       mockJobService.getJob.mockResolvedValue(job);
 
       mockExecuteJob
-        .mockImplementationOnce(async () => { callOrder.push(1); })
-        .mockImplementationOnce(async () => { callOrder.push(2); });
+        .mockImplementationOnce(async () => {
+          callOrder.push(1);
+        })
+        .mockImplementationOnce(async () => {
+          callOrder.push(2);
+        });
 
       const event: SQSEvent = {
         Records: [
@@ -144,8 +143,7 @@ describe('createLambdaExecutorHandler', () => {
       const job = { id: 'job-1', fn: 'myFn', payload: {} };
       mockJobService.getJob.mockResolvedValue(job);
 
-      mockExecuteJob
-        .mockRejectedValueOnce(new Error('processing failed'));
+      mockExecuteJob.mockRejectedValueOnce(new Error('processing failed'));
 
       const event: SQSEvent = {
         Records: [
@@ -180,14 +178,11 @@ describe('createLambdaExecutorHandler', () => {
       const job = { id: 'job-1', fn: 'myFn', payload: {} };
       mockJobService.getJob.mockResolvedValue(job);
 
-      const executionError = new JobExecutionError(
-        new Error('exec failed'),
-        { status: jobStatus.running } as any,
-      );
+      const executionError = new JobExecutionError(new Error('exec failed'), {
+        status: jobStatus.running,
+      } as any);
 
-      mockExecuteJob
-        .mockRejectedValueOnce(executionError)
-        .mockResolvedValueOnce(undefined);
+      mockExecuteJob.mockRejectedValueOnce(executionError).mockResolvedValueOnce(undefined);
 
       const event: SQSEvent = {
         Records: [

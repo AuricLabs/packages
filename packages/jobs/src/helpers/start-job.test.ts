@@ -22,6 +22,7 @@ vi.mock('../init', () => ({
 }));
 
 import { jobStatus } from '../types';
+
 import { startJob } from './start-job';
 
 describe('startJob', () => {
@@ -59,12 +60,7 @@ describe('startJob', () => {
     const result = await startJob(baseMessage);
 
     expect(result.success).toBe(false);
-    expect(mockJobQueueService.addToQueue).toHaveBeenCalledWith(
-      'lambda',
-      'job-1',
-      1,
-      futureDate,
-    );
+    expect(mockJobQueueService.addToQueue).toHaveBeenCalledWith('lambda', 'job-1', 1, futureDate);
     expect(mockJobAttemptService.markJobAttemptAsRunning).not.toHaveBeenCalled();
   });
 

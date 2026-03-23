@@ -27,8 +27,9 @@ vi.mock('ulid', () => ({
   ulid: mockUlid,
 }));
 
-import { dispatchEvent } from './dispatch-event';
 import { retry } from '@auriclabs/api-core';
+
+import { dispatchEvent } from './dispatch-event';
 
 describe('dispatchEvent', () => {
   beforeEach(() => {
