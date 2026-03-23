@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/events",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Event sourcing runtime utilities for DynamoDB-backed event stores",
   "prettier": "@auriclabs/prettier-config",
   "main": "dist/index.cjs",
@@ -39,9 +39,9 @@
     "@types/lodash-es": "4.17.12"
   },
   "peerDependencies": {
-    "@auriclabs/api-core": "^0.1.0",
-    "@auriclabs/logger": "^0.1.0",
-    "@auriclabs/pagination": "^0.1.0",
+    "@auriclabs/api-core": "^0.1.1",
+    "@auriclabs/logger": "^0.1.1",
+    "@auriclabs/pagination": "^1.0.1",
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@aws-sdk/client-eventbridge": "^3.0.0",

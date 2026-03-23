@@ -1,5 +1,14 @@
 # @auriclabs/api-core
 
+## 0.1.1
+
+### Patch Changes
+
+- eeb513b: Upgrade tsdown to 0.21.4 and update package exports to use `.mjs`/`.d.mts` extensions.
+- Updated dependencies [eeb513b]
+  - @auriclabs/env@0.0.4
+  - @auriclabs/logger@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes

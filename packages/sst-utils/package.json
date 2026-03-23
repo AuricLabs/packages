@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/sst-utils",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
@@ -46,7 +46,7 @@
     "sst": "^4.3.7"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.1.0",
+    "@auriclabs/logger": "^0.1.1",
     "@auriclabs/sst-types": "^0.1.0"
   },
   "publishConfig": {
