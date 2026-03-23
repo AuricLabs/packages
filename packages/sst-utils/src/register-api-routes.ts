@@ -52,7 +52,7 @@ export const registerApiRoutes = (
       // Extract the route path from the file path
       // This removes the method part and converts the file path to an API route
       const routePath = file
-        .replace(/\/(get|post|put|delete|patch)\.ts$/, '') // Remove the method filename
+        .replace(/(^|\/)(get|post|put|delete|patch)\.ts$/, '') // Remove the method filename
         .replace(/\\/g, '/') // Normalize backslashes to forward slashes for Windows
         .replace(/\/index$/, ''); // Convert /index to / for root routes
 
