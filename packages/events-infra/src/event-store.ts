@@ -9,12 +9,15 @@ export function createEventStore(name: string, options?: CreateEventStoreOptions
     fields: {
       pk: 'string',
       sk: 'string',
+      tenantId: 'string',
     },
     primaryIndex: {
       hashKey: 'pk',
       rangeKey: 'sk',
     },
-    globalIndexes: {},
+    globalIndexes: {
+      tenantIndex: { hashKey: 'tenantId', rangeKey: 'sk' },
+    },
     stream: 'new-and-old-images',
     transform: {
       table: {

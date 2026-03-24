@@ -42,6 +42,7 @@ const makeEventRecord = (overrides = {}) => ({
   aggregateId: 'o-1',
   aggregateType: 'order',
   version: 1,
+  tenantId: 'tenant-1',
   eventId: 'evt-1',
   eventType: 'OrderCreated',
   schemaVersion: 1,

@@ -31,6 +31,7 @@ const makeRecord = (body: object, messageId = 'msg-1') => ({
 const makeEvent = (overrides = {}) => ({
   eventType: 'OrderCreated',
   eventId: 'evt-1',
+  tenantId: 'tenant-1',
   aggregateType: 'order',
   aggregateId: 'o-1',
   correlationId: 'corr-1',

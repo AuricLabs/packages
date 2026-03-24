@@ -23,6 +23,9 @@ export interface EventRecord<P = unknown> {
   aggregateType: AggregateType;
   version: number; // post-apply version
 
+  /** Tenant isolation */
+  tenantId: string;
+
   /** Event identity & semantics */
   eventId: EventId; // string (ULID/UUID), not number
   eventType: string;

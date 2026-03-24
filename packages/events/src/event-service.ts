@@ -29,6 +29,7 @@ const pkFor = (aggregateType: string, aggregateId: string): AggregatePK =>
   `AGG#${aggregateType}#${aggregateId}`;
 
 export interface AppendArgs<P = unknown> {
+  tenantId: string;
   aggregateType: string;
   aggregateId: string;
   source: string;
@@ -79,6 +80,7 @@ export function createEventService(tableName: string): EventService {
   return {
     async appendEvent<P = unknown>(args: AppendArgs<P>): Promise<AppendEventResult> {
       const {
+        tenantId,
         aggregateType,
         aggregateId,
         expectedVersion,
@@ -137,6 +139,8 @@ export function createEventService(tableName: string): EventService {
                     aggregateId: aggregateId as AggregateId,
                     aggregateType: aggregateType as AggregateType,
                     version: nextVersion,
+
+                    tenantId,
 
                     eventId: eventId as EventId,
                     eventType: eventType,

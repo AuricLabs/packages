@@ -50,6 +50,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(mockAppendEvent).toHaveBeenCalledWith(
@@ -65,6 +66,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
       eventId: 'custom-event-id',
     });
 
@@ -81,6 +83,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
       idempotencyKey: 'my-idem-key',
     });
 
@@ -97,6 +100,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(mockAppendEvent).toHaveBeenCalledWith(
@@ -114,6 +118,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderUpdated',
+      tenantId: 'tenant-1',
     });
 
     expect(mockGetHead).toHaveBeenCalledWith('order', 'o-1');
@@ -132,6 +137,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(mockAppendEvent).toHaveBeenCalledWith(
@@ -152,6 +158,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(mockAppendEvent).toHaveBeenCalledWith(
@@ -173,6 +180,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
       correlationId: 'event-corr',
     });
 
@@ -190,6 +198,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(retry).toHaveBeenCalledTimes(1);
@@ -202,6 +211,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(mockAppendEvent).toHaveBeenCalledWith(
@@ -220,6 +230,7 @@ describe('dispatchEvent', () => {
       aggregateId: 'o-1',
       source: 'test',
       eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
     });
 
     expect(result).toEqual(expected);

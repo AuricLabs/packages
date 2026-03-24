@@ -88,6 +88,7 @@ describe('event-service', () => {
       mockSend.mockResolvedValue({});
 
       await service.appendEvent({
+        tenantId: 'tenant-1',
         aggregateType: 'order',
         aggregateId: 'order-123',
         source: 'order-service',
@@ -124,6 +125,7 @@ describe('event-service', () => {
       mockSend.mockResolvedValue({});
 
       await service.appendEvent({
+        tenantId: 'tenant-1',
         aggregateType: 'order',
         aggregateId: '1',
         source: 'test',
@@ -144,6 +146,7 @@ describe('event-service', () => {
       mockSend.mockResolvedValue({});
 
       const result = await service.appendEvent({
+        tenantId: 'tenant-1',
         aggregateType: 'wallet',
         aggregateId: 'w-1',
         source: 'billing',
@@ -165,6 +168,7 @@ describe('event-service', () => {
       mockSend.mockResolvedValue({});
 
       await service.appendEvent({
+        tenantId: 'tenant-1',
         aggregateType: 'order',
         aggregateId: '1',
         source: 'test',
@@ -185,6 +189,7 @@ describe('event-service', () => {
       mockSend.mockResolvedValue({});
 
       await service.appendEvent({
+        tenantId: 'tenant-1',
         aggregateType: 'order',
         aggregateId: '1',
         source: 'test',
@@ -213,6 +218,7 @@ describe('event-service', () => {
 
       await expect(
         service.appendEvent({
+          tenantId: 'tenant-1',
           aggregateType: 'order',
           aggregateId: 'o-1',
           source: 'test',
@@ -230,6 +236,7 @@ describe('event-service', () => {
 
       await expect(
         service.appendEvent({
+          tenantId: 'tenant-1',
           aggregateType: 'order',
           aggregateId: 'o-1',
           source: 'test',
