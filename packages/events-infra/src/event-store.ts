@@ -16,7 +16,7 @@ export function createEventStore(name: string, options?: CreateEventStoreOptions
       rangeKey: 'sk',
     },
     globalIndexes: {
-      tenantIndex: { hashKey: 'tenantId', rangeKey: 'sk' },
+      tenantIndex: { hashKey: 'tenantId', rangeKey: 'pk' },
     },
     stream: 'new-and-old-images',
     transform: {
