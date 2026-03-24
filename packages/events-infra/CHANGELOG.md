@@ -1,5 +1,14 @@
 # @auriclabs/events-infra
 
+## 1.0.1
+
+### Patch Changes
+
+- df1699e: Change default dlqRetries from 3 to 1 in createEventQueue to reduce FIFO message group
+  blocking time on failures.
+- Updated dependencies [adb821b]
+  - @auriclabs/events@0.4.1
+
 ## 1.0.0
 
 ### Minor Changes
