@@ -1,5 +1,17 @@
 # @auriclabs/events-infra
 
+## 1.0.0
+
+### Minor Changes
+
+- ddd017a: Add createEventQueue helper, make EventBridge bus optional, and bundle a pre-built stream
+  handler to eliminate consumer boilerplate.
+
+### Patch Changes
+
+- Updated dependencies [ddd017a]
+  - @auriclabs/events@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes

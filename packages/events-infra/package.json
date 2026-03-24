@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/events-infra",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "SST infrastructure helpers for DynamoDB event stores",
   "prettier": "@auriclabs/prettier-config",
   "main": "src/index.ts",
@@ -32,7 +32,7 @@
     "sst": "^4.3.7"
   },
   "peerDependencies": {
-    "@auriclabs/events": "^0.3.0",
+    "@auriclabs/events": "^0.4.0",
     "@auriclabs/sst-types": "^0.1.0",
     "sst": "^4.3.7"
   },
