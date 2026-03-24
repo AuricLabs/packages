@@ -12,7 +12,7 @@ export function createEventQueue(
   },
   options?: CreateEventQueueOptions,
 ): { queue: sst.aws.Queue; dlq: sst.aws.Queue } {
-  const { batchSize = 10, visibilityTimeout = '30 seconds', dlqRetries = 3 } = options ?? {};
+  const { batchSize = 10, visibilityTimeout = '30 seconds', dlqRetries = 1 } = options ?? {};
 
   const dlq = new sst.aws.Queue(`${name}DLQ`, {
     fifo: true,
