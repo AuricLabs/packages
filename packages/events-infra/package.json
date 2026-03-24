@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/events-infra",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "SST infrastructure helpers for DynamoDB event stores",
   "prettier": "@auriclabs/prettier-config",
   "main": "src/index.ts",
