@@ -1,5 +1,12 @@
 # @auriclabs/events
 
+## 0.4.1
+
+### Patch Changes
+
+- adb821b: Fix broken type declarations by splitting tsdown into separate invocations to avoid DTS
+  code-splitting bug with multiple entry points.
+
 ## 0.4.0
 
 ### Minor Changes
