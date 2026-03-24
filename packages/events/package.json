@@ -11,6 +11,11 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./stream-handler": {
+      "types": "./dist/stream-handler.entry.d.mts",
+      "import": "./dist/stream-handler.entry.mjs",
+      "require": "./dist/stream-handler.entry.cjs"
     }
   },
   "keywords": [],
@@ -18,7 +23,7 @@
   "type": "module",
   "license": "ISC",
   "scripts": {
-    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash",
+    "build": "tsdown src/index.ts src/stream-handler.entry.ts --format cjs,esm --dts --no-hash",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",

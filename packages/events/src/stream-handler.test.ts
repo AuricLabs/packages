@@ -313,6 +313,41 @@ describe('stream-handler', () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
+  it('skips EventBridge when busName is omitted', async () => {
+    const eventRecord = makeEventRecord();
+    mockUnmarshall.mockReturnValue(eventRecord);
+
+    const handler = createStreamHandler({
+      queueUrls: ['https://sqs.us-east-1.amazonaws.com/123/queue-1'],
+    });
+    const event: DynamoDBStreamEvent = {
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
+    };
+
+    await handler(event);
+
+    expect(SendMessageBatchCommand).toHaveBeenCalledTimes(1);
+    expect(PutEventsCommand).not.toHaveBeenCalled();
+  });
+
+  it('skips EventBridge when busName is empty string', async () => {
+    const eventRecord = makeEventRecord();
+    mockUnmarshall.mockReturnValue(eventRecord);
+
+    const handler = createStreamHandler({
+      busName: '',
+      queueUrls: ['https://sqs.us-east-1.amazonaws.com/123/queue-1'],
+    });
+    const event: DynamoDBStreamEvent = {
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
+    };
+
+    await handler(event);
+
+    expect(SendMessageBatchCommand).toHaveBeenCalledTimes(1);
+    expect(PutEventsCommand).not.toHaveBeenCalled();
+  });
+
   it('re-throws EventBridge send errors', async () => {
     const eventRecord = makeEventRecord();
     mockUnmarshall.mockReturnValue(eventRecord);

@@ -11,7 +11,7 @@ import { AggregateHead, EventRecord } from './types';
 const BATCH_SIZE = 10;
 
 export interface CreateStreamHandlerConfig {
-  busName: string;
+  busName?: string;
   queueUrls: string[];
 }
 
@@ -102,7 +102,11 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
       .filter((eventRecord): eventRecord is EventRecord => eventRecord?.itemType === 'event');
 
     if (eventRecords.length > 0) {
-      await Promise.all([sendToBusBatch(eventRecords), sendToQueuesBatch(eventRecords)]);
+      const tasks: Promise<void>[] = [sendToQueuesBatch(eventRecords)];
+      if (config.busName) {
+        tasks.push(sendToBusBatch(eventRecords));
+      }
+      await Promise.all(tasks);
     }
   };
 }
