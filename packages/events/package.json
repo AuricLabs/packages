@@ -23,7 +23,7 @@
   "type": "module",
   "license": "ISC",
   "scripts": {
-    "build": "tsdown src/index.ts src/stream-handler.entry.ts --format cjs,esm --dts --no-hash",
+    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash && tsdown src/stream-handler.entry.ts --format cjs,esm --dts --no-hash --no-clean",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
