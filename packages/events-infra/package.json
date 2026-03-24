@@ -27,10 +27,12 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@auriclabs/events": "workspace:*",
     "@auriclabs/sst-types": "workspace:*",
     "sst": "^4.3.7"
   },
   "peerDependencies": {
+    "@auriclabs/events": "^0.3.0",
     "@auriclabs/sst-types": "^0.1.0",
     "sst": "^4.3.7"
   },
