@@ -11,7 +11,7 @@ export const parseEnv = <T extends z.ZodRawShape>(schema: T): z.infer<z.ZodObjec
 The following variables are missing or invalid:
 ${Object.entries(z.treeifyError(parsedEnv.error).errors)
   .map(([k, v]) => `- ${k}: ${v}`)
-  .join('\n')}x
+  .join('\n')}
 `,
     );
   }
