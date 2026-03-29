@@ -2,7 +2,6 @@ import { MiddlewareObj } from '@middy/core';
 import httpJsonBodyParser from '@middy/http-json-body-parser';
 import { APIGatewayProxyEventV2 } from 'aws-lambda';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const { before: parseJsonBody } = httpJsonBodyParser();
 
 if (!parseJsonBody) {
@@ -16,7 +15,7 @@ export const jsonBodyParser = (): MiddlewareObj<APIGatewayProxyEventV2> => {
     before: (request) => {
       if (JSON_BODY_METHODS.includes(request.event.requestContext.http.method.toUpperCase())) {
         if (request.event.body) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
           return parseJsonBody(request);
         } else {
           Object.assign(request.event, { body: {} });
