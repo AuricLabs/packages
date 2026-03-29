@@ -1,5 +1,11 @@
 # @auriclabs/api-core
 
+## 0.1.2
+
+### Patch Changes
+
+- 6770d78: Fix stray character in parseEnv error message that made missing variable names unreadable
+
 ## 0.1.1
 
 ### Patch Changes

@@ -38,7 +38,7 @@
     "@types/uuid": "^10.0.0"
   },
   "peerDependencies": {
-    "@auriclabs/api-core": "^0.1.1",
+    "@auriclabs/api-core": "^0.1.2",
     "@auriclabs/logger": "^0.1.1",
     "@auriclabs/pagination": "^1.0.1",
     "@aws-sdk/client-dynamodb": "^3.0.0",
