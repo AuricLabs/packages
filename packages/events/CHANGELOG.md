@@ -1,5 +1,12 @@
 # @auriclabs/events
 
+## 0.4.2
+
+### Patch Changes
+
+- 078f752: Fix DLQ cascading failures: track failed message groups instead of global hasFailed flag
+  so one aggregate's failure no longer sends unrelated aggregates to DLQ
+
 ## 0.4.1
 
 ### Patch Changes
