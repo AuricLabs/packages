@@ -16,11 +16,13 @@ import { createEventListener } from './create-event-listener';
 
 import type { SQSEvent, SQSRecordAttributes } from 'aws-lambda';
 
-const makeRecord = (body: object, messageId = 'msg-1') => ({
+const makeRecord = (body: object, messageId = 'msg-1', messageGroupId?: string) => ({
   messageId,
   body: JSON.stringify(body),
   receiptHandle: 'handle',
-  attributes: {} as SQSRecordAttributes,
+  attributes: {
+    ...(messageGroupId ? { MessageGroupId: messageGroupId } : {}),
+  } as SQSRecordAttributes,
   messageAttributes: {},
   md5OfBody: '',
   eventSource: 'aws:sqs',
@@ -152,7 +154,7 @@ describe('createEventListener', () => {
     expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-fail' }]);
   });
 
-  it('marks subsequent records as failed after first failure (FIFO behavior)', async () => {
+  it('marks subsequent records in same message group as failed after first failure', async () => {
     const handler = createEventListener({
       OrderCreated: () => {
         throw new Error('fail');
@@ -162,9 +164,9 @@ describe('createEventListener', () => {
 
     const sqsEvent: SQSEvent = {
       Records: [
-        makeRecord(makeEvent({ eventType: 'OrderCreated' }), 'msg-1'),
-        makeRecord(makeEvent({ eventType: 'OrderUpdated' }), 'msg-2'),
-        makeRecord(makeEvent({ eventType: 'OrderUpdated' }), 'msg-3'),
+        makeRecord(makeEvent({ eventType: 'OrderCreated', aggregateId: 'o-1' }), 'msg-1', 'o-1'),
+        makeRecord(makeEvent({ eventType: 'OrderUpdated', aggregateId: 'o-1' }), 'msg-2', 'o-1'),
+        makeRecord(makeEvent({ eventType: 'OrderUpdated', aggregateId: 'o-1' }), 'msg-3', 'o-1'),
       ],
     };
 
@@ -174,6 +176,55 @@ describe('createEventListener', () => {
       { itemIdentifier: 'msg-1' },
       { itemIdentifier: 'msg-2' },
       { itemIdentifier: 'msg-3' },
+    ]);
+  });
+
+  it('processes records from different message groups independently when one group fails', async () => {
+    const orderUpdatedHandler = vi.fn();
+    const handler = createEventListener({
+      OrderCreated: () => {
+        throw new Error('fail');
+      },
+      OrderUpdated: orderUpdatedHandler,
+    });
+
+    const sqsEvent: SQSEvent = {
+      Records: [
+        makeRecord(makeEvent({ eventType: 'OrderCreated', aggregateId: 'o-1' }), 'msg-1', 'o-1'),
+        makeRecord(makeEvent({ eventType: 'OrderUpdated', aggregateId: 'o-2' }), 'msg-2', 'o-2'),
+        makeRecord(makeEvent({ eventType: 'OrderUpdated', aggregateId: 'o-3' }), 'msg-3', 'o-3'),
+      ],
+    };
+
+    const result = await handler(sqsEvent);
+
+    expect(orderUpdatedHandler).toHaveBeenCalledTimes(2);
+    expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-1' }]);
+  });
+
+  it('fails only same-group records after a group failure, not other groups', async () => {
+    const orderUpdatedHandler = vi.fn();
+    const handler = createEventListener({
+      OrderCreated: () => {
+        throw new Error('fail');
+      },
+      OrderUpdated: orderUpdatedHandler,
+    });
+
+    const sqsEvent: SQSEvent = {
+      Records: [
+        makeRecord(makeEvent({ eventType: 'OrderCreated', aggregateId: 'o-1' }), 'msg-1', 'o-1'),
+        makeRecord(makeEvent({ eventType: 'OrderUpdated', aggregateId: 'o-1' }), 'msg-2', 'o-1'),
+        makeRecord(makeEvent({ eventType: 'OrderUpdated', aggregateId: 'o-2' }), 'msg-3', 'o-2'),
+      ],
+    };
+
+    const result = await handler(sqsEvent);
+
+    expect(orderUpdatedHandler).toHaveBeenCalledTimes(1);
+    expect(result.batchItemFailures).toEqual([
+      { itemIdentifier: 'msg-1' },
+      { itemIdentifier: 'msg-2' },
     ]);
   });
 

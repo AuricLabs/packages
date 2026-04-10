@@ -14,10 +14,12 @@ export const createEventListener =
     const response: SQSBatchResponse = {
       batchItemFailures: [],
     };
-    let hasFailed = false;
+    const failedGroups = new Set<string>();
     for (const record of sqsEvent.Records) {
-      // skip the job if it has failed
-      if (hasFailed) {
+      const groupId = record.attributes?.MessageGroupId;
+
+      // Skip records whose message group already failed (preserves FIFO ordering per aggregate)
+      if (groupId && failedGroups.has(groupId)) {
         response.batchItemFailures.push({
           itemIdentifier: record.messageId,
         });
@@ -43,7 +45,7 @@ export const createEventListener =
           await handler(event);
         }
       } catch (error) {
-        hasFailed = true;
+        if (groupId) failedGroups.add(groupId);
         logger.error({ error, event, body: record.body }, 'Error processing event');
         response.batchItemFailures.push({
           itemIdentifier: record.messageId,
