@@ -33,7 +33,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "lodash-es": "4.17.21",
+    "lodash-es": "4.18.1",
     "ulid": "^2.3.0"
   },
   "devDependencies": {
@@ -48,9 +48,9 @@
     "@auriclabs/logger": "^0.1.1",
     "@auriclabs/pagination": "^1.0.1",
     "@aws-sdk/client-dynamodb": "^3.0.0",
-    "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@aws-sdk/client-eventbridge": "^3.0.0",
     "@aws-sdk/client-sqs": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
     "@aws-sdk/util-dynamodb": "^3.0.0"
   },
   "publishConfig": {
