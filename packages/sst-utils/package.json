@@ -47,7 +47,17 @@
   },
   "peerDependencies": {
     "@auriclabs/logger": "^0.1.1",
-    "@auriclabs/sst-types": "^0.1.0"
+    "@auriclabs/sst-types": "^0.1.0",
+    "@middy/core": ">=5.0.0",
+    "@middy/http-router": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@middy/core": {
+      "optional": true
+    },
+    "@middy/http-router": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
