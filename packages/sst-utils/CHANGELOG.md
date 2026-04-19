@@ -1,5 +1,13 @@
 # @auriclabs/sst-utils
 
+## 1.1.0
+
+### Minor Changes
+
+- 3d3f935: Add `consolidate` option to `registerApiRoutes` that groups routes by function config
+  into shared Lambdas via `@middy/http-router`, reducing cold starts and API Gateway integration
+  count.
+
 ## 1.0.1
 
 ### Patch Changes
