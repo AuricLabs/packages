@@ -1,5 +1,12 @@
 # @auriclabs/jobs-infra
 
+## 1.0.0
+
+### Patch Changes
+
+- Updated dependencies [3d3f935]
+  - @auriclabs/sst-utils@1.1.0
+
 ## 0.2.0
 
 ### Minor Changes
