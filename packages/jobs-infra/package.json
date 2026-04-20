@@ -35,7 +35,7 @@
   },
   "peerDependencies": {
     "@auriclabs/sst-types": "^0.1.0",
-    "@auriclabs/sst-utils": "^1.1.0",
+    "@auriclabs/sst-utils": "^1.1.1",
     "sst": "^4.3.7"
   },
   "publishConfig": {
