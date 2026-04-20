@@ -95,7 +95,8 @@ const registerIndividualRoutes = (
   routesDir: string,
 ): void => {
   routes.forEach(({ file, method, routePath, handler, functionArgs, apiGatewayArgs }) => {
-    const route = `${method.toUpperCase()} ${pathPrefix}${routePath ? `/${routePath}` : ''}`;
+    const fullPath = pathPrefix + (routePath ? `/${routePath}` : '') || '/';
+    const route = `${method.toUpperCase()} ${fullPath}`;
     logger.debug(`Registering route ${route} from ${routesDir}/${file}`);
     api.route(route, { ...functionArgs, handler }, { ...apiGatewayArgs });
   });
@@ -181,7 +182,9 @@ const registerConsolidatedRoutes = (
     // Lambda. This avoids ANY /{proxy+} catch-all routes which intercept OPTIONS
     // preflight requests and break API Gateway's native CORS auto-handling.
     for (const route of catchAllRoutes) {
-      const routeKey = `${route.method.toUpperCase()} ${pathPrefix}${route.routePath ? `/${route.routePath}` : ''}`;
+      const routePath = route.routePath ? `/${route.routePath}` : '';
+      const fullPath = pathPrefix + routePath || '/';
+      const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
       logger.debug(`Registering route ${routeKey} (consolidated)`);
       api.route(
         routeKey,
@@ -192,7 +195,8 @@ const registerConsolidatedRoutes = (
 
     // Register override routes — same Lambda, different API Gateway args
     for (const route of overrideRoutes) {
-      const routeKey = `${route.method.toUpperCase()} ${pathPrefix}${route.routePath ? `/${route.routePath}` : ''}`;
+      const fullPath = pathPrefix + (route.routePath ? `/${route.routePath}` : '') || '/';
+      const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
       logger.debug(
         `Registering override route ${routeKey} (consolidated, custom api-gateway args)`,
       );

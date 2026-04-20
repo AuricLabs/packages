@@ -1,5 +1,12 @@
 # @auriclabs/sst-utils
 
+## 1.1.2
+
+### Patch Changes
+
+- Fix route path generation when both `pathPrefix` and `routePath` are empty, producing an invalid
+  route key like `POST ` instead of `POST /`.
+
 ## 1.1.1
 
 ### Patch Changes
