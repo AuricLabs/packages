@@ -174,17 +174,15 @@ const registerConsolidatedRoutes = (
     const relativeHandlerPath = path.relative(process.cwd(), handlerPath);
 
     logger.info(
-      `Consolidated ${group.routes.length} routes into ${relativeHandlerPath} (${catchAllRoutes.length} catch-all, ${overrideRoutes.length} override)`,
+      `Consolidated ${group.routes.length} routes into ${relativeHandlerPath} (${catchAllRoutes.length} standard, ${overrideRoutes.length} override)`,
     );
 
-    // Check if any routes exist at the root path (e.g. GET /agents, POST /agents)
-    const rootRoutes = catchAllRoutes.filter((r) => r.routePath === '');
-    const nonRootRoutes = catchAllRoutes.filter((r) => r.routePath !== '');
-
-    // Register root routes explicitly (since {proxy+} doesn't match empty path)
-    for (const route of rootRoutes) {
-      const routeKey = `${route.method.toUpperCase()} ${pathPrefix || '/'}`;
-      logger.debug(`Registering root route ${routeKey} (consolidated)`);
+    // Register every route individually, all pointing to the shared consolidated
+    // Lambda. This avoids ANY /{proxy+} catch-all routes which intercept OPTIONS
+    // preflight requests and break API Gateway's native CORS auto-handling.
+    for (const route of catchAllRoutes) {
+      const routeKey = `${route.method.toUpperCase()} ${pathPrefix}${route.routePath ? `/${route.routePath}` : ''}`;
+      logger.debug(`Registering route ${routeKey} (consolidated)`);
       api.route(
         routeKey,
         { ...group.functionArgs, handler: relativeHandlerPath },
@@ -192,18 +190,7 @@ const registerConsolidatedRoutes = (
       );
     }
 
-    // Register the catch-all route for non-root routes
-    if (nonRootRoutes.length > 0) {
-      const catchAllRoute = `ANY ${pathPrefix}/{proxy+}`;
-      logger.debug(`Registering catch-all route ${catchAllRoute} (consolidated)`);
-      api.route(
-        catchAllRoute,
-        { ...group.functionArgs, handler: relativeHandlerPath },
-        { ...defaultApiGatewayV2RouteArgs },
-      );
-    }
-
-    // Register override routes as explicit routes pointing to the same Lambda
+    // Register override routes — same Lambda, different API Gateway args
     for (const route of overrideRoutes) {
       const routeKey = `${route.method.toUpperCase()} ${pathPrefix}${route.routePath ? `/${route.routePath}` : ''}`;
       logger.debug(
