@@ -18,12 +18,39 @@ export interface RouterRoute {
  * @param pathPrefix The path prefix (e.g. `/agents`) prepended to all route paths
  * @returns The handler path string for SST (e.g. `services/agents/api/_router.handler`)
  */
+/**
+ * Sort routes so that static path segments are matched before parameterized
+ * ones. @middy/http-router matches dynamic routes in insertion order, so
+ * `/subscriptions/platform/{tenantId}` must come before `/subscriptions/{referenceId}`
+ * to avoid the wildcard swallowing the literal "platform" segment.
+ */
+const sortRoutesBySpecificity = (routes: RouterRoute[], pathPrefix: string): RouterRoute[] => {
+  return [...routes].sort((a, b) => {
+    const pathA = `${pathPrefix}${a.routePath ? `/${a.routePath}` : ''}` || '/';
+    const pathB = `${pathPrefix}${b.routePath ? `/${b.routePath}` : ''}` || '/';
+    const segsA = pathA.split('/').filter(Boolean);
+    const segsB = pathB.split('/').filter(Boolean);
+    const len = Math.max(segsA.length, segsB.length);
+    for (let i = 0; i < len; i++) {
+      const sa = segsA[i] ?? '';
+      const sb = segsB[i] ?? '';
+      const isDynA = sa.startsWith('{');
+      const isDynB = sb.startsWith('{');
+      if (!isDynA && isDynB) return -1;
+      if (isDynA && !isDynB) return 1;
+      if (sa !== sb) return sa.localeCompare(sb);
+    }
+    return segsB.length - segsA.length;
+  });
+};
+
 export const generateRouterFile = (
   outputPath: string,
   routes: RouterRoute[],
   pathPrefix: string,
 ): string => {
-  const routeEntries = routes.map(({ method, routePath, handlerFile }) => {
+  const sortedRoutes = sortRoutesBySpecificity(routes, pathPrefix);
+  const routeEntries = sortedRoutes.map(({ method, routePath, handlerFile }) => {
     // Build the full path including prefix
     const fullPath = `${pathPrefix}${routePath ? `/${routePath}` : ''}` || '/';
 

@@ -79,6 +79,35 @@ describe('generateRouterFile', () => {
     expect(content).toContain("path: '/health'");
   });
 
+  test('should sort static path segments before parameterized ones', () => {
+    fs.mkdirSync('/app/services/billing/api-internal/subscriptions/platform', { recursive: true });
+    fs.mkdirSync('/app/services/billing/api-internal/subscriptions/{referenceId}', {
+      recursive: true,
+    });
+
+    const routes: RouterRoute[] = [
+      {
+        method: 'get',
+        routePath: 'subscriptions/{referenceId}',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/{referenceId}/get.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'subscriptions/platform/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/platform/{tenantId}/get.ts',
+      },
+    ];
+
+    generateRouterFile('/app/services/billing/api-internal/_router.ts', routes, '/billing');
+
+    const content = fs.readFileSync('/app/services/billing/api-internal/_router.ts', 'utf-8');
+    const platformIdx = content.indexOf("path: '/billing/subscriptions/platform/{tenantId}'");
+    const wildcardIdx = content.indexOf("path: '/billing/subscriptions/{referenceId}'");
+    expect(platformIdx).toBeGreaterThan(-1);
+    expect(wildcardIdx).toBeGreaterThan(-1);
+    expect(platformIdx).toBeLessThan(wildcardIdx);
+  });
+
   test('should handle root route with empty prefix', () => {
     fs.mkdirSync('/app/api', { recursive: true });
     const routes: RouterRoute[] = [
