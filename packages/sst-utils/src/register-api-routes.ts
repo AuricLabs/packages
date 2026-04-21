@@ -7,7 +7,6 @@ import * as glob from 'glob';
 
 import { constructProperties } from './construct-properties';
 import { generateRouterFile, type RouterRoute } from './generate-router';
-import { sstCase } from './sst-case';
 
 export interface RegisterApiRoutesOptions {
   routesDir?: string;
@@ -172,38 +171,34 @@ const registerConsolidatedRoutes = (
       `Consolidated ${group.routes.length} routes into ${relativeHandlerPath} (${catchAllRoutes.length} standard, ${overrideRoutes.length} override)`,
     );
 
-    // Pre-create a single Lambda for this group
-    const functionName =
-      routesDir
-        .split('/')
-        .filter(Boolean)
-        .map((segment) => sstCase(segment))
-        .join('') + suffix;
+    // Create the Lambda via the first route, then reuse its ARN for the rest.
+    // This keeps resource creation inside SST's api.route() which has access
+    // to the sst global, while avoiding duplicate Lambda resources.
+    const allRoutes = [...catchAllRoutes, ...overrideRoutes];
+    let functionArn: ReturnType<typeof api.route>['nodes']['function']['arn'] | undefined;
 
-    const fn = new sst.aws.Function(`${functionName}Handler`, {
-      ...group.functionArgs,
-      handler: relativeHandlerPath,
-    });
-
-    // Register every route individually, all referencing the shared Lambda by ARN.
-    // This avoids /{proxy+} catch-all routes which intercept OPTIONS preflight
-    // requests and break API Gateway's native CORS auto-handling.
-    for (const route of catchAllRoutes) {
+    for (const route of allRoutes) {
       const routePath = route.routePath ? `/${route.routePath}` : '';
       const fullPath = pathPrefix + routePath || '/';
       const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
-      logger.debug(`Registering route ${routeKey} (consolidated)`);
-      api.route(routeKey, fn.arn, { ...defaultApiGatewayV2RouteArgs });
-    }
+      const apiGwArgs = isDeepEqual(route.apiGatewayArgs, defaultApiGatewayV2RouteArgs)
+        ? defaultApiGatewayV2RouteArgs
+        : route.apiGatewayArgs;
 
-    // Register override routes — same Lambda, different API Gateway args
-    for (const route of overrideRoutes) {
-      const fullPath = pathPrefix + (route.routePath ? `/${route.routePath}` : '') || '/';
-      const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
-      logger.debug(
-        `Registering override route ${routeKey} (consolidated, custom api-gateway args)`,
-      );
-      api.route(routeKey, fn.arn, { ...route.apiGatewayArgs });
+      if (!functionArn) {
+        // First route: create the Lambda
+        logger.debug(`Registering route ${routeKey} (consolidated, primary)`);
+        const lambdaRoute = api.route(
+          routeKey,
+          { ...group.functionArgs, handler: relativeHandlerPath },
+          { ...apiGwArgs },
+        );
+        functionArn = lambdaRoute.nodes.function.arn;
+      } else {
+        // Subsequent routes: reuse the Lambda via ARN
+        logger.debug(`Registering route ${routeKey} (consolidated, shared)`);
+        api.route(routeKey, functionArn, { ...apiGwArgs });
+      }
     }
   }
 };
