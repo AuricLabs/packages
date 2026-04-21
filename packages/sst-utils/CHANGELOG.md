@@ -1,5 +1,12 @@
 # @auriclabs/sst-utils
 
+## 1.1.4
+
+### Patch Changes
+
+- 8e2cba6: Pre-create a single Lambda per consolidated route group instead of one per route,
+  reducing AWS resources by ~85%
+
 ## 1.1.3
 
 ### Patch Changes
