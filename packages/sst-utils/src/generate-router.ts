@@ -24,7 +24,10 @@ export interface RouterRoute {
  * `/subscriptions/platform/{tenantId}` must come before `/subscriptions/{referenceId}`
  * to avoid the wildcard swallowing the literal "platform" segment.
  */
-const sortRoutesBySpecificity = (routes: RouterRoute[], pathPrefix: string): RouterRoute[] => {
+export const sortRoutesBySpecificity = (
+  routes: RouterRoute[],
+  pathPrefix: string,
+): RouterRoute[] => {
   return [...routes].sort((a, b) => {
     const pathA = `${pathPrefix}${a.routePath ? `/${a.routePath}` : ''}` || '/';
     const pathB = `${pathPrefix}${b.routePath ? `/${b.routePath}` : ''}` || '/';
@@ -32,15 +35,18 @@ const sortRoutesBySpecificity = (routes: RouterRoute[], pathPrefix: string): Rou
     const segsB = pathB.split('/').filter(Boolean);
     const len = Math.max(segsA.length, segsB.length);
     for (let i = 0; i < len; i++) {
-      const sa = segsA[i] ?? '';
-      const sb = segsB[i] ?? '';
+      const sa = segsA[i] as string | undefined;
+      const sb = segsB[i] as string | undefined;
+      // A shorter path is less specific — sort it after the longer one
+      if (sa === undefined) return 1;
+      if (sb === undefined) return -1;
       const isDynA = sa.startsWith('{');
       const isDynB = sb.startsWith('{');
       if (!isDynA && isDynB) return -1;
       if (isDynA && !isDynB) return 1;
       if (sa !== sb) return sa.localeCompare(sb);
     }
-    return segsB.length - segsA.length;
+    return 0;
   });
 };
 
