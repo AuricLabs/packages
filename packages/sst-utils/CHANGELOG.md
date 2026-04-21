@@ -1,5 +1,12 @@
 # @auriclabs/sst-utils
 
+## 1.1.6
+
+### Patch Changes
+
+- 6d08486: Fix route specificity sorting for prefix paths — shorter paths like `POST /subscriptions`
+  no longer match before longer paths like `POST /subscriptions/platform-free`
+
 ## 1.1.5
 
 ### Patch Changes
