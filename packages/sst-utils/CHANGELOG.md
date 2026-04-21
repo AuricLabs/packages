@@ -1,5 +1,13 @@
 # @auriclabs/sst-utils
 
+## 1.1.3
+
+### Patch Changes
+
+- f89d476: Sort consolidated router routes by specificity so static path segments match before
+  parameterized ones. Fixes @middy/http-router matching `/subscriptions/{referenceId}` before
+  `/subscriptions/platform/{tenantId}`.
+
 ## 1.1.2
 
 ### Patch Changes
