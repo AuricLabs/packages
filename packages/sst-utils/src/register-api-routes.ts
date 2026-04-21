@@ -7,6 +7,7 @@ import * as glob from 'glob';
 
 import { constructProperties } from './construct-properties';
 import { generateRouterFile, type RouterRoute } from './generate-router';
+import { sstCase } from './sst-case';
 
 export interface RegisterApiRoutesOptions {
   routesDir?: string;
@@ -112,6 +113,10 @@ const isDeepEqual = (a: unknown, b: unknown): boolean => {
 /**
  * Register routes in consolidated mode — grouped by function config,
  * with a shared Lambda per group via `@middy/http-router`.
+ *
+ * A single `sst.aws.Function` is pre-created per group, and all routes
+ * in that group reference it by ARN. This avoids creating duplicate
+ * Lambda + IAM Role + LogGroup resources for every route.
  */
 const registerConsolidatedRoutes = (
   api: sst.aws.ApiGatewayV2,
@@ -150,23 +155,12 @@ const registerConsolidatedRoutes = (
       }
     }
 
-    // Build the router route definitions for catch-all routes
-    const routerRoutes: RouterRoute[] = catchAllRoutes.map((r) => ({
+    // Build router route definitions (all routes share the same Lambda)
+    const allRouterRoutes: RouterRoute[] = [...catchAllRoutes, ...overrideRoutes].map((r) => ({
       method: r.method,
       routePath: r.routePath,
       handlerFile: path.join(baseDir, r.file),
     }));
-
-    // Also include override routes in the router — they share the same Lambda,
-    // just registered with different API Gateway args
-    const allRouterRoutes: RouterRoute[] = [
-      ...routerRoutes,
-      ...overrideRoutes.map((r) => ({
-        method: r.method,
-        routePath: r.routePath,
-        handlerFile: path.join(baseDir, r.file),
-      })),
-    ];
 
     // Generate the router file
     const handlerPath = generateRouterFile(routerPath, allRouterRoutes, pathPrefix);
@@ -178,19 +172,28 @@ const registerConsolidatedRoutes = (
       `Consolidated ${group.routes.length} routes into ${relativeHandlerPath} (${catchAllRoutes.length} standard, ${overrideRoutes.length} override)`,
     );
 
-    // Register every route individually, all pointing to the shared consolidated
-    // Lambda. This avoids ANY /{proxy+} catch-all routes which intercept OPTIONS
-    // preflight requests and break API Gateway's native CORS auto-handling.
+    // Pre-create a single Lambda for this group
+    const functionName =
+      routesDir
+        .split('/')
+        .filter(Boolean)
+        .map((segment) => sstCase(segment))
+        .join('') + (suffix ? suffix : '');
+
+    const fn = new sst.aws.Function(`${functionName}Handler`, {
+      ...group.functionArgs,
+      handler: relativeHandlerPath,
+    });
+
+    // Register every route individually, all referencing the shared Lambda by ARN.
+    // This avoids /{proxy+} catch-all routes which intercept OPTIONS preflight
+    // requests and break API Gateway's native CORS auto-handling.
     for (const route of catchAllRoutes) {
       const routePath = route.routePath ? `/${route.routePath}` : '';
       const fullPath = pathPrefix + routePath || '/';
       const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
       logger.debug(`Registering route ${routeKey} (consolidated)`);
-      api.route(
-        routeKey,
-        { ...group.functionArgs, handler: relativeHandlerPath },
-        { ...defaultApiGatewayV2RouteArgs },
-      );
+      api.route(routeKey, fn.arn, { ...defaultApiGatewayV2RouteArgs });
     }
 
     // Register override routes — same Lambda, different API Gateway args
@@ -200,11 +203,7 @@ const registerConsolidatedRoutes = (
       logger.debug(
         `Registering override route ${routeKey} (consolidated, custom api-gateway args)`,
       );
-      api.route(
-        routeKey,
-        { ...group.functionArgs, handler: relativeHandlerPath },
-        { ...route.apiGatewayArgs },
-      );
+      api.route(routeKey, fn.arn, { ...route.apiGatewayArgs });
     }
   }
 };
