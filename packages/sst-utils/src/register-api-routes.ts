@@ -178,7 +178,7 @@ const registerConsolidatedRoutes = (
         .split('/')
         .filter(Boolean)
         .map((segment) => sstCase(segment))
-        .join('') + (suffix ? suffix : '');
+        .join('') + suffix;
 
     const fn = new sst.aws.Function(`${functionName}Handler`, {
       ...group.functionArgs,
