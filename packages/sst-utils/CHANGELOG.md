@@ -1,8 +1,8 @@
 # @auriclabs/sst-utils
 
-## 1.2.0
+## 1.1.7
 
-### Minor Changes
+### Patch Changes
 
 - f67ca30: Use Pulumi primitives for consolidated routes to fix AWS Lambda 20KB resource policy
   limit. Consolidated mode now creates a single `aws.lambda.Permission` per Lambda group instead of
