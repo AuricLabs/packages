@@ -8,6 +8,32 @@ import * as glob from 'glob';
 import { constructProperties } from './construct-properties';
 import { generateRouterFile, type RouterRoute } from './generate-router';
 
+/**
+ * Minimal interface for the `@pulumi/aws` classes needed by consolidated mode.
+ * Pass the `aws` global from your SST config context.
+ */
+export interface AwsProvider {
+  lambda: {
+    Permission: new (
+      name: string,
+      args: Record<string, unknown>,
+      opts?: Record<string, unknown>,
+    ) => unknown;
+  };
+  apigatewayv2: {
+    Integration: new (
+      name: string,
+      args: Record<string, unknown>,
+      opts?: Record<string, unknown>,
+    ) => { id: unknown };
+    Route: new (
+      name: string,
+      args: Record<string, unknown>,
+      opts?: Record<string, unknown>,
+    ) => unknown;
+  };
+}
+
 export interface RegisterApiRoutesOptions {
   routesDir?: string;
   variables?: Record<string, unknown>;
@@ -21,9 +47,25 @@ export interface RegisterApiRoutesOptions {
    * API Gateway overrides (e.g. `auth = undefined`) are registered as explicit
    * routes pointing to the same consolidated Lambda.
    *
+   * Requires `aws` to be provided.
+   *
    * @default false
    */
   consolidate?: boolean;
+  /**
+   * The `@pulumi/aws` provider instance. Required when `consolidate` is true.
+   * Used to create Pulumi primitives (Permission, Integration, Route) instead
+   * of SST's `api.route()` which creates a separate `lambda:Permission` per route,
+   * causing AWS's 20KB resource policy limit to be exceeded on services with many routes.
+   */
+  aws?: AwsProvider;
+  /**
+   * Resource name prefix for consolidated Lambdas. When omitted, auto-derived
+   * from `routesDir` in PascalCase (e.g. `"services/org/api"` → `"ServicesOrgApi"`).
+   *
+   * @example "OrgApi"
+   */
+  name?: string;
 }
 
 interface ParsedRoute {
@@ -110,12 +152,56 @@ const isDeepEqual = (a: unknown, b: unknown): boolean => {
 };
 
 /**
+ * Convert SST auth args to Pulumi Route auth properties.
+ */
+export const resolveAuthProperties = (
+  apiGatewayArgs: sst.aws.ApiGatewayV2RouteArgs,
+): Record<string, unknown> => {
+  const auth = apiGatewayArgs.auth;
+  if (!auth || auth === false) return { authorizationType: 'NONE' };
+
+  const a = auth as Record<string, unknown>;
+  if (a.iam) return { authorizationType: 'AWS_IAM' };
+  if (a.lambda) return { authorizationType: 'CUSTOM', authorizerId: a.lambda };
+  if (a.jwt) {
+    const jwt = a.jwt as Record<string, unknown>;
+    return {
+      authorizationType: 'JWT',
+      authorizerId: jwt.authorizer,
+      authorizationScopes: jwt.scopes,
+    };
+  }
+  return { authorizationType: 'NONE' };
+};
+
+/**
+ * Derive a PascalCase resource name prefix from a routesDir path.
+ *
+ * @example deriveResourcePrefix("services/org/api") => "ServicesOrgApi"
+ * @example deriveResourcePrefix("services/org/api-agents") => "ServicesOrgApiAgents"
+ */
+export const deriveResourcePrefix = (routesDir: string): string => {
+  return routesDir
+    .split(/[/\\]/)
+    .filter(Boolean)
+    .map((segment) =>
+      segment
+        .split('-')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(''),
+    )
+    .join('');
+};
+
+/**
  * Register routes in consolidated mode — grouped by function config,
  * with a shared Lambda per group via `@middy/http-router`.
  *
- * A single `sst.aws.Function` is pre-created per group, and all routes
- * in that group reference it by ARN. This avoids creating duplicate
- * Lambda + IAM Role + LogGroup resources for every route.
+ * Pre-creates an `sst.aws.Function` per group, then wires up a single
+ * `aws.lambda.Permission`, a single `aws.apigatewayv2.Integration`, and
+ * individual `aws.apigatewayv2.Route` primitives. This avoids the
+ * per-route `lambda:Permission` that SST's `api.route()` creates, which
+ * can exceed AWS's 20KB resource policy limit on services with many routes.
  */
 const registerConsolidatedRoutes = (
   api: sst.aws.ApiGatewayV2,
@@ -124,6 +210,8 @@ const registerConsolidatedRoutes = (
   routesDir: string,
   baseDir: string,
   defaultApiGatewayV2RouteArgs: sst.aws.ApiGatewayV2RouteArgs,
+  awsProvider: AwsProvider,
+  resourcePrefix: string,
 ): void => {
   // Group routes by their effective function config hash
   const groups = new Map<string, { functionArgs: sst.aws.FunctionArgs; routes: ParsedRoute[] }>();
@@ -138,9 +226,13 @@ const registerConsolidatedRoutes = (
     group.routes.push(route);
   }
 
+  // Access the underlying API Gateway resource for IDs
+  const apiGw = api.nodes.api;
+
   for (const [hash, group] of groups) {
     const suffix = groups.size > 1 ? `_${hash}` : '';
     const routerPath = path.join(baseDir, `_router${suffix}.ts`);
+    const name = `${resourcePrefix}${suffix}`;
 
     // Separate routes into catch-all eligible and api-gateway override routes
     const catchAllRoutes: ParsedRoute[] = [];
@@ -171,34 +263,56 @@ const registerConsolidatedRoutes = (
       `Consolidated ${group.routes.length} routes into ${relativeHandlerPath} (${catchAllRoutes.length} standard, ${overrideRoutes.length} override)`,
     );
 
-    // Create the Lambda via the first route, then reuse its ARN for the rest.
-    // This keeps resource creation inside SST's api.route() which has access
-    // to the sst global, while avoiding duplicate Lambda resources.
-    const allRoutes = [...catchAllRoutes, ...overrideRoutes];
-    let functionArn: ReturnType<typeof api.route>['nodes']['function']['arn'] | undefined;
+    // 1. Pre-create the Lambda function via SST (handles bundling, links, etc.)
+    const fn = new sst.aws.Function(`${name}Function`, {
+      ...group.functionArgs,
+      handler: relativeHandlerPath,
+    });
 
+    // 2. Single permission — allows the entire API Gateway to invoke this Lambda
+    interface OutputLike {
+      apply: (fn: (v: string) => string) => unknown;
+    }
+    const executionArn = apiGw.executionArn as unknown as OutputLike;
+    new awsProvider.lambda.Permission(`${name}Permission`, {
+      action: 'lambda:InvokeFunction',
+      function: fn.arn,
+      principal: 'apigateway.amazonaws.com',
+      sourceArn: executionArn.apply((arn: string) => `${arn}/*`),
+    });
+
+    // 3. Single integration pointing to the Lambda
+    const integration = new awsProvider.apigatewayv2.Integration(`${name}Integration`, {
+      apiId: apiGw.id,
+      integrationType: 'AWS_PROXY',
+      integrationUri: fn.arn,
+      payloadFormatVersion: '2.0',
+    });
+    const integrationId = integration.id as OutputLike;
+
+    // 4. Register each route as a Pulumi primitive (no per-route permission)
+    const allRoutes = [...catchAllRoutes, ...overrideRoutes];
     for (const route of allRoutes) {
       const routePath = route.routePath ? `/${route.routePath}` : '';
       const fullPath = pathPrefix + routePath || '/';
       const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
+      const routeHash = hashFunctionArgs({ r: routeKey } as unknown as sst.aws.FunctionArgs).slice(
+        0,
+        6,
+      );
+
       const apiGwArgs = isDeepEqual(route.apiGatewayArgs, defaultApiGatewayV2RouteArgs)
         ? defaultApiGatewayV2RouteArgs
         : route.apiGatewayArgs;
+      const authProps = resolveAuthProperties(apiGwArgs);
 
-      if (!functionArn) {
-        // First route: create the Lambda
-        logger.debug(`Registering route ${routeKey} (consolidated, primary)`);
-        const lambdaRoute = api.route(
-          routeKey,
-          { ...group.functionArgs, handler: relativeHandlerPath },
-          { ...apiGwArgs },
-        );
-        functionArn = lambdaRoute.nodes.function.arn;
-      } else {
-        // Subsequent routes: reuse the Lambda via ARN
-        logger.debug(`Registering route ${routeKey} (consolidated, shared)`);
-        api.route(routeKey, functionArn, { ...apiGwArgs });
-      }
+      logger.debug(`Registering route ${routeKey} (consolidated, primitive)`);
+      new awsProvider.apigatewayv2.Route(`${name}Route${routeHash}`, {
+        apiId: apiGw.id,
+        routeKey,
+        target: integrationId.apply((id: string) => `integrations/${id}`),
+        ...authProps,
+      });
     }
   }
 };
@@ -222,6 +336,8 @@ export const registerApiRoutes = (
     functionArgs: defaultFunctionArgs = {},
     apiGatewayV2RouteArgs: defaultApiGatewayV2RouteArgs = {},
     consolidate = false,
+    aws: awsProvider,
+    name,
   }: RegisterApiRoutesOptions,
 ): sst.aws.ApiGatewayV2 => {
   try {
@@ -241,6 +357,13 @@ export const registerApiRoutes = (
     );
 
     if (consolidate) {
+      if (!awsProvider) {
+        throw new Error(
+          'The `aws` option is required when `consolidate` is true. ' +
+            'Pass the @pulumi/aws instance from your SST config context.',
+        );
+      }
+      const resourcePrefix = name ?? deriveResourcePrefix(routesDir);
       registerConsolidatedRoutes(
         api,
         routes,
@@ -248,6 +371,8 @@ export const registerApiRoutes = (
         routesDir,
         baseDir,
         defaultApiGatewayV2RouteArgs,
+        awsProvider,
+        resourcePrefix,
       );
     } else {
       registerIndividualRoutes(api, routes, pathPrefix, routesDir);
