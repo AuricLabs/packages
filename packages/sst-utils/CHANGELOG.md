@@ -1,5 +1,12 @@
 # @auriclabs/sst-utils
 
+## 1.1.8
+
+### Patch Changes
+
+- Fix sst global reference error — use api.route() for the first route to create the Lambda
+  (avoiding direct sst.aws.Function usage), then aws primitives for remaining routes.
+
 ## 1.1.7
 
 ### Patch Changes

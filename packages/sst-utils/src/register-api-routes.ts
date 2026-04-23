@@ -263,36 +263,32 @@ const registerConsolidatedRoutes = (
       `Consolidated ${group.routes.length} routes into ${relativeHandlerPath} (${catchAllRoutes.length} standard, ${overrideRoutes.length} override)`,
     );
 
-    // 1. Pre-create the Lambda function via SST (handles bundling, links, etc.)
-    const fn = new sst.aws.Function(`${name}Function`, {
-      ...group.functionArgs,
-      handler: relativeHandlerPath,
-    });
-
-    // 2. Single permission — allows the entire API Gateway to invoke this Lambda
-    interface OutputLike {
-      apply: (fn: (v: string) => string) => unknown;
-    }
-    const executionArn = apiGw.executionArn as unknown as OutputLike;
-    new awsProvider.lambda.Permission(`${name}Permission`, {
-      action: 'lambda:InvokeFunction',
-      function: fn.arn,
-      principal: 'apigateway.amazonaws.com',
-      sourceArn: executionArn.apply((arn: string) => `${arn}/*`),
-    });
-
-    // 3. Single integration pointing to the Lambda
-    const integration = new awsProvider.apigatewayv2.Integration(`${name}Integration`, {
-      apiId: apiGw.id,
-      integrationType: 'AWS_PROXY',
-      integrationUri: fn.arn,
-      payloadFormatVersion: '2.0',
-    });
-    const integrationId = integration.id as OutputLike;
-
-    // 4. Register each route as a Pulumi primitive (no per-route permission)
+    // 1. Use api.route() for the FIRST route — this creates the Lambda function
+    //    (with bundling, links, etc.), one Permission, one Integration, and one Route.
+    //    Then use aws primitives for remaining routes (no extra permissions).
     const allRoutes = [...catchAllRoutes, ...overrideRoutes];
-    for (const route of allRoutes) {
+    const [firstRoute, ...remainingRoutes] = allRoutes;
+
+    const firstRoutePath = firstRoute.routePath ? `/${firstRoute.routePath}` : '';
+    const firstFullPath = pathPrefix + firstRoutePath || '/';
+    const firstRouteKey = `${firstRoute.method.toUpperCase()} ${firstFullPath}`;
+    const firstApiGwArgs = isDeepEqual(firstRoute.apiGatewayArgs, defaultApiGatewayV2RouteArgs)
+      ? defaultApiGatewayV2RouteArgs
+      : firstRoute.apiGatewayArgs;
+
+    logger.debug(`Registering route ${firstRouteKey} (consolidated, primary)`);
+    const lambdaRoute = api.route(
+      firstRouteKey,
+      { ...group.functionArgs, handler: relativeHandlerPath },
+      { ...firstApiGwArgs },
+    );
+
+    // 2. Reuse the integration from the first route for all remaining routes.
+    //    This avoids creating additional lambda:Permissions (SST's api.route()
+    //    creates one per call, which exceeds AWS's 20KB policy limit).
+    const integrationId = lambdaRoute.nodes.integration.id;
+
+    for (const route of remainingRoutes) {
       const routePath = route.routePath ? `/${route.routePath}` : '';
       const fullPath = pathPrefix + routePath || '/';
       const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
