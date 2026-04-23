@@ -1,5 +1,13 @@
 # @auriclabs/sst-utils
 
+## 1.1.9
+
+### Patch Changes
+
+- Pass `sst` provider as parameter for `sst.aws.Function` creation instead of relying on
+  globals. All resources now created via passed-in providers: `sst.aws.Function` for the
+  Lambda, `aws.*` primitives for Permission, Integration, and Routes.
+
 ## 1.1.8
 
 ### Patch Changes
