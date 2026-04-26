@@ -1,17 +1,14 @@
 import type { MigrationContext, MigrationEntry } from './migration.types';
 import type { MigrationStorage } from './storage.types';
+import type { TimeoutManager } from './timeout.types';
+
+export type { TimeoutManager };
 
 export interface MigrationLogger {
   info: (message: string, data?: Record<string, unknown>) => void;
   error: (message: string, data?: Record<string, unknown>) => void;
   warn: (message: string, data?: Record<string, unknown>) => void;
   debug: (message: string, data?: Record<string, unknown>) => void;
-}
-
-export interface TimeoutManager {
-  getRemainingTimeMs: () => number;
-  threshold: number;
-  shouldStop: () => boolean;
 }
 
 interface MigrationRunnerBaseConfig<TContext extends MigrationContext = MigrationContext> {

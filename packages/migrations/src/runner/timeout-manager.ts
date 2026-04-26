@@ -1,4 +1,4 @@
-import type { TimeoutManager } from '../types';
+import type { TimeoutManager } from '../types/timeout.types';
 
 const DEFAULT_THRESHOLD_MS = 60_000;
 
