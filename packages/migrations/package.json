@@ -1,0 +1,95 @@
+{
+  "name": "@auriclabs/migrations",
+  "version": "0.0.1",
+  "description": "Migration runner with DynamoDB storage and Lambda support",
+  "prettier": "@auriclabs/prettier-config",
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./dynamodb": {
+      "types": "./dist/dynamodb.entry.d.mts",
+      "import": "./dist/dynamodb.entry.mjs",
+      "require": "./dist/dynamodb.entry.cjs"
+    },
+    "./infra": {
+      "types": "./dist/infra.entry.d.mts",
+      "import": "./dist/infra.entry.mjs",
+      "require": "./dist/infra.entry.cjs"
+    },
+    "./api": {
+      "types": "./dist/api.entry.d.mts",
+      "import": "./dist/api.entry.mjs",
+      "require": "./dist/api.entry.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "ui"
+  ],
+  "bin": {
+    "auric-migrate": "./dist/bin/auric-migrate.mjs"
+  },
+  "scripts": {
+    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash && tsdown src/dynamodb.entry.ts --format cjs,esm --dts --no-hash --no-clean && tsdown src/infra.entry.ts --format cjs,esm --dts --no-hash --no-clean --tsconfig tsconfig.build.json && tsdown src/api.entry.ts --format cjs,esm --dts --no-hash --no-clean && tsdown bin/auric-migrate.ts --format esm --no-hash --no-clean && pnpm build:ui",
+    "build:ui": "cd ui && npx vite build",
+    "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
+    "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "ts-config-typecheck",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.788.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^7.0.2",
+    "@mui/material": "^7.0.2",
+    "@mui/x-data-grid": "^8.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "commander": "^13.1.0",
+    "electrodb": "^3.4.1",
+    "glob": "^11.0.0",
+    "lodash": "^4.17.21",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
+    "uuid": "^11.1.0",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "@auriclabs/sst-types": "workspace:*",
+    "@types/aws-lambda": "^8.10.148",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "@types/uuid": "^10.0.0",
+    "sst": "^4.3.7"
+  },
+  "peerDependencies": {
+    "@aws-sdk/client-lambda": "^3.787.0",
+    "sst": "^4.3.7"
+  },
+  "peerDependenciesMeta": {
+    "@aws-sdk/client-lambda": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/auriclabs/packages.git",
+    "directory": "packages/migrations"
+  }
+}
