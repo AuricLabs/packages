@@ -1,4 +1,15 @@
-export type MigrationContext = Record<string, unknown>;
+export interface MigrationContext extends Record<string, unknown> {
+  /**
+   * When running inside a Lambda handler, the timeout manager is automatically
+   * injected into the context. Use `context.timeoutManager?.shouldStop()` inside
+   * long-running loops to check if the Lambda is approaching its timeout.
+   */
+  timeoutManager?: {
+    getRemainingTimeMs: () => number;
+    threshold: number;
+    shouldStop: () => boolean;
+  };
+}
 
 export interface Migration<TContext extends MigrationContext = MigrationContext> {
   name: string;

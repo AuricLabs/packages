@@ -74,6 +74,7 @@ export function createLambdaHandler<TContext extends MigrationContext>(
 
     const runner = new MigrationRunner<TContext>({
       ...config,
+      context: { ...config.context, timeoutManager },
       timeoutManager,
     });
 
