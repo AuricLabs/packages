@@ -36,6 +36,7 @@ export interface DashboardOptions {
   handler: string;
   migrationFn?: sst.aws.Function;
   domain?: sst.aws.StaticSiteArgs['domain'];
+  nodejs?: sst.aws.FunctionArgs['nodejs'];
 }
 
 export function createDashboard(options: DashboardOptions) {
@@ -53,6 +54,7 @@ export function createDashboard(options: DashboardOptions) {
     environment: {
       ...(options.migrationFn ? { MIGRATION_FUNCTION_NAME: options.migrationFn.name } : {}),
     },
+    nodejs: options.nodejs,
   });
 
   const require = createRequire(import.meta.url);
