@@ -1,26 +1,37 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
-export const table = new sst.aws.Dynamo('MigrationsTable', {
-  fields: {
-    pk: 'string',
-    sk: 'string',
-    gsi1pk: 'string',
-    gsi1sk: 'string',
-    gsi2pk: 'string',
-    gsi2sk: 'string',
-  },
-  primaryIndex: {
-    hashKey: 'pk',
-    rangeKey: 'sk',
-  },
-  globalIndexes: {
-    gsi1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' },
-    gsi2: { hashKey: 'gsi2pk', rangeKey: 'gsi2sk' },
-  },
-});
+export interface SstProvider {
+  aws: {
+    Dynamo: typeof sst.aws.Dynamo;
+    ApiGatewayV2: typeof sst.aws.ApiGatewayV2;
+    StaticSite: typeof sst.aws.StaticSite;
+  };
+}
+
+export function createTable(sst: SstProvider) {
+  return new sst.aws.Dynamo('MigrationsTable', {
+    fields: {
+      pk: 'string',
+      sk: 'string',
+      gsi1pk: 'string',
+      gsi1sk: 'string',
+      gsi2pk: 'string',
+      gsi2sk: 'string',
+    },
+    primaryIndex: {
+      hashKey: 'pk',
+      rangeKey: 'sk',
+    },
+    globalIndexes: {
+      gsi1: { hashKey: 'gsi1pk', rangeKey: 'gsi1sk' },
+      gsi2: { hashKey: 'gsi2pk', rangeKey: 'gsi2sk' },
+    },
+  });
+}
 
 export interface DashboardOptions {
+  sst: SstProvider;
   table: sst.aws.Dynamo;
   handler: string;
   migrationFn?: sst.aws.Function;
@@ -28,6 +39,7 @@ export interface DashboardOptions {
 }
 
 export function createDashboard(options: DashboardOptions) {
+  const { sst } = options;
   const api = new sst.aws.ApiGatewayV2('MigrationsApi', { cors: true });
 
   const link: unknown[] = [options.table];

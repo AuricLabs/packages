@@ -1,1 +1,6 @@
-export { table, createDashboard, type DashboardOptions } from './infra/index';
+export {
+  createTable,
+  createDashboard,
+  type SstProvider,
+  type DashboardOptions,
+} from './infra/index';
