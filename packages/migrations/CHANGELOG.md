@@ -1,5 +1,12 @@
 # @auriclabs/migrations
 
+## 0.0.4
+
+### Patch Changes
+
+- 525fd64: Add `nodejs` option to `createDashboard` to allow passing esbuild config (e.g. externals)
+  to the dashboard Lambda function.
+
 ## 0.0.3
 
 ### Patch Changes
