@@ -1,5 +1,13 @@
 # @auriclabs/migrations
 
+## 0.0.3
+
+### Patch Changes
+
+- 87de9ab: Pass `sst` as a parameter to `createTable` and `createDashboard` instead of referencing
+  the global directly, fixing "sst is not defined" errors when the infra entry is imported from
+  published packages.
+
 ## 0.0.2
 
 ### Patch Changes
