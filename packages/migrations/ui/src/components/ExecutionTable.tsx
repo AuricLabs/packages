@@ -1,8 +1,9 @@
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import Chip from '@mui/material/Chip';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createColumnHelper } from '@tanstack/react-table';
 import type { ExecutionBatch } from '../api/types';
 import { TimeAgo } from './TimeAgo';
+import { DataTable } from './DataTable';
 
 function getExecutionLabel(status: string, direction: string): string {
   if (status === 'running') return direction === 'down' ? 'Reverting' : 'Running';
@@ -10,51 +11,54 @@ function getExecutionLabel(status: string, direction: string): string {
   return direction === 'down' ? 'Reverted' : 'Migrated';
 }
 
-function getExecutionColor(status: string, direction: string): 'success' | 'error' | 'info' | 'warning' | 'default' {
-  if (status === 'running') return direction === 'down' ? 'warning' : 'info';
-  if (status === 'failed') return 'error';
-  return direction === 'down' ? 'default' : 'success';
+function getExecutionBadgeClasses(status: string, direction: string): string {
+  const base = 'inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full';
+  if (status === 'running') {
+    return direction === 'down'
+      ? `${base} bg-amber-500/10 text-amber-400 border border-amber-500/30`
+      : `${base} bg-blue-500/10 text-blue-400 border border-blue-500/30`;
+  }
+  if (status === 'failed') {
+    return `${base} bg-red-500/10 text-red-400 border border-red-500/30`;
+  }
+  return direction === 'down'
+    ? `${base} bg-zinc-800 text-zinc-400 border border-zinc-700`
+    : `${base} bg-emerald-500/10 text-emerald-400 border border-emerald-500/30`;
 }
 
-const directionColor: Record<string, 'info' | 'warning'> = {
-  up: 'info',
-  down: 'warning',
-};
+const columnHelper = createColumnHelper<ExecutionBatch>();
 
-const columns: GridColDef<ExecutionBatch>[] = [
-  { field: 'executionId', headerName: 'Execution ID', flex: 1.5, minWidth: 280 },
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 130,
-    renderCell: (params) => (
-      <Chip
-        label={getExecutionLabel(params.value as string, params.row.direction)}
-        color={getExecutionColor(params.value as string, params.row.direction)}
-        size="small"
-      />
+const columns = [
+  columnHelper.accessor('executionId', {
+    header: 'Execution ID',
+    cell: (info) => (
+      <span className="font-mono text-zinc-400">{info.getValue()}</span>
     ),
-  },
-  {
-    field: 'direction',
-    headerName: 'Direction',
-    width: 100,
-    renderCell: (params) => (
-      <Chip
-        label={(params.value as string).toUpperCase()}
-        color={directionColor[params.value as string] ?? 'default'}
-        size="small"
-        variant="filled"
-      />
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => (
+      <span className={getExecutionBadgeClasses(info.getValue(), info.row.original.direction)}>
+        {getExecutionLabel(info.getValue(), info.row.original.direction)}
+      </span>
     ),
-  },
-  { field: 'migrationCount', headerName: 'Migrations', width: 110, type: 'number' },
-  {
-    field: 'startedAt',
-    headerName: 'Started',
-    width: 160,
-    renderCell: (params) => <TimeAgo timestamp={params.value} />,
-  },
+    enableSorting: false,
+  }),
+  columnHelper.accessor('direction', {
+    header: 'Direction',
+    cell: (info) => (
+      <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-full">
+        {info.getValue().toUpperCase()}
+      </span>
+    ),
+  }),
+  columnHelper.accessor('migrationCount', {
+    header: 'Migrations',
+  }),
+  columnHelper.accessor('startedAt', {
+    header: 'Started',
+    cell: (info) => <TimeAgo timestamp={info.getValue()} />,
+  }),
 ];
 
 interface ExecutionTableProps {
@@ -65,18 +69,18 @@ interface ExecutionTableProps {
 export function ExecutionTable({ rows, loading }: ExecutionTableProps) {
   const navigate = useNavigate();
 
+  const handleRowClick = useMemo(
+    () => (row: ExecutionBatch) => navigate(`/executions/${encodeURIComponent(row.executionId)}`),
+    [navigate],
+  );
+
   return (
-    <DataGrid
-      rows={rows}
+    <DataTable
       columns={columns}
+      data={rows}
       loading={loading}
+      onRowClick={handleRowClick}
       getRowId={(row) => row.executionId}
-      onRowClick={(params) => navigate(`/executions/${encodeURIComponent(params.row.executionId)}`)}
-      initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-      pageSizeOptions={[10, 25, 50]}
-      disableRowSelectionOnClick
-      autoHeight
-      sx={{ cursor: 'pointer' }}
     />
   );
 }

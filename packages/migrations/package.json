@@ -48,38 +48,37 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
-  "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.788.0",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.0",
-    "@mui/icons-material": "^7.0.2",
-    "@mui/material": "^7.0.2",
-    "@mui/x-data-grid": "^8.0.0",
-    "@tanstack/react-query": "^5.0.0",
-    "@vitejs/plugin-react": "^4.0.0",
-    "commander": "^13.1.0",
-    "electrodb": "^3.4.1",
-    "glob": "^11.0.0",
-    "lodash": "^4.17.21",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-router-dom": "^7.0.0",
-    "uuid": "^11.1.0",
-    "vite": "^6.0.0"
-  },
   "devDependencies": {
     "@auriclabs/sst-types": "workspace:*",
+    "@radix-ui/react-dialog": "1.1.15",
+    "@tailwindcss/vite": "4.2.4",
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-table": "8.21.3",
     "@types/aws-lambda": "^8.10.148",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
-    "sst": "^4.3.7"
+    "@vitejs/plugin-react": "^5.2.0",
+    "commander": "^13.1.0",
+    "electrodb": "^3.4.1",
+    "glob": "^11.0.0",
+    "lucide-react": "1.12.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
+    "sst": "^4.3.7",
+    "tailwindcss": "4.2.4",
+    "uuid": "^11.1.0",
+    "vite": "^7.3.2"
   },
   "peerDependencies": {
-    "@aws-sdk/client-lambda": "^3.787.0",
-    "sst": "^4.3.7"
+    "@aws-sdk/client-dynamodb": "^3.788.0",
+    "@aws-sdk/client-lambda": "^3.787.0"
   },
   "peerDependenciesMeta": {
+    "@aws-sdk/client-dynamodb": {
+      "optional": true
+    },
     "@aws-sdk/client-lambda": {
       "optional": true
     }

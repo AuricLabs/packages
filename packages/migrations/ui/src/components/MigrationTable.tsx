@@ -1,49 +1,52 @@
-import { DataGrid, type GridColDef } from '@mui/x-data-grid';
-import Chip from '@mui/material/Chip';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createColumnHelper } from '@tanstack/react-table';
 import type { MigrationRecord } from '../api/types';
 import { StatusChip } from './StatusChip';
 import { TimeAgo } from './TimeAgo';
+import { DataTable } from './DataTable';
 
-const directionColor: Record<string, 'info' | 'warning'> = {
-  up: 'info',
-  down: 'warning',
-};
+const columnHelper = createColumnHelper<MigrationRecord>();
 
-const columns: GridColDef<MigrationRecord>[] = [
-  { field: 'id', headerName: 'ID', flex: 1.5, minWidth: 200 },
-  { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
-  {
-    field: 'status',
-    headerName: 'Status',
-    width: 140,
-    renderCell: (params) => <StatusChip status={params.row.status} direction={params.row.direction} />,
-  },
-  {
-    field: 'direction',
-    headerName: 'Direction',
-    width: 100,
-    renderCell: (params) => (
-      <Chip
-        label={(params.value as string).toUpperCase()}
-        color={directionColor[params.value as string] ?? 'default'}
-        size="small"
-        variant="filled"
-      />
+const columns = [
+  columnHelper.accessor('id', {
+    header: 'ID',
+    cell: (info) => (
+      <span className="font-mono text-zinc-400">{info.getValue()}</span>
     ),
-  },
-  {
-    field: 'duration',
-    headerName: 'Duration',
-    width: 120,
-    valueFormatter: (value: number | undefined) => (value != null ? `${value}ms` : '-'),
-  },
-  {
-    field: 'createdAt',
-    headerName: 'Time',
-    width: 160,
-    renderCell: (params) => (params.value ? <TimeAgo timestamp={params.value} /> : '-'),
-  },
+  }),
+  columnHelper.accessor('name', {
+    header: 'Name',
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: (info) => (
+      <StatusChip status={info.getValue()} direction={info.row.original.direction} />
+    ),
+    enableSorting: false,
+  }),
+  columnHelper.accessor('direction', {
+    header: 'Direction',
+    cell: (info) => (
+      <span className="inline-flex items-center px-2.5 py-0.5 text-xs font-medium bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-full">
+        {info.getValue().toUpperCase()}
+      </span>
+    ),
+  }),
+  columnHelper.accessor('duration', {
+    header: 'Duration',
+    cell: (info) => {
+      const value = info.getValue();
+      return <span>{value != null ? `${value}ms` : '-'}</span>;
+    },
+  }),
+  columnHelper.accessor('createdAt', {
+    header: 'Time',
+    cell: (info) => {
+      const value = info.getValue();
+      return value ? <TimeAgo timestamp={value} /> : <span>-</span>;
+    },
+  }),
 ];
 
 interface MigrationTableProps {
@@ -54,21 +57,19 @@ interface MigrationTableProps {
 export function MigrationTable({ rows, loading }: MigrationTableProps) {
   const navigate = useNavigate();
 
+  const handleRowClick = useMemo(
+    () => (row: MigrationRecord) => navigate(`/migrations/${encodeURIComponent(row.id)}`),
+    [navigate],
+  );
+
   return (
-    <DataGrid
-      rows={rows}
+    <DataTable
       columns={columns}
+      data={rows}
       loading={loading}
+      onRowClick={handleRowClick}
       getRowId={(row) => `${row.id}_${row.direction}_${row.createdAt}`}
-      onRowClick={(params) => navigate(`/migrations/${encodeURIComponent(params.row.id)}`)}
-      initialState={{
-        pagination: { paginationModel: { pageSize: 25 } },
-        sorting: { sortModel: [{ field: 'id', sort: 'desc' }] },
-      }}
-      pageSizeOptions={[10, 25, 50]}
-      disableRowSelectionOnClick
-      autoHeight
-      sx={{ cursor: 'pointer' }}
+      initialSorting={[{ id: 'id', desc: true }]}
     />
   );
 }

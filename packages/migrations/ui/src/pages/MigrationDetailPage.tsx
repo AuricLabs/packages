@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft } from 'lucide-react';
 import { useMigrationById } from '../hooks/queries';
 import { MigrationTable } from '../components/MigrationTable';
 import { RollbackDialog } from '../components/RollbackDialog';
@@ -18,25 +14,38 @@ export function MigrationDetailPage() {
   const { data: records = [], isPending, error } = useMigrationById(id);
   const [rollbackOpen, setRollbackOpen] = useState(false);
 
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4">
+        {error.message}
+      </div>
+    );
+  }
 
   const latestRecord = records[0];
   const showRollback = latestRecord?.status === 'completed' && latestRecord?.direction === 'up';
 
   return (
-    <Box>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/migrations')} sx={{ mb: 2 }}>
+    <div>
+      <button
+        className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors mb-4"
+        onClick={() => navigate('/migrations')}
+      >
+        <ArrowLeft className="h-4 w-4" />
         Back to Migrations
-      </Button>
+      </button>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">{id}</Typography>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="font-mono text-xl text-zinc-100">{id}</h1>
         {showRollback && (
-          <Button variant="contained" color="error" onClick={() => setRollbackOpen(true)}>
+          <button
+            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
+            onClick={() => setRollbackOpen(true)}
+          >
             Rollback
-          </Button>
+          </button>
         )}
-      </Box>
+      </div>
 
       {isPending ? <TableSkeleton rows={5} /> : <MigrationTable rows={records} />}
 
@@ -46,6 +55,6 @@ export function MigrationDetailPage() {
         onClose={() => setRollbackOpen(false)}
         onComplete={() => void queryClient.invalidateQueries({ queryKey: ['migrations', id] })}
       />
-    </Box>
+    </div>
   );
 }

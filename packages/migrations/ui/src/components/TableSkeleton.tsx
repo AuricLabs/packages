@@ -1,17 +1,14 @@
-import Box from '@mui/material/Box';
-import Skeleton from '@mui/material/Skeleton';
-
 interface TableSkeletonProps {
   rows?: number;
 }
 
 export function TableSkeleton({ rows = 8 }: TableSkeletonProps) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Skeleton variant="rectangular" height={40} />
+    <div className="flex flex-col gap-2">
+      <div className="h-10 animate-pulse rounded bg-zinc-800" />
       {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} variant="rectangular" height={36} />
+        <div key={i} className="h-9 animate-pulse rounded bg-zinc-800/60" />
       ))}
-    </Box>
+    </div>
   );
 }

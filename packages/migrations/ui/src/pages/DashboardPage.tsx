@@ -1,34 +1,44 @@
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Skeleton from '@mui/material/Skeleton';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import { useTheme } from '@mui/material/styles';
 import { useMigrationStatus, useExecutions } from '../hooks/queries';
-import { SummaryCard } from '../components/SummaryCard';
 import { ExecutionTable } from '../components/ExecutionTable';
+
+interface SummaryCardProps {
+  label: string;
+  count: number;
+  colorClass?: string;
+}
+
+function SummaryCard({ label, count, colorClass = 'text-zinc-100' }: SummaryCardProps) {
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+      <p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className={`text-3xl font-semibold ${colorClass}`}>{count}</p>
+    </div>
+  );
+}
 
 function SummaryCardSkeleton() {
   return (
-    <Card sx={{ minWidth: 160, flex: 1 }}>
-      <CardContent>
-        <Skeleton variant="text" width={80} />
-        <Skeleton variant="text" width={60} height={48} />
-      </CardContent>
-    </Card>
+    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+      <div className="h-3 w-20 bg-zinc-800 rounded animate-pulse mb-2" />
+      <div className="h-8 w-14 bg-zinc-800 rounded animate-pulse" />
+    </div>
   );
 }
 
 export function DashboardPage() {
-  const muiTheme = useTheme();
   const { data: executions, isPending: executionsPending, error: executionsError } = useExecutions();
   const hasRunning = executions?.some((e) => e.status === 'running') ?? false;
 
   const { data: status, isPending: statusPending, error: statusError } = useMigrationStatus(hasRunning);
 
   const error = statusError || executionsError;
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4">
+        {error.message}
+      </div>
+    );
+  }
 
   const pending = status?.pending.length ?? 0;
   const completed = status?.completed.length ?? 0;
@@ -36,12 +46,10 @@ export function DashboardPage() {
   const total = pending + completed + failed;
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
+    <div>
+      <h1 className="text-2xl font-semibold text-zinc-100 mb-6">Overview</h1>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {statusPending ? (
           <>
             <SummaryCardSkeleton />
@@ -51,26 +59,25 @@ export function DashboardPage() {
           </>
         ) : (
           <>
-            <SummaryCard label="Migrated" count={completed} color={muiTheme.palette.success.main} />
-            <SummaryCard label="Pending" count={pending} color={muiTheme.palette.warning.main} />
-            <SummaryCard label="Failed" count={failed} color={muiTheme.palette.error.main} />
-            <SummaryCard label="Total" count={total} />
+            <SummaryCard label="Migrated" count={completed} colorClass="text-green-400" />
+            <SummaryCard label="Pending" count={pending} colorClass="text-amber-400" />
+            <SummaryCard label="Failed" count={failed} colorClass="text-red-400" />
+            <SummaryCard label="Total" count={total} colorClass="text-zinc-100" />
           </>
         )}
-      </Box>
+      </div>
 
-      <Typography variant="h5" gutterBottom>
-        Recent Executions
-      </Typography>
+      <h2 className="text-lg font-medium text-zinc-200 mt-8 mb-3">Recent Executions</h2>
+
       {executionsPending ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <div className="flex flex-col gap-1">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} variant="rectangular" height={40} />
+            <div key={i} className="h-10 bg-zinc-800 rounded animate-pulse" />
           ))}
-        </Box>
+        </div>
       ) : (
         <ExecutionTable rows={executions?.slice(0, 10) ?? []} />
       )}
-    </Box>
+    </div>
   );
 }

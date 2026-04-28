@@ -1,12 +1,5 @@
 import { createBrowserRouter, RouterProvider, useRouteError, isRouteErrorResponse } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import { theme } from './theme';
 import { Layout } from './components/Layout';
 import { DashboardPage } from './pages/DashboardPage';
 import { MigrationsPage } from './pages/MigrationsPage';
@@ -31,17 +24,19 @@ function ErrorPage() {
       : 'An unexpected error occurred';
 
   return (
-    <Box sx={{ p: 4, maxWidth: 600, mx: 'auto', mt: 8 }}>
-      <Typography variant="h4" gutterBottom>
-        Something went wrong
-      </Typography>
-      <Alert severity="error" sx={{ mb: 2 }}>
+    <div className="mx-auto mt-16 max-w-xl px-4">
+      <h1 className="mb-4 text-2xl font-semibold text-zinc-100">Something went wrong</h1>
+      <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
         {message}
-      </Alert>
-      <Button variant="contained" onClick={() => window.location.assign('/')}>
+      </div>
+      <button
+        type="button"
+        className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-white"
+        onClick={() => window.location.assign('/')}
+      >
         Return to Dashboard
-      </Button>
-    </Box>
+      </button>
+    </div>
   );
 }
 
@@ -62,10 +57,7 @@ const router = createBrowserRouter([
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <RouterProvider router={router} />
-      </ThemeProvider>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   );
 }

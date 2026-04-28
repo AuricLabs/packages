@@ -1,22 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Skeleton from '@mui/material/Skeleton';
-import Button from '@mui/material/Button';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { ArrowLeft } from 'lucide-react';
 import { useExecutions, useExecutionById } from '../hooks/queries';
 import { ExecutionTable } from '../components/ExecutionTable';
 import { MigrationTable } from '../components/MigrationTable';
 
 function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      <Skeleton variant="rectangular" height={40} />
+    <div className="flex flex-col gap-1">
+      <div className="h-10 bg-zinc-800 rounded animate-pulse" />
       {Array.from({ length: rows }).map((_, i) => (
-        <Skeleton key={i} variant="rectangular" height={36} />
+        <div key={i} className="h-9 bg-zinc-800 rounded animate-pulse" />
       ))}
-    </Box>
+    </div>
   );
 }
 
@@ -32,15 +27,19 @@ export function ExecutionsPage() {
 function ExecutionsListView() {
   const { data: executions = [], isPending, error } = useExecutions();
 
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4">
+        {error.message}
+      </div>
+    );
+  }
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Executions
-      </Typography>
+    <div>
+      <h1 className="text-2xl font-semibold text-zinc-100 mb-6">Executions</h1>
       {isPending ? <TableSkeleton rows={8} /> : <ExecutionTable rows={executions} />}
-    </Box>
+    </div>
   );
 }
 
@@ -48,19 +47,27 @@ function ExecutionDetailView({ executionId }: { executionId: string }) {
   const navigate = useNavigate();
   const { data: records = [], isPending, error } = useExecutionById(executionId);
 
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4">
+        {error.message}
+      </div>
+    );
+  }
 
   return (
-    <Box>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/executions')} sx={{ mb: 2 }}>
+    <div>
+      <button
+        className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors mb-4"
+        onClick={() => navigate('/executions')}
+      >
+        <ArrowLeft className="h-4 w-4" />
         Back to Executions
-      </Button>
+      </button>
 
-      <Typography variant="h4" gutterBottom>
-        Execution: {executionId}
-      </Typography>
+      <h1 className="font-mono text-xl text-zinc-100 mb-6">Execution: {executionId}</h1>
 
       {isPending ? <TableSkeleton /> : <MigrationTable rows={records} />}
-    </Box>
+    </div>
   );
 }

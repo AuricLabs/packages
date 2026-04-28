@@ -1,13 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Alert from '@mui/material/Alert';
-import Button from '@mui/material/Button';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import type { SelectChangeEvent } from '@mui/material/Select';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMigrations, useMigrationStatus } from '../hooks/queries';
 import type { MigrationRecord, DisplayStatus } from '../api/types';
@@ -93,7 +84,13 @@ export function MigrationsPage() {
     statusFilter === 'all' ? migrations : migrations.filter((m) => getDisplayStatus(m.status, m.direction) === statusFilter);
 
   const error = migrationsError || statusError;
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4">
+        {error.message}
+      </div>
+    );
+  }
 
   const handleTrigger = () => {
     triggerTimeRef.current = Date.now();
@@ -107,45 +104,42 @@ export function MigrationsPage() {
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4">Migrations</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="contained"
-            color="primary"
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold text-zinc-100">Migrations</h1>
+        <div className="flex gap-2">
+          <button
+            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!status || status.pending.length === 0}
             onClick={() => setMigrateOpen(true)}
           >
             Run Migrations
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
+          </button>
+          <button
+            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!status || status.completed.length === 0}
             onClick={() => setRollbackOpen(true)}
           >
             Rollback
-          </Button>
-        </Box>
-      </Box>
+          </button>
+        </div>
+      </div>
 
-      <FormControl sx={{ mb: 2, minWidth: 160 }} size="small">
-        <InputLabel>Status</InputLabel>
-        <Select
-          value={statusFilter}
-          label="Status"
-          onChange={(e: SelectChangeEvent) =>
-            setStatusFilter(e.target.value as DisplayStatus | 'all')
-          }
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <MenuItem key={s} value={s}>
-              {STATUS_LABELS[s]}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <div className="flex gap-1.5 mb-4">
+        {STATUS_OPTIONS.map((s) => (
+          <button
+            key={s}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              statusFilter === s
+                ? 'bg-zinc-700 text-zinc-100'
+                : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+            onClick={() => setStatusFilter(s)}
+          >
+            {STATUS_LABELS[s]}
+          </button>
+        ))}
+      </div>
 
       {isPending ? <TableSkeleton /> : <MigrationTable rows={filtered} />}
 
@@ -162,6 +156,6 @@ export function MigrationsPage() {
         onClose={() => setRollbackOpen(false)}
         onComplete={handleTrigger}
       />
-    </Box>
+    </div>
   );
 }
