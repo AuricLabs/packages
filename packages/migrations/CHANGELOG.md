@@ -1,5 +1,13 @@
 # @auriclabs/migrations
 
+## 0.0.5
+
+### Patch Changes
+
+- d73f72c: Bundle all runtime deps (electrodb, sst, commander, glob, uuid) into dist output and move
+  to devDependencies. Replace MUI with Tailwind CSS + TanStack Table + Radix Dialog for a modern
+  dark-mode dashboard UI. Zero runtime dependencies — only @aws-sdk peer deps remain.
+
 ## 0.0.4
 
 ### Patch Changes
