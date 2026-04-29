@@ -60,14 +60,21 @@ export function createDashboard(options: DashboardOptions) {
   const require = createRequire(import.meta.url);
   const pkgJsonPath = require.resolve('@auriclabs/migrations/package.json');
   const pkgRoot = path.dirname(pkgJsonPath);
-  const uiAbsPath = path.join(pkgRoot, 'ui');
-  const uiPath = path.relative(process.cwd(), uiAbsPath);
+  const uiPath = path.join(pkgRoot, 'ui');
+  const uiRelative = path.relative(process.cwd(), uiPath);
 
+  // Copy pre-built dist and inject the API URL at deploy time.
+  // The build command copies ui/dist to a temp output dir and injects
+  // a script tag that sets window.__MIGRATIONS_API_URL__ before the app loads.
   const site = new sst.aws.StaticSite('Migrations', {
-    path: uiPath,
+    path: uiRelative,
     build: {
-      command: 'npx vite build',
-      output: 'dist',
+      command: [
+        'cp -r dist _deploy',
+        `sed -i.bak 's|<head>|<head><script>window.__MIGRATIONS_API_URL__="'$VITE_API_URL'"</script>|' _deploy/index.html`,
+        'rm -f _deploy/index.html.bak',
+      ].join(' && '),
+      output: '_deploy',
     },
     dev: {
       command: 'npx vite dev',

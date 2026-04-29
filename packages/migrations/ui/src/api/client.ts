@@ -7,7 +7,10 @@ import type {
   StatusResponse,
 } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? '';
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (globalThis as Record<string, unknown>).__MIGRATIONS_API_URL__ ??
+  '';
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, init);
