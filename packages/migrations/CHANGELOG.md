@@ -1,5 +1,12 @@
 # @auriclabs/migrations
 
+## 0.0.6
+
+### Patch Changes
+
+- c13b1ee: Serve pre-built UI at deploy time instead of rebuilding from source. Eliminates the need
+  for UI devDependencies in consumer workspaces.
+
 ## 0.0.5
 
 ### Patch Changes
