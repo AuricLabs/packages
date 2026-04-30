@@ -1,12 +1,21 @@
 # @auriclabs/sst-utils
 
+## 1.1.10
+
+### Patch Changes
+
+- e704180: Add `onConsolidatedFunction` callback to `registerApiRoutes`. Fires once per consolidated
+  Lambda group (in `consolidate: true` mode), receiving the resource name and the `sst.aws.Function`
+  reference. Lets callers attach provisioned concurrency, alarms, or aliases to the consolidated
+  Lambda without forking the module.
+
 ## 1.1.9
 
 ### Patch Changes
 
-- Pass `sst` provider as parameter for `sst.aws.Function` creation instead of relying on
-  globals. All resources now created via passed-in providers: `sst.aws.Function` for the
-  Lambda, `aws.*` primitives for Permission, Integration, and Routes.
+- Pass `sst` provider as parameter for `sst.aws.Function` creation instead of relying on globals.
+  All resources now created via passed-in providers: `sst.aws.Function` for the Lambda, `aws.*`
+  primitives for Permission, Integration, and Routes.
 
 ## 1.1.8
 
