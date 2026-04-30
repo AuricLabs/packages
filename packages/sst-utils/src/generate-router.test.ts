@@ -352,4 +352,187 @@ describe('generateRouterFile', () => {
     const content = fs.readFileSync('/app/api/_router.ts', 'utf-8');
     expect(content).toContain("path: '/'");
   });
+
+  test('billing internal API: GET platform/{tenantId} must appear before GET {referenceId} (production regression)', () => {
+    fs.mkdirSync('/app/services/billing/api-internal', { recursive: true });
+
+    // Exact route set from services/billing/api-internal as deployed to prod
+    const routes: RouterRoute[] = [
+      {
+        method: 'get',
+        routePath: 'balance/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/get.ts',
+      },
+      {
+        method: 'put',
+        routePath: 'balance/{tenantId}/auto-recharge',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/auto-recharge/put.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'balance/{tenantId}/auto-recharge',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/auto-recharge/get.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'balance/{tenantId}/check',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/check/get.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'balance/{tenantId}/credit',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/credit/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'balance/{tenantId}/deduct',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/deduct/post.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'balance/{tenantId}/transactions',
+        handlerFile: '/app/services/billing/api-internal/balance/{tenantId}/transactions/get.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'checkout',
+        handlerFile: '/app/services/billing/api-internal/checkout/post.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'config',
+        handlerFile: '/app/services/billing/api-internal/config/get.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'customers',
+        handlerFile: '/app/services/billing/api-internal/customers/post.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'payment-methods/check/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/payment-methods/check/{tenantId}/get.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'payment-methods/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/payment-methods/{tenantId}/get.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'pending-promos',
+        handlerFile: '/app/services/billing/api-internal/pending-promos/post.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'plans',
+        handlerFile: '/app/services/billing/api-internal/plans/get.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'preflight',
+        handlerFile: '/app/services/billing/api-internal/preflight/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'products',
+        handlerFile: '/app/services/billing/api-internal/products/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'referral-credit',
+        handlerFile: '/app/services/billing/api-internal/referral-credit/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'subscriptions',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'subscriptions/dynamic',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/dynamic/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'subscriptions/platform/preview',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/platform/preview/post.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'subscriptions/platform/seats',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/platform/seats/post.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'subscriptions/platform/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/platform/{tenantId}/get.ts',
+      },
+      {
+        method: 'post',
+        routePath: 'subscriptions/platform-free',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/platform-free/post.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'subscriptions/{referenceId}',
+        handlerFile: '/app/services/billing/api-internal/subscriptions/{referenceId}/get.ts',
+      },
+      {
+        method: 'put',
+        routePath: 'subscriptions/{referenceId}/{productKey}',
+        handlerFile:
+          '/app/services/billing/api-internal/subscriptions/{referenceId}/{productKey}/put.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'subscriptions/{referenceId}/{productKey}',
+        handlerFile:
+          '/app/services/billing/api-internal/subscriptions/{referenceId}/{productKey}/get.ts',
+      },
+      {
+        method: 'delete',
+        routePath: 'subscriptions/{referenceId}/{productKey}',
+        handlerFile:
+          '/app/services/billing/api-internal/subscriptions/{referenceId}/{productKey}/delete.ts',
+      },
+      {
+        method: 'put',
+        routePath: 'tenant-discounts/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/tenant-discounts/{tenantId}/put.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'tenant-discounts/{tenantId}',
+        handlerFile: '/app/services/billing/api-internal/tenant-discounts/{tenantId}/get.ts',
+      },
+    ];
+
+    generateRouterFile('/app/services/billing/api-internal/_router.ts', routes, '/billing');
+
+    const content = fs.readFileSync('/app/services/billing/api-internal/_router.ts', 'utf-8');
+
+    // Critical: GET platform/{tenantId} must appear before GET {referenceId}
+    // to prevent the wildcard swallowing "platform" as a referenceId
+    const platformTenantIdx = content.indexOf("path: '/billing/subscriptions/platform/{tenantId}'");
+    const refIdx = content.indexOf("path: '/billing/subscriptions/{referenceId}'");
+    expect(platformTenantIdx).toBeGreaterThan(-1);
+    expect(refIdx).toBeGreaterThan(-1);
+    expect(platformTenantIdx).toBeLessThan(refIdx);
+
+    // Static POST routes for platform/* must appear before dynamic GET platform/{tenantId}
+    const platformPreviewIdx = content.indexOf("path: '/billing/subscriptions/platform/preview'");
+    const platformSeatsIdx = content.indexOf("path: '/billing/subscriptions/platform/seats'");
+    expect(platformPreviewIdx).toBeGreaterThan(-1);
+    expect(platformSeatsIdx).toBeGreaterThan(-1);
+    expect(platformPreviewIdx).toBeLessThan(platformTenantIdx);
+    expect(platformSeatsIdx).toBeLessThan(platformTenantIdx);
+
+    // payment-methods/check/{tenantId} must appear before payment-methods/{tenantId}
+    const pmCheckIdx = content.indexOf("path: '/billing/payment-methods/check/{tenantId}'");
+    const pmIdx = content.indexOf("path: '/billing/payment-methods/{tenantId}'");
+    expect(pmCheckIdx).toBeGreaterThan(-1);
+    expect(pmIdx).toBeGreaterThan(-1);
+    expect(pmCheckIdx).toBeLessThan(pmIdx);
+  });
 });
