@@ -84,6 +84,32 @@ export interface RegisterApiRoutesOptions {
    * @example "OrgApi"
    */
   name?: string;
+  /**
+   * Callback fired once per consolidated Lambda group, immediately after the
+   * `sst.aws.Function` is created. Receives the resource name and the function
+   * reference, so callers can attach extras like provisioned concurrency,
+   * alarms, or aliases without forking this module.
+   *
+   * Only fires in `consolidate: true` mode.
+   *
+   * @example
+   * ```ts
+   * registerApiRoutes(api, {
+   *   consolidate: true,
+   *   sst,
+   *   aws,
+   *   functionArgs,
+   *   onConsolidatedFunction: (name, fn) => {
+   *     new aws.lambda.ProvisionedConcurrencyConfig(`${name}PC`, {
+   *       functionName: fn.nodes.function.name,
+   *       qualifier: alias.name,
+   *       provisionedConcurrentExecutions: 2,
+   *     });
+   *   },
+   * });
+   * ```
+   */
+  onConsolidatedFunction?: (name: string, fn: sst.aws.Function) => void;
 }
 
 interface ParsedRoute {
@@ -231,6 +257,7 @@ const registerConsolidatedRoutes = (
   sstProvider: SstProvider,
   awsProvider: AwsProvider,
   resourcePrefix: string,
+  onConsolidatedFunction?: (name: string, fn: sst.aws.Function) => void,
 ): void => {
   // Group routes by their effective function config hash
   const groups = new Map<string, { functionArgs: sst.aws.FunctionArgs; routes: ParsedRoute[] }>();
@@ -287,6 +314,12 @@ const registerConsolidatedRoutes = (
       ...group.functionArgs,
       handler: relativeHandlerPath,
     });
+
+    // 1a. Optional caller hook — lets infra attach provisioned concurrency,
+    // alarms, etc. to the consolidated function without forking this module.
+    if (onConsolidatedFunction) {
+      onConsolidatedFunction(name, fn as unknown as sst.aws.Function);
+    }
 
     // 2. Single permission — allows the entire API Gateway to invoke this Lambda
     const executionArn = apiGw.executionArn as unknown as {
@@ -358,6 +391,7 @@ export const registerApiRoutes = (
     sst: sstProvider,
     aws: awsProvider,
     name,
+    onConsolidatedFunction,
   }: RegisterApiRoutesOptions,
 ): sst.aws.ApiGatewayV2 => {
   try {
@@ -394,6 +428,7 @@ export const registerApiRoutes = (
         sstProvider,
         awsProvider,
         resourcePrefix,
+        onConsolidatedFunction,
       );
     } else {
       registerIndividualRoutes(api, routes, pathPrefix, routesDir);
