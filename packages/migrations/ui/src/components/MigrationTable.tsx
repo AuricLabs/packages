@@ -54,29 +54,50 @@ interface MigrationTableProps {
   rows: MigrationRecord[];
   loading?: boolean;
   /**
-   * When true, rows with output, metadata, or an error expose an expand chevron
-   * that reveals the run details panel. Used on the migration detail page;
-   * off elsewhere.
+   * When true, rows expose an expand chevron that reveals the run details
+   * panel (description, error, result, output). Used on detail pages; off in
+   * list views.
    */
   expandableDetails?: boolean;
+  /**
+   * When true, the expansion panel includes the migration's markdown
+   * description. Use on execution-detail pages where there is no per-migration
+   * header showing it. Leave off on the migration-detail page where the
+   * description is already in the page header.
+   */
+  showDescriptionInExpansion?: boolean;
+  /**
+   * When set, clicking the row body toggles row expansion instead of
+   * navigating to the migration's detail page. Use on detail pages so the
+   * row click drills *into* the run rather than away from the current
+   * execution context.
+   */
+  rowClickExpands?: boolean;
 }
 
-export function MigrationTable({ rows, loading, expandableDetails }: MigrationTableProps) {
+export function MigrationTable({
+  rows,
+  loading,
+  expandableDetails,
+  showDescriptionInExpansion,
+  rowClickExpands,
+}: MigrationTableProps) {
   const navigate = useNavigate();
 
-  const handleRowClick = useMemo(
-    () => (row: MigrationRecord) => navigate(`/migrations/${encodeURIComponent(row.id)}`),
-    [navigate],
-  );
+  const handleRowClick = useMemo(() => {
+    if (rowClickExpands) return undefined;
+    return (row: MigrationRecord) => navigate(`/migrations/${encodeURIComponent(row.id)}`);
+  }, [navigate, rowClickExpands]);
 
   const renderExpansion = useMemo(() => {
     if (!expandableDetails) return undefined;
     return (row: MigrationRecord) => {
       const hasMetadata = row.metadata && Object.keys(row.metadata).length > 0;
-      if (!row.output && !hasMetadata && !row.error) return null;
-      return <RunDetailsPanel record={row} />;
+      const hasDescription = showDescriptionInExpansion && !!row.description?.trim();
+      if (!row.output && !hasMetadata && !row.error && !hasDescription) return null;
+      return <RunDetailsPanel record={row} showDescription={showDescriptionInExpansion} />;
     };
-  }, [expandableDetails]);
+  }, [expandableDetails, showDescriptionInExpansion]);
 
   return (
     <DataTable

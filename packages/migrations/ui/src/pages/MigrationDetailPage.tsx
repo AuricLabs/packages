@@ -71,7 +71,7 @@ export function MigrationDetailPage() {
           {isPending ? (
             <TableSkeleton rows={5} />
           ) : (
-            <MigrationTable rows={records} expandableDetails />
+            <MigrationTable rows={records} expandableDetails rowClickExpands />
           )}
         </div>
       </section>

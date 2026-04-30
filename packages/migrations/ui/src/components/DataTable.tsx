@@ -96,11 +96,25 @@ export function DataTable<TData extends RowData>({
               const canExpand = expansionEnabled && expansionContent !== null;
               const isOpen = canExpand && !!expanded[row.id];
 
+              const toggleExpansion = () =>
+                setExpanded((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+              const hasNavigation = !!onRowClick;
+              const rowIsClickable = hasNavigation || canExpand;
+              const handleBodyClick = () => {
+                if (onRowClick) {
+                  onRowClick(row.original);
+                } else if (canExpand) {
+                  toggleExpansion();
+                }
+              };
+
               return (
                 <Fragment key={row.id}>
                   <tr
-                    className="border-b border-zinc-800/50 hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                    onClick={() => onRowClick?.(row.original)}
+                    className={`border-b border-zinc-800/50 transition-colors ${
+                      rowIsClickable ? 'hover:bg-zinc-800/50 cursor-pointer' : ''
+                    } ${isOpen ? 'bg-zinc-800/30' : ''}`}
+                    onClick={rowIsClickable ? handleBodyClick : undefined}
                   >
                     {expansionEnabled && (
                       <td className="w-8 px-2 py-3 text-zinc-500">
@@ -111,7 +125,7 @@ export function DataTable<TData extends RowData>({
                             className="p-1 rounded hover:bg-zinc-700/50 hover:text-zinc-200 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setExpanded((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+                              toggleExpansion();
                             }}
                           >
                             {isOpen ? (

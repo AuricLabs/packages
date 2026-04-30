@@ -69,15 +69,17 @@ export function DashboardPage() {
 
       <h2 className="text-lg font-medium text-zinc-200 mt-8 mb-3">Recent Executions</h2>
 
-      {executionsPending ? (
-        <div className="flex flex-col gap-1">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-10 bg-zinc-800 rounded animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <ExecutionTable rows={executions?.slice(0, 10) ?? []} />
-      )}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden">
+        {executionsPending ? (
+          <div className="flex flex-col gap-1 p-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-10 bg-zinc-800 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <ExecutionTable rows={executions?.slice(0, 10) ?? []} />
+        )}
+      </div>
     </div>
   );
 }
