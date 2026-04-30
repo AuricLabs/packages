@@ -19,6 +19,12 @@ export interface MigrationRecord {
   metadata?: Record<string, unknown>;
   executionId: string;
   duration?: number;
+  /** Markdown description snapshotted from the migration definition at run time. */
+  description?: string;
+  /** Captured stdout / `ctx.log` output from the migration run. */
+  output?: string;
+  /** True when output exceeded the storage cap and the oldest bytes were dropped. */
+  outputTruncated?: boolean;
   createdAt: number;
   updatedAt: number;
 }

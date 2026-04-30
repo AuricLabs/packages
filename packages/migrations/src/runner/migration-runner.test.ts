@@ -285,6 +285,148 @@ describe('MigrationRunner', () => {
       );
     });
 
+    it('captures output written via ctx.log on the record', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [
+          {
+            id: '20250601_first',
+            migration: makeMigration('first', {
+              upFn: async () => {},
+            }),
+          },
+        ],
+        storage,
+      );
+      // Override the migration to use the runtime-injected ctx.log
+      config.migrations = [
+        {
+          id: '20250601_first',
+          migration: {
+            name: 'first',
+            up: async (ctx) => {
+              ctx.log?.('migrated 42 rows');
+            },
+            down: async () => {},
+          },
+        },
+      ];
+
+      const runner = new MigrationRunner(config);
+      await runner.up();
+
+      const updateCalls = vi.mocked(storage.updateRecord).mock.calls;
+      const [, , , updates] = updateCalls[updateCalls.length - 1];
+      expect(updates.output).toContain('migrated 42 rows');
+      expect(updates.outputTruncated).toBeUndefined();
+    });
+
+    it('captures output written via console.log directly', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [
+          {
+            id: '20250601_first',
+            migration: {
+              name: 'first',
+              up: async () => {
+                // eslint-disable-next-line no-console
+                console.log('teed line', { foo: 'bar' });
+              },
+              down: async () => {},
+            },
+          },
+        ],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      await runner.up();
+
+      const updateCalls = vi.mocked(storage.updateRecord).mock.calls;
+      const [, , , updates] = updateCalls[updateCalls.length - 1];
+      expect(updates.output).toContain('teed line');
+      expect(updates.output).toContain("foo: 'bar'");
+    });
+
+    it('still persists captured output when migration fails', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [
+          {
+            id: '20250601_first',
+            migration: {
+              name: 'first',
+              up: async (ctx) => {
+                ctx.log?.('halfway done');
+                throw new Error('boom');
+              },
+              down: async () => {},
+            },
+          },
+        ],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      await runner.up();
+
+      const updateCalls = vi.mocked(storage.updateRecord).mock.calls;
+      const [, , , updates] = updateCalls[updateCalls.length - 1];
+      expect(updates.status).toBe('failed');
+      expect(updates.output).toContain('halfway done');
+    });
+
+    it('restores console after migration completes', async () => {
+      const storage = createMockStorage();
+      // eslint-disable-next-line no-console
+      const original = console.log;
+      const config = createConfig(
+        [
+          {
+            id: '20250601_first',
+            migration: {
+              name: 'first',
+              up: async () => {
+                // eslint-disable-next-line no-console
+                console.log('captured');
+              },
+              down: async () => {},
+            },
+          },
+        ],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      await runner.up();
+
+      // eslint-disable-next-line no-console
+      expect(console.log).toBe(original);
+    });
+
+    it('snapshots migration description onto the record at run time', async () => {
+      const storage = createMockStorage();
+      const description = '## What this does\n\nBackfills the `tenantId` GSI.';
+      const migration: Migration = {
+        name: 'first',
+        description,
+        up: async () => {},
+        down: async () => {},
+      };
+      const config = createConfig([{ id: '20250601_first', migration }], storage);
+
+      const runner = new MigrationRunner(config);
+      await runner.up();
+
+      expect(storage.createRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '20250601_first',
+          description,
+        }),
+      );
+    });
+
     it('handles non-Error thrown in migration (string throw)', async () => {
       const storage = createMockStorage();
       const config = createConfig(

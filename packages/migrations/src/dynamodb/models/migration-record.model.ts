@@ -57,6 +57,18 @@ export function createMigrationRecordEntity(config?: EntityConfiguration) {
           type: 'number',
           required: false,
         },
+        description: {
+          type: 'string',
+          required: false,
+        },
+        output: {
+          type: 'string',
+          required: false,
+        },
+        outputTruncated: {
+          type: 'boolean',
+          required: false,
+        },
         createdAt: {
           type: 'number',
           readOnly: true,

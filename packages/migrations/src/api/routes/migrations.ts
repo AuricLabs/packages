@@ -5,7 +5,16 @@ import type { MigrationStorage, MigrationRecord } from '../../types';
 export async function getMigrations(storage: MigrationStorage): Promise<MigrationRecord[]> {
   const allRecords = await storage.getAllRecords();
   const latestById = getLatestRecordPerMigration(allRecords);
-  return Array.from(latestById.values()).sort((a, b) => b.createdAt - a.createdAt);
+  return Array.from(latestById.values())
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map(stripOutput);
+}
+
+function stripOutput(record: MigrationRecord): MigrationRecord {
+  if (record.output === undefined) return record;
+  const copy = { ...record };
+  delete copy.output;
+  return copy;
 }
 
 export async function getMigrationsSummary(

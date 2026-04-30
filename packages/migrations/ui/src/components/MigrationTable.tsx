@@ -5,6 +5,7 @@ import type { MigrationRecord } from '../api/types';
 import { StatusChip } from './StatusChip';
 import { TimeAgo } from './TimeAgo';
 import { DataTable } from './DataTable';
+import { RunDetailsPanel } from './RunDetailsPanel';
 
 const columnHelper = createColumnHelper<MigrationRecord>();
 
@@ -52,15 +53,30 @@ const columns = [
 interface MigrationTableProps {
   rows: MigrationRecord[];
   loading?: boolean;
+  /**
+   * When true, rows with output, metadata, or an error expose an expand chevron
+   * that reveals the run details panel. Used on the migration detail page;
+   * off elsewhere.
+   */
+  expandableDetails?: boolean;
 }
 
-export function MigrationTable({ rows, loading }: MigrationTableProps) {
+export function MigrationTable({ rows, loading, expandableDetails }: MigrationTableProps) {
   const navigate = useNavigate();
 
   const handleRowClick = useMemo(
     () => (row: MigrationRecord) => navigate(`/migrations/${encodeURIComponent(row.id)}`),
     [navigate],
   );
+
+  const renderExpansion = useMemo(() => {
+    if (!expandableDetails) return undefined;
+    return (row: MigrationRecord) => {
+      const hasMetadata = row.metadata && Object.keys(row.metadata).length > 0;
+      if (!row.output && !hasMetadata && !row.error) return null;
+      return <RunDetailsPanel record={row} />;
+    };
+  }, [expandableDetails]);
 
   return (
     <DataTable
@@ -70,6 +86,7 @@ export function MigrationTable({ rows, loading }: MigrationTableProps) {
       onRowClick={handleRowClick}
       getRowId={(row) => `${row.id}_${row.direction}_${row.createdAt}`}
       initialSorting={[{ id: 'id', desc: true }]}
+      renderExpansion={renderExpansion}
     />
   );
 }

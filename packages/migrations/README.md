@@ -64,6 +64,37 @@ export default {
 
 Each migration must implement both `up` (apply) and `down` (rollback). The `down` function is what gets called when you trigger a rollback from the CLI, Lambda, or dashboard.
 
+### Documenting and Diagnosing Migrations
+
+Each migration can carry a markdown `description` and emit log output during a run. Both surface on the dashboard's migration detail page so you can see *what* a migration was supposed to do and *what actually happened* without leaving the UI.
+
+```typescript
+export default {
+  name: 'add-user-roles',
+  description: `## Adds default roles
+
+Seeds \`role#admin\` and \`role#viewer\` rows into the \`Roles\` table.
+
+- Idempotent: re-running has no additional effect.
+- Required before the dashboard auth refactor.`,
+  async up(ctx) {
+    await client.send(/* ... */);
+    ctx.log?.('seeded admin role');
+    ctx.log?.('seeded viewer role');
+  },
+  async down(ctx) {
+    /* ... */
+    ctx.logger?.warn('roles table now empty');
+  },
+} satisfies Migration;
+```
+
+Notes:
+
+- `description` is snapshotted onto every migration record when the migration runs, so historical records always show the description that was true at the time. Editing the source later does not rewrite history.
+- `ctx.log(message, ...rest)` and `ctx.logger.{info,warn,error,debug}` write into a captured output buffer that is persisted on the record. Direct `console.log/warn/error` calls during the migration are also captured.
+- Output is capped at 200 KB per run via a ring buffer (oldest lines drop first; the most recent output is always preserved). When this happens the record's `outputTruncated` flag is set and a banner is shown in the dashboard.
+
 ## CLI
 
 ```bash

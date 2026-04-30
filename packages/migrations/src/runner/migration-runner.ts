@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getCompletedMigrationIds, getLatestRecordPerMigration } from '../utils/records';
 
 import { loadMigrations } from './migration-loader';
+import { OutputBuffer } from './output-buffer';
 
 import type {
   ExecutionResult,
@@ -124,9 +125,13 @@ export class MigrationRunner<TContext extends MigrationContext = MigrationContex
           direction,
           startedAt,
           executionId,
+          description: migrationFile.migration.description,
         });
 
         this.logger.info(`Running ${direction}: ${migrationFile.id}`);
+
+        const buffer = new OutputBuffer();
+        const releaseCapture = attachOutputCapture(this.config.context, buffer);
 
         try {
           const fn = direction === 'up' ? migrationFile.migration.up : migrationFile.migration.down;
@@ -139,6 +144,8 @@ export class MigrationRunner<TContext extends MigrationContext = MigrationContex
             completedAt,
             duration: completedAt - startedAt,
             metadata,
+            output: buffer.isEmpty ? undefined : buffer.serialize(),
+            outputTruncated: buffer.truncated ? true : undefined,
           });
 
           migrationsRun.push(migrationFile.id);
@@ -154,6 +161,8 @@ export class MigrationRunner<TContext extends MigrationContext = MigrationContex
             completedAt,
             duration: completedAt - startedAt,
             error: errorMessage,
+            output: buffer.isEmpty ? undefined : buffer.serialize(),
+            outputTruncated: buffer.truncated ? true : undefined,
           });
 
           this.logger.error(`Failed ${direction}: ${migrationFile.id}`, {
@@ -167,6 +176,8 @@ export class MigrationRunner<TContext extends MigrationContext = MigrationContex
             migrationsRemaining: plan.slice(i + 1).map((m) => m.id),
             error: `Migration ${migrationFile.id} failed: ${errorMessage}`,
           };
+        } finally {
+          releaseCapture();
         }
       }
 
@@ -241,6 +252,57 @@ export class MigrationRunner<TContext extends MigrationContext = MigrationContex
       });
     }
   }
+}
+
+function attachOutputCapture(context: MigrationContext, buffer: OutputBuffer): () => void {
+  const prevLog = context.log;
+  const prevLogger = context.logger;
+
+  context.log = (message, ...rest) => {
+    buffer.append('info', message, ...rest);
+  };
+  context.logger = {
+    info: (message, data) => {
+      buffer.append('info', message, ...(data === undefined ? [] : [data]));
+    },
+    warn: (message, data) => {
+      buffer.append('warn', message, ...(data === undefined ? [] : [data]));
+    },
+    error: (message, data) => {
+      buffer.append('error', message, ...(data === undefined ? [] : [data]));
+    },
+    debug: (message, data) => {
+      buffer.append('debug', message, ...(data === undefined ? [] : [data]));
+    },
+  };
+
+  // eslint-disable-next-line no-console
+  const origLog = console.log;
+  const origWarn = console.warn;
+  const origError = console.error;
+
+  // eslint-disable-next-line no-console
+  console.log = (...args: unknown[]) => {
+    origLog(...args);
+    buffer.append('info', args[0] ?? '', ...args.slice(1));
+  };
+  console.warn = (...args: unknown[]) => {
+    origWarn(...args);
+    buffer.append('warn', args[0] ?? '', ...args.slice(1));
+  };
+  console.error = (...args: unknown[]) => {
+    origError(...args);
+    buffer.append('error', args[0] ?? '', ...args.slice(1));
+  };
+
+  return () => {
+    // eslint-disable-next-line no-console
+    console.log = origLog;
+    console.warn = origWarn;
+    console.error = origError;
+    context.log = prevLog;
+    context.logger = prevLogger;
+  };
 }
 
 const MIGRATION_ID_REGEX = /^(\d{14})_(.+)$/;

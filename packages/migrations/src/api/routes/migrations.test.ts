@@ -53,6 +53,25 @@ describe('getMigrations', () => {
     const result = await getMigrations(storage);
     expect(result).toEqual([]);
   });
+
+  it('strips output from list records (kept on detail records)', async () => {
+    const records = [
+      makeRecord({
+        id: 'mig-1',
+        createdAt: 100,
+        description: '## intent',
+        output: 'lots of log lines',
+        outputTruncated: true,
+      }),
+    ];
+    const storage = createMockStorage(records);
+
+    const result = await getMigrations(storage);
+
+    expect(result[0].output).toBeUndefined();
+    expect(result[0].description).toBe('## intent');
+    expect(result[0].outputTruncated).toBe(true);
+  });
 });
 
 describe('getMigrationsSummary', () => {

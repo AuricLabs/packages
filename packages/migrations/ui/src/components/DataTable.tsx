@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,7 +9,7 @@ import {
   type SortingState,
   type RowData,
 } from '@tanstack/react-table';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
 import { TableSkeleton } from './TableSkeleton';
 
 interface DataTableProps<TData extends RowData> {
@@ -19,6 +19,12 @@ interface DataTableProps<TData extends RowData> {
   onRowClick?: (row: TData) => void;
   getRowId?: (row: TData) => string;
   initialSorting?: SortingState;
+  /**
+   * Renders an expandable detail panel below the row when set. Return `null`
+   * to disable expansion for a specific row (e.g. when there is nothing to
+   * show). When provided, an extra leading chevron column is added.
+   */
+  renderExpansion?: (row: TData) => ReactNode | null;
 }
 
 export function DataTable<TData extends RowData>({
@@ -28,9 +34,11 @@ export function DataTable<TData extends RowData>({
   onRowClick,
   getRowId,
   initialSorting,
+  renderExpansion,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>(initialSorting ?? []);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const table = useReactTable({
     data,
@@ -48,6 +56,9 @@ export function DataTable<TData extends RowData>({
     return <TableSkeleton rows={8} />;
   }
 
+  const expansionEnabled = !!renderExpansion;
+  const totalCols = columns.length + (expansionEnabled ? 1 : 0);
+
   return (
     <div>
       <div className="overflow-x-auto">
@@ -55,6 +66,9 @@ export function DataTable<TData extends RowData>({
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
+                {expansionEnabled && (
+                  <th className="w-8 border-b border-zinc-800" aria-hidden="true" />
+                )}
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
@@ -77,23 +91,58 @@ export function DataTable<TData extends RowData>({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-zinc-800/50 hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                onClick={() => onRowClick?.(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 text-sm text-zinc-300">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {table.getRowModel().rows.map((row) => {
+              const expansionContent = renderExpansion ? renderExpansion(row.original) : null;
+              const canExpand = expansionEnabled && expansionContent !== null;
+              const isOpen = canExpand && !!expanded[row.id];
+
+              return (
+                <Fragment key={row.id}>
+                  <tr
+                    className="border-b border-zinc-800/50 hover:bg-zinc-800/50 cursor-pointer transition-colors"
+                    onClick={() => onRowClick?.(row.original)}
+                  >
+                    {expansionEnabled && (
+                      <td className="w-8 px-2 py-3 text-zinc-500">
+                        {canExpand ? (
+                          <button
+                            type="button"
+                            aria-label={isOpen ? 'Collapse row' : 'Expand row'}
+                            className="p-1 rounded hover:bg-zinc-700/50 hover:text-zinc-200 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpanded((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+                            }}
+                          >
+                            {isOpen ? (
+                              <ChevronDown className="size-4" />
+                            ) : (
+                              <ChevronRight className="size-4" />
+                            )}
+                          </button>
+                        ) : null}
+                      </td>
+                    )}
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-4 py-3 text-sm text-zinc-300">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-zinc-900/40">
+                      <td colSpan={totalCols} className="px-4 py-3">
+                        {expansionContent}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
             {table.getRowModel().rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={columns.length}
+                  colSpan={totalCols}
                   className="px-4 py-8 text-center text-sm text-zinc-500"
                 >
                   No data
