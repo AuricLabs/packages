@@ -1,5 +1,5 @@
 ---
-"@auriclabs/migrations": minor
+"@auriclabs/migrations": patch
 ---
 
 Add HTTP basic auth on the dashboard and CLI commands for browsing run history.
