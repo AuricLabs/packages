@@ -107,6 +107,9 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
         metadata: record.metadata,
         executionId: record.executionId,
         duration: record.duration,
+        description: record.description,
+        output: record.output,
+        outputTruncated: record.outputTruncated,
       })
       .go()) as unknown as { data: Record<string, unknown> };
 
@@ -127,6 +130,9 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
         ...(updates.error !== undefined && { error: updates.error }),
         ...(updates.metadata !== undefined && { metadata: updates.metadata }),
         ...(updates.duration !== undefined && { duration: updates.duration }),
+        ...(updates.description !== undefined && { description: updates.description }),
+        ...(updates.output !== undefined && { output: updates.output }),
+        ...(updates.outputTruncated !== undefined && { outputTruncated: updates.outputTruncated }),
       })
       .go({ response: 'all_new' })) as unknown as { data: Record<string, unknown> };
 
@@ -145,6 +151,9 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
       metadata: item.metadata as Record<string, unknown> | undefined,
       executionId: item.executionId as string,
       duration: item.duration as number | undefined,
+      description: item.description as string | undefined,
+      output: item.output as string | undefined,
+      outputTruncated: item.outputTruncated as boolean | undefined,
       createdAt: item.createdAt as number,
       updatedAt: item.updatedAt as number,
     };
