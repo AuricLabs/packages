@@ -47,9 +47,10 @@ export interface DashboardOptions {
   domain?: sst.aws.StaticSiteArgs['domain'];
   nodejs?: sst.aws.FunctionArgs['nodejs'];
   /**
-   * Optional HTTP basic auth gate on the static site. When set, attaches a
-   * CloudFront viewer-request function that rejects requests without the
-   * matching `Authorization: Basic <base64>` header. Credentials are inlined
+   * Optional HTTP basic auth gate on the static site. When set, injects a
+   * basic-auth check into the StaticSite's CloudFront viewer-request
+   * function — requests without the matching `Authorization: Basic <base64>`
+   * header get a 401 before any routing logic runs. Credentials are inlined
    * into the function source at deploy time via Pulumi apply.
    *
    * Note: this only gates the static UI. The API gateway URL remains
@@ -84,7 +85,7 @@ export function createDashboard(options: DashboardOptions) {
   const uiPath = path.join(pkgRoot, 'ui');
   const uiRelative = path.relative(process.cwd(), uiPath);
 
-  const basicAuthFn = options.auth ? buildBasicAuthFunction(options.auth) : undefined;
+  const basicAuthInjection = options.auth ? buildBasicAuthInjection(options.auth) : undefined;
 
   // Copy pre-built dist and inject the API URL at deploy time.
   // The build command copies ui/dist to a temp output dir and injects
@@ -107,29 +108,9 @@ export function createDashboard(options: DashboardOptions) {
       VITE_API_URL: api.url,
     },
     domain: options.domain,
-    ...(basicAuthFn && {
-      transform: {
-        cdn: (args) => {
-          // Merge — don't replace — the existing defaultCacheBehavior. SST
-          // populates required fields (targetOriginId, viewerProtocolPolicy,
-          // etc.); we only add a viewer-request function association.
-          // Pulumi's deeply-optional Input<...> shape vs the nested Output<...>
-          // produced by apply() doesn't reconcile in TS, so the assignment is
-          // typed as `any`. The runtime shape is correct: it's the existing
-          // behavior with one extra functionAssociations entry appended.
-          args.defaultCacheBehavior = $output([args.defaultCacheBehavior, basicAuthFn.arn]).apply(
-            ([raw, fnArn]) => {
-              const behavior = raw as Exclude<typeof raw, string>;
-              return {
-                ...behavior,
-                functionAssociations: [
-                  ...(behavior.functionAssociations ?? []),
-                  { eventType: 'viewer-request', functionArn: fnArn },
-                ],
-              };
-            },
-          ) as unknown as typeof args.defaultCacheBehavior;
-        },
+    ...(basicAuthInjection && {
+      edge: {
+        viewerRequest: { injection: basicAuthInjection },
       },
     }),
   });
@@ -137,36 +118,30 @@ export function createDashboard(options: DashboardOptions) {
   return { api, site };
 }
 
-function buildBasicAuthFunction(auth: BasicAuthConfig) {
+function buildBasicAuthInjection(auth: BasicAuthConfig) {
   const realm = (auth.realm ?? 'Migrations Dashboard').replace(/"/g, '\\"');
 
   // Inline the encoded credential into the CloudFront Function source at
   // deploy time. CFFs can't read SSM at runtime, so the credential lives
   // in the deployed function's code (same trust boundary as SST secret
   // state). Rotate by updating the upstream secret and redeploying.
-  const code = $output([auth.username, auth.password]).apply(([username, password]) => {
+  //
+  // Returned as an injection string that SST splices into the start of
+  // its existing `cloudfront-js-2.0` viewer-request handler — a 401
+  // return short-circuits the rest of the routing logic.
+  return $output([auth.username, auth.password]).apply(([username, password]) => {
     const encoded = Buffer.from(`${username}:${password}`).toString('base64');
     return [
-      'function handler(event) {',
-      '  var request = event.request;',
-      '  var auth = request.headers.authorization && request.headers.authorization.value;',
-      `  if (auth !== "Basic ${encoded}") {`,
-      '    return {',
-      '      statusCode: 401,',
-      '      statusDescription: "Unauthorized",',
-      '      headers: {',
-      `        "www-authenticate": { value: 'Basic realm="${realm}"' }`,
-      '      }',
-      '    };',
-      '  }',
-      '  return request;',
+      'var __auth = event.request.headers.authorization && event.request.headers.authorization.value;',
+      `if (__auth !== "Basic ${encoded}") {`,
+      '  return {',
+      '    statusCode: 401,',
+      '    statusDescription: "Unauthorized",',
+      '    headers: {',
+      `      "www-authenticate": { value: 'Basic realm="${realm}"' }`,
+      '    }',
+      '  };',
       '}',
     ].join('\n');
-  });
-
-  return new aws.cloudfront.Function('MigrationsBasicAuth', {
-    runtime: 'cloudfront-js-2.0',
-    code,
-    comment: 'HTTP basic auth gate for migrations dashboard',
   });
 }
