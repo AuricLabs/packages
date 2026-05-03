@@ -37,9 +37,14 @@ export const sortRoutesBySpecificity = (
     for (let i = 0; i < len; i++) {
       const sa = segsA[i] as string | undefined;
       const sb = segsB[i] as string | undefined;
-      // A shorter path is less specific — sort it after the longer one
-      if (sa === undefined) return 1;
-      if (sb === undefined) return -1;
+      // When one path ends, check if the other's next segment is a greedy
+      // wildcard (e.g. {proxy+}). Middy's wildcard regex matches zero chars,
+      // so exact shorter paths must sort BEFORE wildcards to avoid being
+      // swallowed. Non-wildcard longer paths still sort before shorter ones.
+      const isWildcardB = (sb ?? '').includes('+}');
+      const isWildcardA = (sa ?? '').includes('+}');
+      if (sa === undefined) return isWildcardB ? -1 : 1;
+      if (sb === undefined) return isWildcardA ? 1 : -1;
       const isDynA = sa.startsWith('{');
       const isDynB = sb.startsWith('{');
       if (!isDynA && isDynB) return -1;

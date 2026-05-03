@@ -194,6 +194,60 @@ describe('sortRoutesBySpecificity', () => {
     expect(first).toEqual(second);
   });
 
+  // ---- Greedy wildcard vs exact prefix ----
+
+  test('exact path sorts before greedy wildcard with same prefix', () => {
+    const routes = [
+      route('get', 'agents/{agentId}/files/{path+}'),
+      route('get', 'agents/{agentId}/files'),
+    ];
+    const result = sortedPaths(routes, '/sync');
+    // /files must come before /files/{path+} because middy's {proxy+} regex
+    // matches zero chars and would swallow the exact /files route
+    expect(result).toEqual([
+      'GET /sync/agents/{agentId}/files',
+      'GET /sync/agents/{agentId}/files/{path+}',
+    ]);
+  });
+
+  test('exact path sorts before greedy wildcard regardless of input order', () => {
+    const routes = [
+      route('get', 'agents/{agentId}/files'),
+      route('get', 'agents/{agentId}/files/{path+}'),
+    ];
+    const result = sortedPaths(routes, '/sync');
+    expect(result).toEqual([
+      'GET /sync/agents/{agentId}/files',
+      'GET /sync/agents/{agentId}/files/{path+}',
+    ]);
+  });
+
+  test('multiple methods with greedy wildcard all sort after exact path', () => {
+    const routes = [
+      route('put', 'files/{path+}'),
+      route('get', 'files/{path+}'),
+      route('get', 'files'),
+      route('delete', 'files/{path+}'),
+    ];
+    const result = sortedPaths(routes, '/sync');
+    expect(result[0]).toBe('GET /sync/files');
+    // All wildcard routes come after
+    expect(result.slice(1).every((r) => r.includes('{path+}'))).toBe(true);
+  });
+
+  test('non-wildcard longer path still sorts before shorter prefix', () => {
+    // Existing behavior must be preserved: longer specific paths sort first
+    const routes = [
+      route('get', 'agents/{agentId}/files'),
+      route('get', 'agents/{agentId}/files/{fileId}/versions'),
+    ];
+    const result = sortedPaths(routes, '/sync');
+    expect(result).toEqual([
+      'GET /sync/agents/{agentId}/files/{fileId}/versions',
+      'GET /sync/agents/{agentId}/files',
+    ]);
+  });
+
   // ---- Does not mutate input ----
 
   test('does not mutate the input array', () => {
@@ -405,6 +459,48 @@ describe('generateRouterFile', () => {
     const content = fs.readFileSync('/app/services/users/api/_router.ts', 'utf-8');
     expect(content).toContain("path: '/users/{userId}'");
     expect(content).not.toContain('{proxy+}');
+  });
+
+  test('sync service: exact /files route must appear before /files/{proxy+} wildcard (production regression)', () => {
+    fs.mkdirSync('/app/services/sync/api', { recursive: true });
+
+    const routes: RouterRoute[] = [
+      {
+        method: 'get',
+        routePath: 'agents/{agentId}/files/{path+}',
+        handlerFile: '/app/services/sync/api/agents/{agentId}/files/{path+}/get.ts',
+      },
+      {
+        method: 'put',
+        routePath: 'agents/{agentId}/files/{path+}',
+        handlerFile: '/app/services/sync/api/agents/{agentId}/files/{path+}/put.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'agents/{agentId}/files',
+        handlerFile: '/app/services/sync/api/agents/{agentId}/files/get.ts',
+      },
+      {
+        method: 'get',
+        routePath: 'agents/{agentId}/manifest',
+        handlerFile: '/app/services/sync/api/agents/{agentId}/manifest/get.ts',
+      },
+    ];
+
+    generateRouterFile('/app/services/sync/api/_router.ts', routes, '/sync');
+
+    const content = fs.readFileSync('/app/services/sync/api/_router.ts', 'utf-8');
+
+    // Greedy param must be rewritten to {proxy+}
+    expect(content).toContain("path: '/sync/agents/{agentId}/files/{proxy+}'");
+    expect(content).not.toContain("path: '/sync/agents/{agentId}/files/{path+}'");
+
+    // Exact /files must appear BEFORE wildcard /files/{proxy+}
+    const exactIdx = content.indexOf("path: '/sync/agents/{agentId}/files'");
+    const wildcardIdx = content.indexOf("path: '/sync/agents/{agentId}/files/{proxy+}'");
+    expect(exactIdx).toBeGreaterThan(-1);
+    expect(wildcardIdx).toBeGreaterThan(-1);
+    expect(exactIdx).toBeLessThan(wildcardIdx);
   });
 
   test('billing internal API: GET platform/{tenantId} must appear before GET {referenceId} (production regression)', () => {
