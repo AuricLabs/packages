@@ -1,5 +1,12 @@
 # @auriclabs/sst-utils
 
+## 1.1.12
+
+### Patch Changes
+
+- ee038eb: Sort exact paths before greedy wildcards in middy router to prevent zero-char wildcard
+  matches from swallowing prefix routes
+
 ## 1.1.11
 
 ### Patch Changes
