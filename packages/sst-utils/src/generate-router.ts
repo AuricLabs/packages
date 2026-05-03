@@ -60,6 +60,12 @@ export const generateRouterFile = (
     // Build the full path including prefix
     const fullPath = `${pathPrefix}${routePath ? `/${routePath}` : ''}` || '/';
 
+    // @middy/http-router only recognizes `{proxy+}` as a wildcard catch-all;
+    // named greedy params like `{path+}` cause regex compile failures at cold
+    // start. Rewrite any `{name+}` segment to `{proxy+}` for the router file
+    // (API Gateway still receives the original named param via SST).
+    const middyPath = fullPath.replace(/\{[^}]+\+\}/g, '{proxy+}');
+
     // Build relative import path from the router file to the handler
     const routerDir = path.dirname(outputPath);
     let relativePath = path.relative(routerDir, handlerFile).replace(/\.ts$/, '.js');
@@ -69,7 +75,7 @@ export const generateRouterFile = (
 
     return `  {
     method: '${method.toUpperCase()}' as const,
-    path: '${fullPath}',
+    path: '${middyPath}',
     handler: async (event: any, context: any, abort: any) =>
       (await import('${relativePath}')).handler(event, context, abort),
   }`;

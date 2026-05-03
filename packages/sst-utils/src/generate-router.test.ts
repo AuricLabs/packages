@@ -353,6 +353,60 @@ describe('generateRouterFile', () => {
     expect(content).toContain("path: '/'");
   });
 
+  // @middy/http-router only recognizes `{proxy+}` as a wildcard catch-all;
+  // any other named greedy param (e.g. `{path+}`) makes the router's regex
+  // fail to compile at cold start. The generator must rewrite them.
+  test('rewrites greedy named path params to {proxy+}', () => {
+    fs.mkdirSync('/app/services/files/api/{path+}', { recursive: true });
+    const routes: RouterRoute[] = [
+      {
+        method: 'get',
+        routePath: '{path+}',
+        handlerFile: '/app/services/files/api/{path+}/get.ts',
+      },
+    ];
+
+    generateRouterFile('/app/services/files/api/_router.ts', routes, '/files');
+
+    const content = fs.readFileSync('/app/services/files/api/_router.ts', 'utf-8');
+    expect(content).toContain("path: '/files/{proxy+}'");
+    expect(content).not.toContain("path: '/files/{path+}'");
+  });
+
+  test('rewrites greedy named param within nested path', () => {
+    fs.mkdirSync('/app/services/storage/api/buckets/{bucket}/objects/{key+}', { recursive: true });
+    const routes: RouterRoute[] = [
+      {
+        method: 'get',
+        routePath: 'buckets/{bucket}/objects/{key+}',
+        handlerFile: '/app/services/storage/api/buckets/{bucket}/objects/{key+}/get.ts',
+      },
+    ];
+
+    generateRouterFile('/app/services/storage/api/_router.ts', routes, '/storage');
+
+    const content = fs.readFileSync('/app/services/storage/api/_router.ts', 'utf-8');
+    // Only the greedy segment is rewritten; non-greedy {bucket} stays intact
+    expect(content).toContain("path: '/storage/buckets/{bucket}/objects/{proxy+}'");
+  });
+
+  test('leaves non-greedy named params unchanged', () => {
+    fs.mkdirSync('/app/services/users/api/{userId}', { recursive: true });
+    const routes: RouterRoute[] = [
+      {
+        method: 'get',
+        routePath: '{userId}',
+        handlerFile: '/app/services/users/api/{userId}/get.ts',
+      },
+    ];
+
+    generateRouterFile('/app/services/users/api/_router.ts', routes, '/users');
+
+    const content = fs.readFileSync('/app/services/users/api/_router.ts', 'utf-8');
+    expect(content).toContain("path: '/users/{userId}'");
+    expect(content).not.toContain('{proxy+}');
+  });
+
   test('billing internal API: GET platform/{tenantId} must appear before GET {referenceId} (production regression)', () => {
     fs.mkdirSync('/app/services/billing/api-internal', { recursive: true });
 
