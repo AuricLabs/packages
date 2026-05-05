@@ -45,7 +45,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "ts-config-typecheck",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests && pnpm test:ui",
+    "test:ui": "cd ui && npx vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "devDependencies": {

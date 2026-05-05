@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { api } from '../api/client';
 import { extractName } from '../utils';
+import { computeRollbackPlan } from './RollbackDialog.logic';
 
 interface RollbackDialogProps {
   open: boolean;
@@ -19,17 +20,12 @@ export function RollbackDialog({ open, completedIds, onClose, onComplete }: Roll
     setSelected('last');
   }, [completedIds]);
 
-  // completedIds is most-recent-first; rolling back from the first element down to the selected one
-  const rollbackCount =
-    selected === 'last'
-      ? 1
-      : completedIds.indexOf(selected) + 1;
+  const { orderedIds, rollbackCount, target } = computeRollbackPlan(completedIds, selected);
 
   const handleRollback = async () => {
     setLoading(true);
     setError(null);
     try {
-      const target = selected === 'last' ? undefined : selected;
       await api.rollback(target);
       onComplete();
       handleClose();
@@ -79,7 +75,7 @@ export function RollbackDialog({ open, completedIds, onClose, onComplete }: Roll
               />
               <span className="text-sm text-zinc-300">Last completed only</span>
             </label>
-            {completedIds.map((id) => (
+            {orderedIds.map((id) => (
               <label
                 key={id}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
