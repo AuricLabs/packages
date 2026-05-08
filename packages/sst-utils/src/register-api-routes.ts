@@ -92,6 +92,13 @@ export interface RegisterApiRoutesOptions {
    *
    * Only fires in `consolidate: true` mode.
    *
+   * If the callback returns `{ qualifierName }`, the API Gateway integration
+   * and lambda:InvokeFunction permission both target the qualified ARN
+   * (`<fn.arn>:<qualifierName>`) instead of the unqualified `$LATEST`. This is
+   * what makes provisioned concurrency on a Lambda alias actually receive
+   * traffic — without it the integration calls `$LATEST` and any PC pinned on
+   * the alias sits idle.
+   *
    * @example
    * ```ts
    * registerApiRoutes(api, {
@@ -100,16 +107,26 @@ export interface RegisterApiRoutesOptions {
    *   aws,
    *   functionArgs,
    *   onConsolidatedFunction: (name, fn) => {
+   *     const alias = new aws.lambda.Alias(`${name}LiveAlias`, {
+   *       functionName: fn.nodes.function.apply((f) => f.name),
+   *       functionVersion: fn.nodes.function.apply((f) => f.version),
+   *       name: 'live',
+   *     });
    *     new aws.lambda.ProvisionedConcurrencyConfig(`${name}PC`, {
-   *       functionName: fn.nodes.function.name,
+   *       functionName: fn.nodes.function.apply((f) => f.name),
    *       qualifier: alias.name,
    *       provisionedConcurrentExecutions: 2,
    *     });
+   *     return { qualifierName: alias.name };
    *   },
    * });
    * ```
    */
-  onConsolidatedFunction?: (name: string, fn: sst.aws.Function) => void;
+  onConsolidatedFunction?: (
+    name: string,
+    fn: sst.aws.Function,
+    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+  ) => void | { qualifierName?: $util.Input<string> };
 }
 
 interface ParsedRoute {
@@ -257,7 +274,11 @@ const registerConsolidatedRoutes = (
   sstProvider: SstProvider,
   awsProvider: AwsProvider,
   resourcePrefix: string,
-  onConsolidatedFunction?: (name: string, fn: sst.aws.Function) => void,
+  onConsolidatedFunction?: (
+    name: string,
+    fn: sst.aws.Function,
+    // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+  ) => void | { qualifierName?: $util.Input<string> },
 ): void => {
   // Group routes by their effective function config hash
   const groups = new Map<string, { functionArgs: sst.aws.FunctionArgs; routes: ParsedRoute[] }>();
@@ -317,9 +338,21 @@ const registerConsolidatedRoutes = (
 
     // 1a. Optional caller hook — lets infra attach provisioned concurrency,
     // alarms, etc. to the consolidated function without forking this module.
+    // If the hook returns `{ qualifierName }`, the integration + permission
+    // below target the qualified ARN so PC on an alias actually receives
+    // traffic.
+    type HookResult = { qualifierName?: $util.Input<string> } | undefined;
+    let qualifierName: $util.Input<string> | undefined;
     if (onConsolidatedFunction) {
-      onConsolidatedFunction(name, fn as unknown as sst.aws.Function);
+      const hook = onConsolidatedFunction as (n: string, f: sst.aws.Function) => HookResult;
+      const hookResult = hook(name, fn as unknown as sst.aws.Function);
+      if (hookResult?.qualifierName !== undefined) {
+        qualifierName = hookResult.qualifierName;
+      }
     }
+    const fnTarget: $util.Input<string> = qualifierName
+      ? ($util.interpolate`${fn.arn}:${qualifierName}` as $util.Input<string>)
+      : (fn.arn as $util.Input<string>);
 
     // 2. Single permission — allows the entire API Gateway to invoke this Lambda
     const executionArn = apiGw.executionArn as unknown as {
@@ -327,7 +360,7 @@ const registerConsolidatedRoutes = (
     };
     new awsProvider.lambda.Permission(`${name}Permission`, {
       action: 'lambda:InvokeFunction',
-      function: fn.arn,
+      function: fnTarget,
       principal: 'apigateway.amazonaws.com',
       sourceArn: executionArn.apply((arn: string) => `${arn}/*`),
     });
@@ -336,7 +369,7 @@ const registerConsolidatedRoutes = (
     const integration = new awsProvider.apigatewayv2.Integration(`${name}Integration`, {
       apiId: apiGw.id,
       integrationType: 'AWS_PROXY',
-      integrationUri: fn.arn,
+      integrationUri: fnTarget,
       payloadFormatVersion: '2.0',
     });
 
