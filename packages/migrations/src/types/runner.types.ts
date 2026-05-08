@@ -42,6 +42,26 @@ export interface ExecutionResult {
   error?: string;
 }
 
+/**
+ * Payload handed to a `dispatchTo` callback when the Lambda handler is acting
+ * as a dispatcher rather than running migrations inline.
+ */
+export interface DispatchPayload {
+  direction: 'up' | 'down';
+  target?: string;
+  executionId: string;
+}
+
+/**
+ * Returned by the Lambda handler when running in dispatcher mode.
+ * - `no_work` — direction was `up` and there were no pending migrations; nothing was dispatched.
+ * - `dispatched` — work was handed off to the external runtime. The caller should poll
+ *   the migration storage for `running → completed|failed` records to track progress.
+ */
+export type DispatchResult =
+  | { status: 'no_work'; pending: string[]; failed: string[] }
+  | { status: 'dispatched'; executionId: string; pending: string[] };
+
 export interface LambdaHandlerOptions<TContext extends MigrationContext = MigrationContext> {
   /** Override the function name used for self-continuation. If omitted, reads from the Lambda context. */
   functionName?: string;
@@ -49,4 +69,15 @@ export interface LambdaHandlerOptions<TContext extends MigrationContext = Migrat
   timeoutThresholdMs?: number;
   /** Maximum continuation depth before failing. Defaults to 100. */
   maxContinuationDepth?: number;
+  /**
+   * When provided, the Lambda becomes a thin **dispatcher** instead of running migrations
+   * inline. On invoke it calls `runner.status()` to compute pending work; if any is found
+   * (or `direction === 'down'`), it forwards the request to `dispatchTo` (typically an
+   * `ecs:RunTask` or similar) and returns immediately. This unblocks single-migration
+   * runs that exceed Lambda's 15-minute hard cap by pushing execution to a runtime
+   * with no AWS-imposed timeout.
+   *
+   * The `action: 'status'` path stays inline regardless — status is a fast read.
+   */
+  dispatchTo?: (payload: DispatchPayload) => Promise<void>;
 }

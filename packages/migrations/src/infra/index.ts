@@ -6,6 +6,17 @@ export interface SstProvider {
     Dynamo: typeof sst.aws.Dynamo;
     ApiGatewayV2: typeof sst.aws.ApiGatewayV2;
     StaticSite: typeof sst.aws.StaticSite;
+    Vpc?: typeof sst.aws.Vpc;
+    Cluster?: typeof sst.aws.Cluster;
+    Task?: typeof sst.aws.Task;
+  };
+}
+
+export interface FargateRunnerSstProvider {
+  aws: {
+    Vpc: typeof sst.aws.Vpc;
+    Cluster: typeof sst.aws.Cluster;
+    Task: typeof sst.aws.Task;
   };
 }
 
@@ -116,6 +127,88 @@ export function createDashboard(options: DashboardOptions) {
   });
 
   return { api, site };
+}
+
+/**
+ * Options for `createFargateRunner` — provisions the VPC, ECS cluster, and
+ * one-shot Fargate Task that runs migrations to completion outside of Lambda.
+ *
+ * Pair with `createLambdaHandler({ dispatchTo })` so the existing migration
+ * Lambda becomes a thin dispatcher that fires this Task only when there is
+ * pending work, keeping no-op deploys fast.
+ *
+ * The Task receives the same `link` surface as the dispatcher Lambda so any
+ * migration code can run on either runtime without changes — same DynamoDB
+ * tables, secrets, KMS keys, and S3 buckets.
+ */
+export interface FargateRunnerOptions {
+  sst: FargateRunnerSstProvider;
+  /**
+   * Image to run inside the Task. Either a Docker Hub-style tag or
+   * `{ context, dockerfile }` for a locally-built image (the typical shape
+   * — SST builds and pushes to ECR on deploy).
+   */
+  image: sst.aws.TaskArgs['image'];
+  /**
+   * Resources to link into the Task — DynamoDB tables, secrets, KMS keys,
+   * S3 buckets, etc. Mirror this against the dispatcher Lambda's `link`
+   * so the same migration code runs identically on either runtime.
+   */
+  link?: sst.aws.TaskArgs['link'];
+  /** Plain env vars (non-Resource). Same shape as `sst.aws.Function.environment`. */
+  environment?: sst.aws.TaskArgs['environment'];
+  /** Existing VPC to use. If omitted, a fresh `sst.aws.Vpc` is created with NAT disabled. */
+  vpc?: sst.aws.Vpc;
+  /** Existing cluster to use. If omitted, a fresh `sst.aws.Cluster` is created on the resolved VPC. */
+  cluster?: sst.aws.Cluster;
+  /** Default `1 vCPU` — override for heavier migrations. */
+  cpu?: sst.aws.TaskArgs['cpu'];
+  /** Default `2 GB` — override for heavier migrations. */
+  memory?: sst.aws.TaskArgs['memory'];
+  /** Default `arm64` to match Lambda parity and lower cost. */
+  architecture?: sst.aws.TaskArgs['architecture'];
+  /** Override the storage size (default 20 GB ephemeral). */
+  storage?: sst.aws.TaskArgs['storage'];
+  /** Override the resource name prefix. Defaults to `Migration`. */
+  namePrefix?: string;
+}
+
+export interface FargateRunnerHandles {
+  vpc: sst.aws.Vpc;
+  cluster: sst.aws.Cluster;
+  task: sst.aws.Task;
+}
+
+/**
+ * Provisions the infra needed to run migrations on AWS Fargate as one-shot
+ * Tasks. Returns the `task` so the consumer can `link` it into the dispatcher
+ * Lambda (which then calls `task.run(Resource.MigrationTask, …)`).
+ *
+ * This is the escape hatch from Lambda's 15-minute hard cap. Fargate Tasks
+ * have no AWS-imposed timeout — a single migration can run for hours.
+ */
+export function createFargateRunner(options: FargateRunnerOptions): FargateRunnerHandles {
+  const { sst } = options;
+  const prefix = options.namePrefix ?? 'Migration';
+
+  // SST `Vpc` defaults to NAT disabled — Tasks land in public subnets with
+  // public IPs for ECR / DynamoDB / KMS reach, which is the SST default
+  // behaviour for Fargate one-shot Tasks.
+  const vpc = options.vpc ?? new sst.aws.Vpc(`${prefix}Vpc`);
+  const cluster = options.cluster ?? new sst.aws.Cluster(`${prefix}Cluster`, { vpc });
+
+  const task = new sst.aws.Task(`${prefix}Task`, {
+    cluster,
+    image: options.image,
+    link: options.link,
+    environment: options.environment,
+    cpu: options.cpu ?? '1 vCPU',
+    memory: options.memory ?? '2 GB',
+    architecture: options.architecture ?? 'arm64',
+    ...(options.storage ? { storage: options.storage } : {}),
+  });
+
+  return { vpc, cluster, task };
 }
 
 function buildBasicAuthInjection(auth: BasicAuthConfig) {

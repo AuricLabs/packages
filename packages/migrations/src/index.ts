@@ -12,6 +12,8 @@ export type {
   MigrationRunnerConfig,
   ExecutionResult,
   LambdaHandlerOptions,
+  DispatchPayload,
+  DispatchResult,
 } from './types';
 
 export {
@@ -21,6 +23,9 @@ export {
   createLambdaTimeoutManager,
   createLambdaHandler,
   type StatusResult,
+  runMigrationsInFargate,
+  runMigrationsInFargateAsCli,
+  type FargateRunnerOptions,
 } from './runner';
 
 export { generateTimestamp, generateMigrationIndex } from './utils';

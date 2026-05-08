@@ -392,4 +392,181 @@ describe('createLambdaHandler', () => {
       expect.objectContaining({ direction: 'down' }),
     );
   });
+
+  describe('dispatcher mode (dispatchTo)', () => {
+    it('returns no_work and skips dispatch when up has no pending migrations', async () => {
+      // All migrations marked completed in storage so status() reports zero pending.
+      vi.mocked(storage.getAllRecords).mockResolvedValue([
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'completed',
+          direction: 'up',
+          startedAt: 1000,
+          executionId: 'prior-exec',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+      ]);
+
+      const dispatchTo = vi.fn().mockResolvedValue(undefined);
+      const upFn = vi.fn();
+
+      const handler = createLambdaHandler({
+        dispatchTo,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: upFn, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({}, createMockContext());
+
+      expect(result).toMatchObject({ status: 'no_work' });
+      expect(dispatchTo).not.toHaveBeenCalled();
+      expect(upFn).not.toHaveBeenCalled(); // dispatcher MUST NOT run inline
+    });
+
+    it('dispatches when up has pending migrations and returns dispatched', async () => {
+      const dispatchTo = vi.fn().mockResolvedValue(undefined);
+      const upFn = vi.fn();
+
+      const handler = createLambdaHandler({
+        dispatchTo,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: upFn, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({}, createMockContext());
+
+      expect(result).toMatchObject({ status: 'dispatched' });
+      expect(dispatchTo).toHaveBeenCalledTimes(1);
+      expect(dispatchTo).toHaveBeenCalledWith(
+        expect.objectContaining({ direction: 'up', target: undefined }),
+      );
+      expect(upFn).not.toHaveBeenCalled(); // dispatcher MUST NOT run inline
+    });
+
+    it('always dispatches for direction=down regardless of pending', async () => {
+      vi.mocked(storage.getAllRecords).mockResolvedValue([
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'completed',
+          direction: 'up',
+          startedAt: 1000,
+          executionId: 'prior-exec',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+      ]);
+
+      const dispatchTo = vi.fn().mockResolvedValue(undefined);
+      const handler = createLambdaHandler({
+        dispatchTo,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({ direction: 'down' }, createMockContext());
+
+      expect(result).toMatchObject({ status: 'dispatched' });
+      expect(dispatchTo).toHaveBeenCalledWith(expect.objectContaining({ direction: 'down' }));
+    });
+
+    it('forwards target to the dispatchTo callback', async () => {
+      const dispatchTo = vi.fn().mockResolvedValue(undefined);
+      const handler = createLambdaHandler({
+        dispatchTo,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      await handler({ target: '20250601_first' }, createMockContext());
+
+      expect(dispatchTo).toHaveBeenCalledWith(
+        expect.objectContaining({ target: '20250601_first' }),
+      );
+    });
+
+    it('keeps action=status inline even with dispatchTo set', async () => {
+      const dispatchTo = vi.fn().mockResolvedValue(undefined);
+      const handler = createLambdaHandler({
+        dispatchTo,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({ action: 'status' }, createMockContext());
+
+      expect(result).toHaveProperty('pending');
+      expect(result).toHaveProperty('completed');
+      expect(result).toHaveProperty('failed');
+      expect(dispatchTo).not.toHaveBeenCalled();
+    });
+
+    it('does not self-reinvoke in dispatcher mode (no needs_continuation path)', async () => {
+      const { invokeLambdaAsync } = await import('../utils/lambda');
+      const dispatchTo = vi.fn().mockResolvedValue(undefined);
+
+      const handler = createLambdaHandler({
+        dispatchTo,
+        timeoutThresholdMs: 60_000,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      // Even with low remaining time the dispatcher must not invoke the
+      // continuation Lambda — Fargate runs to completion, no chunking needed.
+      await handler({}, createMockContext({ getRemainingTimeInMillis: () => 10_000 }));
+
+      expect(invokeLambdaAsync).not.toHaveBeenCalled();
+    });
+  });
 });
