@@ -397,10 +397,7 @@ importers:
         version: 4.18.1
 
   packages/migrations:
-    devDependencies:
-      '@auriclabs/sst-types':
-        specifier: workspace:*
-        version: link:../sst-types
+    dependencies:
       '@aws-sdk/client-dynamodb':
         specifier: ^3.788.0
         version: 3.1014.0
@@ -413,12 +410,34 @@ importers:
       '@aws-sdk/lib-dynamodb':
         specifier: ^3.788.0
         version: 3.1014.0(@aws-sdk/client-dynamodb@3.1014.0)
-      '@aws-sdk/types':
-        specifier: ^3.700.0
-        version: 3.973.8
       '@inquirer/prompts':
         specifier: ^7.0.0
         version: 7.10.1(@types/node@24.3.0)
+      commander:
+        specifier: ^13.1.0
+        version: 13.1.0
+      electrodb:
+        specifier: ^3.4.1
+        version: 3.7.2(@aws-sdk/client-dynamodb@3.1014.0)
+      esbuild:
+        specifier: ^0.27.0
+        version: 0.27.7
+      glob:
+        specifier: '>=11.1.0'
+        version: 13.0.0
+      open:
+        specifier: ^10.0.0
+        version: 10.2.0
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.0
+    devDependencies:
+      '@auriclabs/sst-types':
+        specifier: workspace:*
+        version: link:../sst-types
+      '@aws-sdk/types':
+        specifier: ^3.700.0
+        version: 3.973.8
       '@pulumi/aws':
         specifier: ^7.0.0
         version: 7.20.0(ts-node@10.9.2(@types/node@24.3.0)(typescript@5.9.2))(typescript@5.9.2)
@@ -452,24 +471,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^5.2.0
         version: 5.2.0(vite@7.3.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3))
-      commander:
-        specifier: ^13.1.0
-        version: 13.1.0
-      electrodb:
-        specifier: ^3.4.1
-        version: 3.7.2(@aws-sdk/client-dynamodb@3.1014.0)
-      esbuild:
-        specifier: ^0.27.0
-        version: 0.27.7
-      glob:
-        specifier: '>=11.1.0'
-        version: 13.0.0
       lucide-react:
         specifier: 1.12.0
         version: 1.12.0(react@19.2.4)
-      open:
-        specifier: ^10.0.0
-        version: 10.2.0
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -491,9 +495,6 @@ importers:
       tailwindcss:
         specifier: 4.2.4
         version: 4.2.4
-      uuid:
-        specifier: ^11.1.0
-        version: 11.1.0
       vite:
         specifier: ^7.3.2
         version: 7.3.2(@types/node@24.3.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3)

@@ -51,17 +51,24 @@
     "test:ui": "cd ui && npx vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
-  "devDependencies": {
-    "@auriclabs/sst-types": "workspace:*",
+  "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.788.0",
     "@aws-sdk/client-lambda": "^3.788.0",
     "@aws-sdk/credential-providers": "^3.700.0",
     "@aws-sdk/lib-dynamodb": "^3.788.0",
-    "@aws-sdk/types": "^3.700.0",
     "@inquirer/prompts": "^7.0.0",
+    "commander": "^13.1.0",
+    "electrodb": "^3.4.1",
+    "esbuild": "^0.27.0",
+    "glob": "^11.0.0",
+    "open": "^10.0.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@auriclabs/sst-types": "workspace:*",
+    "@aws-sdk/types": "^3.700.0",
     "@pulumi/aws": "^7.0.0",
     "@pulumi/pulumi": "^3.0.0",
-    "esbuild": "^0.27.0",
     "@radix-ui/react-dialog": "1.1.15",
     "@tailwindcss/vite": "4.2.4",
     "@tanstack/react-query": "^5.0.0",
@@ -71,11 +78,7 @@
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "commander": "^13.1.0",
-    "electrodb": "^3.4.1",
-    "glob": "^11.0.0",
     "lucide-react": "1.12.0",
-    "open": "^10.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "10.1.0",
@@ -83,26 +86,13 @@
     "remark-gfm": "4.0.1",
     "sst": "^4.3.7",
     "tailwindcss": "4.2.4",
-    "uuid": "^11.1.0",
     "vite": "^7.3.2"
   },
   "peerDependencies": {
-    "@aws-sdk/client-dynamodb": "^3.788.0",
-    "@aws-sdk/client-lambda": "^3.787.0",
-    "@aws-sdk/lib-dynamodb": "^3.788.0",
     "@pulumi/aws": "^7.0.0",
     "@pulumi/pulumi": "^3.0.0"
   },
   "peerDependenciesMeta": {
-    "@aws-sdk/client-dynamodb": {
-      "optional": true
-    },
-    "@aws-sdk/client-lambda": {
-      "optional": true
-    },
-    "@aws-sdk/lib-dynamodb": {
-      "optional": true
-    },
     "@pulumi/aws": {
       "optional": true
     },
