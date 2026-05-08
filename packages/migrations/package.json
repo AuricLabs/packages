@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/migrations",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Migration runner with DynamoDB storage and Lambda support",
   "prettier": "@auriclabs/prettier-config",
   "type": "module",
