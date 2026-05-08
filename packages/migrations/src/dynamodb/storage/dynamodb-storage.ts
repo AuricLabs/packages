@@ -25,19 +25,21 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
 
   constructor(options?: DynamoDBMigrationStorageOptions) {
     // When the consumer supplies `tableName`, skip the SST `Resource` lookup
-    // entirely — the lookup throws when SST link env vars aren't present
-    // (e.g. running outside Lambda, like the local dashboard CLI), even
-    // before optional-chaining can short-circuit.
-    let tableName = options?.tableName;
-    if (!tableName) {
-      try {
-        const resourceTableName = (
-          Resource as unknown as Record<string, Record<string, string> | undefined>
-        ).MigrationsTable?.name;
-        tableName = resourceTableName ?? '';
-      } catch {
-        tableName = '';
-      }
+    // entirely. SST's `Resource` is a Proxy that throws on access whenever
+    // its link env vars aren't present (e.g. running outside Lambda, like
+    // the local dashboard CLI), even before optional-chaining can short
+    // circuit. Bypassing it here is the only safe pattern for non-Lambda
+    // consumers; for Lambda consumers (no `options.tableName`), we still
+    // let any malformed-`Resource` error surface so misconfiguration fails
+    // loudly at construction rather than at first DynamoDB call.
+    let tableName: string;
+    if (options?.tableName) {
+      tableName = options.tableName;
+    } else {
+      const resourceTableName = (
+        Resource as unknown as Record<string, Record<string, string> | undefined>
+      ).MigrationsTable?.name;
+      tableName = resourceTableName ?? '';
     }
     const client = options?.client ?? new DynamoDBClient();
 
