@@ -31,3 +31,10 @@ export {
 export { generateTimestamp, generateMigrationIndex } from './utils';
 
 export { createDashboardApiHandler, type DashboardApiOptions } from './api';
+
+export {
+  bundleMigrations,
+  DEFAULT_BUNDLE_EXTERNALS,
+  type BundleMigrationsOptions,
+  type BundleResult,
+} from './bundling';
