@@ -36,6 +36,11 @@ program
 program.parse(process.argv);
 const opts = program.opts<RawCliOpts>();
 
+// `commander.requiredOption` exits before this runs if `--entry` is
+// missing — but TypeScript doesn't know that, and this package's eslint
+// rules forbid both `!` and `as` non-null assertions. Keep the explicit
+// guard to narrow the type and provide a friendlier error if commander's
+// behaviour ever changes.
 if (!opts.entry) {
   process.stderr.write('error: --entry is required\n');
   // eslint-disable-next-line n/no-process-exit
