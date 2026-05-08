@@ -419,6 +419,12 @@ importers:
       '@inquirer/prompts':
         specifier: ^7.0.0
         version: 7.10.1(@types/node@24.3.0)
+      '@pulumi/aws':
+        specifier: ^7.0.0
+        version: 7.20.0(ts-node@10.9.2(@types/node@24.3.0)(typescript@5.9.2))(typescript@5.9.2)
+      '@pulumi/pulumi':
+        specifier: ^3.0.0
+        version: 3.215.0(ts-node@10.9.2(@types/node@24.3.0)(typescript@5.9.2))(typescript@5.9.2)
       '@radix-ui/react-dialog':
         specifier: 1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -452,6 +458,9 @@ importers:
       electrodb:
         specifier: ^3.4.1
         version: 3.7.2(@aws-sdk/client-dynamodb@3.1014.0)
+      esbuild:
+        specifier: ^0.27.0
+        version: 0.27.7
       glob:
         specifier: '>=11.1.0'
         version: 13.0.0

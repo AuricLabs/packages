@@ -1,7 +1,12 @@
 import nodeTsConfig from '@auriclabs/eslint-config/node-ts';
 
 export default [
-  { ignores: ['ui/'] },
+  // `dockerfiles/runner/wrapper.mjs` runs INSIDE the published Docker image,
+  // not in this package's host environment. Its imports (`@aws-sdk/client-s3`)
+  // resolve from `dockerfiles/runner/runner-package.json` at image build time,
+  // not from this workspace's node_modules — so host-side lint can't resolve
+  // them. Exclude the whole directory.
+  { ignores: ['ui/', 'dockerfiles/'] },
   ...nodeTsConfig,
   {
     files: ['**/*.test.ts'],

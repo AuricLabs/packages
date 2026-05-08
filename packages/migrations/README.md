@@ -13,6 +13,88 @@ A database migration framework with DynamoDB storage, AWS Lambda support, a CLI,
 - **`auric-migrate-dashboard`** — run the dashboard locally in your browser against any AWS account, gated by your AWS SSO profile and IAM identity (no public surface required)
 - SST infrastructure definitions for one-line provisioning
 
+## Self-hosting migrations on Fargate (>15-minute migrations)
+
+The package's Lambda runtime caps at 900 s. For migrations that need longer, point a **public, generic** ECS Fargate image at a per-deploy bundle in your S3.
+
+You write zero Dockerfile. The published image (`auriclabs/migrations-runner:1` on Docker Hub) is universal: it fetches your bundle, verifies its sha256, and execs node. You bundle your migrations directory at deploy time and upload to your own S3.
+
+The flow:
+
+```ts
+// In your sst.config.ts (consumer side)
+import { createMigrationBundle, createFargateRunner } from "@auriclabs/migrations/infra";
+
+const bundle = await createMigrationBundle({
+  sst,
+  entryPoint: "migrations/fargate-entry.ts", // imports `runMigrationsInFargateAsCli` + your registry
+});
+
+const runner = createFargateRunner({
+  sst,
+  bundle,                    // wires `s3:GetObject` + env vars onto the Task
+  link: [/* your tables, secrets, KMS, S3 buckets */],
+  // image defaults to `docker.io/auriclabs/migrations-runner:1` — pin by digest in prod.
+});
+```
+
+What `createMigrationBundle` does:
+
+1. Calls `bundleMigrations({ entryPoint })` (esbuild — externalises `@aws-sdk/*`, `@smithy/*`, `@aws-crypto/*`).
+2. Creates a private, versioned, SSE-S3 bucket (or uses one you pass in).
+3. Uploads the bundle keyed by SHA256 (`bundles/bundle-<sha>.mjs`) — content-addressed: no-op deploys are no-ops in Pulumi too.
+4. Returns a Linkable. Consumers `link: [bundle.linkable]` it onto their Task / dispatcher Lambda.
+
+What `createFargateRunner({ bundle })` does:
+
+- Defaults `image` to `docker.io/auriclabs/migrations-runner:1`.
+- Adds the bundle's linkable to the Task's `link`, granting **only** `s3:GetObject` on the exact bundle key.
+- Pre-fills `MIGRATION_BUNDLE_URL` and `MIGRATION_BUNDLE_SHA256` env vars so the runner image's wrapper finds and verifies the bundle on start.
+
+### Pinning the image by digest
+
+`docker.io/auriclabs/migrations-runner:1` is a mutable major-version alias that picks up patches. For byte-exact production reproducibility, pin to the digest your CI just published:
+
+```ts
+createFargateRunner({
+  sst,
+  bundle,
+  image: "docker.io/auriclabs/migrations-runner@sha256:abc123...",
+});
+```
+
+### Bundling locally without SST
+
+For ad-hoc bundling (e.g. testing the bundle output before deploying):
+
+```bash
+npx auric-migrate-bundle --entry migrations/fargate-entry.ts --out /tmp/bundle.mjs
+```
+
+Or programmatically:
+
+```ts
+import { bundleMigrations } from "@auriclabs/migrations";
+
+const result = await bundleMigrations({
+  entryPoint: "migrations/fargate-entry.ts",
+  outFile: "migrations/dist/bundle.mjs",
+});
+console.log(`sha256=${result.sha256} size=${result.size}`);
+```
+
+### Trust + permissions
+
+- **Bucket** is private + SSE-S3 + versioned. No public access. No bucket policy granting external principals.
+- **Task role** gets `s3:GetObject` ONLY on `arn:aws:s3:::<bundle-bucket>/<bundle-key>` — no list, no put, no delete, no other keys.
+- **Dispatcher Lambda role** gets no S3 perms — it only forwards string env vars to `RunTask`.
+- **Image pulls** are anonymous from Docker Hub (no AWS-side credentials wired into ECS).
+- **The bundle is privileged code** — it runs in the same trust boundary as your Lambda would. Pin the image by digest in production so a Docker Hub compromise can't silently swap a tag.
+
+### Docker Hub pull-rate caveat
+
+Docker Hub anonymous pulls cap at **200/6h/IP**. For typical migration workloads (one Task per deploy per stage), this is plenty. If you ever hit the cap, mirroring to ECR Public is a single follow-up workflow — let us know and we'll publish there too.
+
 ## Local dashboard against any account
 
 Production deploys typically don't expose the dashboard (the deployed dashboard would require a public API gateway, which is the wrong trust boundary for an admin tool). Use the local dashboard CLI to view migration state — including in production — entirely through your AWS SSO credentials:

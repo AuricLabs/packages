@@ -1,6 +1,8 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
+import { bundleMigrations } from '../bundling';
+
 export interface SstProvider {
   aws: {
     Dynamo: typeof sst.aws.Dynamo;
@@ -18,6 +20,14 @@ export interface FargateRunnerSstProvider {
     Cluster: typeof sst.aws.Cluster;
     Task: typeof sst.aws.Task;
   };
+}
+
+export interface MigrationBundleSstProvider {
+  aws: {
+    Bucket: typeof sst.aws.Bucket;
+    permission: typeof sst.aws.permission;
+  };
+  Linkable: typeof sst.Linkable;
 }
 
 export function createTable(sst: SstProvider) {
@@ -130,6 +140,159 @@ export function createDashboard(options: DashboardOptions) {
 }
 
 /**
+ * Default published image for the Fargate runner. Mutable major-version tag
+ * (`:1`) so consumers track patch releases. Pin by digest in production
+ * (`docker.io/auriclabs/migrations-runner@sha256:...`) for byte-exact
+ * reproducibility — `createFargateRunner` accepts an `image` override that
+ * takes precedence over this default.
+ */
+export const DEFAULT_RUNNER_IMAGE = 'docker.io/auriclabs/migrations-runner:1';
+
+/** Options for `createMigrationBundle` — bundles migrations + uploads to S3. */
+export interface CreateMigrationBundleOptions {
+  sst: MigrationBundleSstProvider;
+  /**
+   * Entry file for the bundle, relative to `cwd` or absolute. Typically
+   * `migrations/fargate-entry.ts` — a thin file that imports
+   * `runMigrationsInFargateAsCli` and the consumer's static migrations
+   * registry.
+   */
+  entryPoint: string;
+  /**
+   * Existing bucket to upload to. If omitted, a fresh `sst.aws.Bucket` is
+   * created (private, SSE-S3 encrypted, versioned).
+   */
+  bucket?: sst.aws.Bucket;
+  /**
+   * Workspace root for `bundleMigrations`'s esbuild resolver. Defaults to
+   * `process.cwd()` (the directory `sst deploy` was run from).
+   */
+  cwd?: string;
+  /**
+   * Override the resource name prefix. Defaults to `MigrationBundle`.
+   */
+  namePrefix?: string;
+  /**
+   * Local directory to write the bundle to before upload. Defaults to
+   * `<cwd>/.sst/migrations-bundle`.
+   */
+  localOutDir?: string;
+  /**
+   * Object key prefix in the bucket. Defaults to `bundles/`. The full key
+   * becomes `<prefix>bundle-<sha256>.mjs` (content-addressed).
+   */
+  keyPrefix?: string;
+}
+
+/**
+ * Handle returned by `createMigrationBundle`. The `linkable` field is what
+ * consumers `link: [bundle.linkable]` into the dispatcher Lambda + Task —
+ * it grants `s3:GetObject` on the bundle key and exposes
+ * `Resource.MigrationBundle.url` / `.sha256` at runtime.
+ */
+export interface MigrationBundleHandle {
+  /** S3 bucket holding the bundle (auto-created or passed in). */
+  bucket: sst.aws.Bucket;
+  /** Key under the bucket: `<keyPrefix>bundle-<sha256>.mjs`. */
+  key: string;
+  /** Full `s3://bucket/key` URL — set as `MIGRATION_BUNDLE_URL` on the Task. */
+  url: $util.Output<string>;
+  /** Hex SHA256 — set as `MIGRATION_BUNDLE_SHA256` on the Task for verification. */
+  sha256: string;
+  /** Linkable handle — pass to `link:` on the Task / dispatcher Lambda. */
+  linkable: sst.Linkable<{
+    url: $util.Output<string>;
+    sha256: string;
+    bucket: $util.Output<string>;
+    key: string;
+  }>;
+}
+
+/**
+ * Bundle a migrations entry into a single ESM file and upload it to S3,
+ * returning a `Linkable` handle the consumer wires into the Fargate Task.
+ *
+ * The bucket is private + versioned + encrypted by default. The object is
+ * content-addressed (`bundle-<sha256>.mjs`), so re-deploying with identical
+ * code is a no-op for Pulumi, and rolling back to a previous bundle is just
+ * a matter of pointing `MIGRATION_BUNDLE_URL` at an older key.
+ *
+ * Pair with `createFargateRunner({ bundle })` to wire everything together
+ * automatically — Task gets `s3:GetObject` perms via `link`, and the env
+ * vars `MIGRATION_BUNDLE_URL` + `MIGRATION_BUNDLE_SHA256` get set for the
+ * runner image's wrapper to consume.
+ */
+export async function createMigrationBundle(
+  options: CreateMigrationBundleOptions,
+): Promise<MigrationBundleHandle> {
+  const { sst } = options;
+  const prefix = options.namePrefix ?? 'MigrationBundle';
+  const keyPrefix = options.keyPrefix ?? 'bundles/';
+
+  const cwd = options.cwd ?? process.cwd();
+  const localOutDir = options.localOutDir ?? path.join(cwd, '.sst', 'migrations-bundle');
+  const localOutFile = path.join(localOutDir, 'bundle.mjs');
+
+  // Bundle synchronously at deploy-program-eval time. This runs before any
+  // Pulumi resource creation, so the bundle file is on disk by the time we
+  // construct the BucketObject below.
+  const result = await bundleMigrations({
+    entryPoint: options.entryPoint,
+    outFile: localOutFile,
+    cwd,
+  });
+
+  const bucket =
+    options.bucket ??
+    new sst.aws.Bucket(`${prefix}Bucket`, {
+      // SST `Bucket` defaults to private + SSE-S3 + enforce-https.
+      // Add versioning so rolled-back bundles persist for forensics.
+      versioning: true,
+    });
+
+  const key = `${keyPrefix}bundle-${result.sha256}.mjs`;
+
+  // Pulumi-native upload via `aws.s3.BucketObject`. The resource is named
+  // by a short SHA prefix so duplicate-content deploys are no-ops, and
+  // distinct content always lands as a new object (the older one stays in
+  // the versioned bucket for rollback).
+  //
+  // Loaded via dynamic `import()` rather than top-level so consumers who
+  // don't use this helper aren't forced to install `@pulumi/aws` /
+  // `@pulumi/pulumi` (they're declared as optional peer deps). This file
+  // is bundled in both CJS and ESM modes, so we use ESM dynamic import
+  // — `require` is not defined globally in the ESM build.
+  const [{ s3 }, pulumi] = await Promise.all([import('@pulumi/aws'), import('@pulumi/pulumi')]);
+
+  new s3.BucketObject(`${prefix}Object-${result.sha256.slice(0, 8)}`, {
+    bucket: bucket.name,
+    key,
+    source: new pulumi.asset.FileAsset(result.outFile),
+    contentType: 'application/javascript',
+    serverSideEncryption: 'AES256',
+  });
+
+  const url = bucket.name.apply((name) => `s3://${name}/${key}`);
+
+  const linkable = new sst.Linkable(prefix, {
+    properties: {
+      url,
+      sha256: result.sha256,
+      bucket: bucket.name,
+      key,
+    },
+    include: [
+      sst.aws.permission({
+        actions: ['s3:GetObject'],
+        resources: [bucket.arn.apply((arn) => `${arn}/${key}`)],
+      }),
+    ],
+  });
+
+  return { bucket, key, url, sha256: result.sha256, linkable };
+}
+
+/**
  * Options for `createFargateRunner` — provisions the VPC, ECS cluster, and
  * one-shot Fargate Task that runs migrations to completion outside of Lambda.
  *
@@ -144,11 +307,20 @@ export function createDashboard(options: DashboardOptions) {
 export interface FargateRunnerOptions {
   sst: FargateRunnerSstProvider;
   /**
-   * Image to run inside the Task. Either a Docker Hub-style tag or
-   * `{ context, dockerfile }` for a locally-built image (the typical shape
-   * — SST builds and pushes to ECR on deploy).
+   * Image to run inside the Task. Defaults to the published
+   * `auriclabs/migrations-runner:1` on Docker Hub when omitted, which knows
+   * how to fetch a bundle from S3 (set via `MIGRATION_BUNDLE_URL` env or
+   * the `bundle` option below). Pin to a digest in production:
+   * `docker.io/auriclabs/migrations-runner@sha256:...`.
    */
-  image: sst.aws.TaskArgs['image'];
+  image?: sst.aws.TaskArgs['image'];
+  /**
+   * Bundle handle from `createMigrationBundle`. When set, the runner is
+   * pre-wired: the bucket is added to `link`, and `MIGRATION_BUNDLE_URL` +
+   * `MIGRATION_BUNDLE_SHA256` are set on the Task's env so the runner image's
+   * wrapper fetches and verifies the bundle on start.
+   */
+  bundle?: MigrationBundleHandle;
   /**
    * Resources to link into the Task — DynamoDB tables, secrets, KMS keys,
    * S3 buckets, etc. Mirror this against the dispatcher Lambda's `link`
@@ -197,16 +369,38 @@ export function createFargateRunner(options: FargateRunnerOptions): FargateRunne
   const vpc = options.vpc ?? new sst.aws.Vpc(`${prefix}Vpc`);
   const cluster = options.cluster ?? new sst.aws.Cluster(`${prefix}Cluster`, { vpc });
 
-  const task = new sst.aws.Task(`${prefix}Task`, {
+  // Start from the consumer's args, then layer the bundle wiring on top.
+  // Splitting the merge this way avoids spreading a value typed as a Pulumi
+  // Input (which TS can't statically guarantee is a plain object).
+  const taskArgs: sst.aws.TaskArgs = {
     cluster,
-    image: options.image,
-    link: options.link,
-    environment: options.environment,
+    image: options.image ?? DEFAULT_RUNNER_IMAGE,
     cpu: options.cpu ?? '1 vCPU',
     memory: options.memory ?? '2 GB',
     architecture: options.architecture ?? 'arm64',
     ...(options.storage ? { storage: options.storage } : {}),
-  });
+    ...(options.link ? { link: options.link } : {}),
+    ...(options.environment ? { environment: options.environment } : {}),
+  };
+
+  if (options.bundle) {
+    // Prepend the bundle's linkable so its `s3:GetObject` permission lands
+    // on the Task role; preserve any consumer-supplied links after it.
+    const existingLink = (taskArgs.link as unknown[] | undefined) ?? [];
+    taskArgs.link = [options.bundle.linkable, ...existingLink] as sst.aws.TaskArgs['link'];
+
+    // Layer bundle env vars on top so they take precedence over any
+    // consumer values for the same keys (the runner image needs them).
+    const existingEnv =
+      (taskArgs.environment as Record<string, $util.Input<string>> | undefined) ?? {};
+    taskArgs.environment = {
+      ...existingEnv,
+      MIGRATION_BUNDLE_URL: options.bundle.url,
+      MIGRATION_BUNDLE_SHA256: options.bundle.sha256,
+    };
+  }
+
+  const task = new sst.aws.Task(`${prefix}Task`, taskArgs);
 
   return { vpc, cluster, task };
 }

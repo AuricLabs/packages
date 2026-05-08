@@ -1,0 +1,82 @@
+name: Publish Image (migrations-runner)
+
+# Decoupled from npm publish — image versions advance independently of
+# `@auriclabs/migrations` package versions. Push a tag matching
+# `migrations-runner-v*` (e.g. `migrations-runner-v1.0.0`) to trigger.
+#
+# Required Actions secret:
+#   DOCKER_HUB_TOKEN — Docker Hub access token (org `auriclabs`) with
+#     push perms scoped to `auriclabs/migrations-runner`.
+on:
+  push:
+    tags:
+      - 'migrations-runner-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to publish (e.g. 1.0.0). Mirrors :<version> + :1 to Docker Hub.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build + Push migrations-runner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Strip the `migrations-runner-v` prefix from the tag.
+            VERSION="${GITHUB_REF#refs/tags/migrations-runner-v}"
+          fi
+          if [[ -z "$VERSION" || "$VERSION" == "$GITHUB_REF" ]]; then
+            echo "::error::Could not resolve version from tag or input"
+            exit 1
+          fi
+          MAJOR="${VERSION%%.*}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major=$MAJOR" >> "$GITHUB_OUTPUT"
+          echo "Resolved: version=$VERSION major=$MAJOR"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: auriclabs
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Build + Push (multi-arch)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: packages/migrations/dockerfiles/runner
+          file: packages/migrations/dockerfiles/runner/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # `:<version>` is immutable; `:<major>` is the mutable alias
+          # consumers track for patches without explicit pinning.
+          tags: |
+            auriclabs/migrations-runner:${{ steps.version.outputs.version }}
+            auriclabs/migrations-runner:${{ steps.version.outputs.major }}
+          provenance: false
+          sbom: false
+
+      - name: Report digest
+        run: |
+          echo "Published auriclabs/migrations-runner:${{ steps.version.outputs.version }}"
+          echo "Digest: ${{ steps.build.outputs.digest }}"
+          echo "::notice title=Published image::auriclabs/migrations-runner:${{ steps.version.outputs.version }}@${{ steps.build.outputs.digest }}"

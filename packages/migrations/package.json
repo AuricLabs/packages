@@ -36,10 +36,11 @@
   ],
   "bin": {
     "auric-migrate": "./dist/auric-migrate.mjs",
+    "auric-migrate-bundle": "./dist/auric-migrate-bundle.mjs",
     "auric-migrate-dashboard": "./dist/auric-migrate-dashboard.mjs"
   },
   "scripts": {
-    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash && tsdown src/dynamodb.entry.ts --format cjs,esm --dts --no-hash --no-clean && tsdown src/infra.entry.ts --format cjs,esm --dts --no-hash --no-clean --tsconfig tsconfig.build.json && tsdown src/api.entry.ts --format cjs,esm --dts --no-hash --no-clean && tsdown bin/auric-migrate.ts --format esm --no-hash --no-clean && tsdown bin/auric-migrate-dashboard.ts --format esm --no-hash --no-clean && pnpm build:ui",
+    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash && tsdown src/dynamodb.entry.ts --format cjs,esm --dts --no-hash --no-clean && tsdown src/infra.entry.ts --format cjs,esm --dts --no-hash --no-clean --tsconfig tsconfig.build.json && tsdown src/api.entry.ts --format cjs,esm --dts --no-hash --no-clean && tsdown bin/auric-migrate.ts --format esm --no-hash --no-clean && tsdown bin/auric-migrate-bundle.ts --format esm --no-hash --no-clean && tsdown bin/auric-migrate-dashboard.ts --format esm --no-hash --no-clean && pnpm build:ui",
     "build:ui": "cd ui && npx vite build",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
@@ -58,6 +59,9 @@
     "@aws-sdk/lib-dynamodb": "^3.788.0",
     "@aws-sdk/types": "^3.700.0",
     "@inquirer/prompts": "^7.0.0",
+    "@pulumi/aws": "^7.0.0",
+    "@pulumi/pulumi": "^3.0.0",
+    "esbuild": "^0.27.0",
     "@radix-ui/react-dialog": "1.1.15",
     "@tailwindcss/vite": "4.2.4",
     "@tanstack/react-query": "^5.0.0",
@@ -85,7 +89,9 @@
   "peerDependencies": {
     "@aws-sdk/client-dynamodb": "^3.788.0",
     "@aws-sdk/client-lambda": "^3.787.0",
-    "@aws-sdk/lib-dynamodb": "^3.788.0"
+    "@aws-sdk/lib-dynamodb": "^3.788.0",
+    "@pulumi/aws": "^7.0.0",
+    "@pulumi/pulumi": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "@aws-sdk/client-dynamodb": {
@@ -95,6 +101,12 @@
       "optional": true
     },
     "@aws-sdk/lib-dynamodb": {
+      "optional": true
+    },
+    "@pulumi/aws": {
+      "optional": true
+    },
+    "@pulumi/pulumi": {
       "optional": true
     }
   },
