@@ -13,4 +13,6 @@ export type {
   MigrationRunnerConfig,
   ExecutionResult,
   LambdaHandlerOptions,
+  DispatchPayload,
+  DispatchResult,
 } from './runner.types';
