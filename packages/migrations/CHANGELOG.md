@@ -1,5 +1,48 @@
 # @auriclabs/migrations
 
+## 0.2.0
+
+### Minor Changes
+
+- a65ddf2: Add ECS Fargate runtime path so a single migration can exceed Lambda's 15-minute hard
+  cap. Three new exports:
+  - `runMigrationsInFargate(options)` / `runMigrationsInFargateAsCli(options)` — runtime entrypoints
+    for use inside an ECS Fargate Task. Run the planned migrations to completion with no
+    `timeoutManager` (no AWS-imposed timeout). The CLI variant translates a non-`completed` result
+    into `process.exit(1)` so ECS marks the Task as failed.
+  - `LambdaHandlerOptions.dispatchTo` — when set, `createLambdaHandler` becomes a thin
+    **dispatcher**: it computes pending migrations via `runner.status()` and either returns
+    `{ status: 'no_work', … }` (no pending and direction is `up`) or fires
+    `dispatchTo({ direction, target, executionId })` and returns
+    `{ status: 'dispatched', executionId, … }`. The `action: 'status'` path stays inline regardless
+    so the dashboard's `getStatus` keeps working. Inline-execution behaviour is preserved when
+    `dispatchTo` is omitted — no breaking change for existing consumers.
+  - `createFargateRunner({ sst, image, link, environment, vpc?, cluster?, cpu?, memory?, architecture? })`
+    (from `@auriclabs/migrations/infra`) — provisions an `sst.aws.Vpc` (NAT-disabled by default),
+    `sst.aws.Cluster`, and one-shot `sst.aws.Task`. Returns `{ vpc, cluster, task }` so the consumer
+    can `link` the Task into their dispatcher Lambda.
+
+  The Fargate path uses the existing `MigrationRunner` and `DynamoDBMigrationStorage`, so the
+  migration record schema (`pending → running → completed|failed`), `OutputBuffer` capture, and
+  dashboard visibility all keep working identically. No `MigrationStatus` enum change.
+
+- 635e272: Add `auric-migrate-dashboard` — a public CLI that runs the existing dashboard UI
+  **locally** in the user's browser, gated by AWS SSO. Picks an AWS profile (interactive or via
+  `--profile`), resolves credentials via `fromIni` (auto-runs `aws sso login` on expired SSO
+  sessions), discovers the deployed `MigrationFn` Lambda + `MigrationsTable` (interactive picker if
+  multiple match), spins up a Node HTTP server on `127.0.0.1:3100`, and opens the browser.
+
+  Useful for inspecting / rolling back migrations against accounts where the deployed dashboard is
+  intentionally disabled (e.g. production). All API calls flow through the user's IAM identity; no
+  public network surface is created.
+
+  New exports from the runtime barrel: `runDashboardCli`, `pickProfile`, `loadCredentials`,
+  `ensureCredentialsValid`, `findFunction`, `findTable`, `startDashboardServer`, `type AwsProfile`,
+  `type DashboardServer`.
+
+  Requires the AWS CLI on `$PATH` for the SSO auto-login flow. New peer dep `@aws-sdk/lib-dynamodb`
+  (optional) for the dashboard's DynamoDB access path.
+
 ## 0.1.4
 
 ### Patch Changes
