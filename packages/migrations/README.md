@@ -7,9 +7,33 @@ A database migration framework with DynamoDB storage, AWS Lambda support, a CLI,
 - TypeScript-first migration authoring with `up` / `down` functions
 - DynamoDB-backed storage with ElectroDB
 - AWS Lambda handler with automatic timeout detection and self-continuation
+- ECS Fargate runner for migrations exceeding Lambda's 15-minute cap
 - CLI for creating, running, and inspecting migrations
 - Optional React dashboard for visualising status and triggering rollbacks
+- **`auric-migrate-dashboard`** — run the dashboard locally in your browser against any AWS account, gated by your AWS SSO profile and IAM identity (no public surface required)
 - SST infrastructure definitions for one-line provisioning
+
+## Local dashboard against any account
+
+Production deploys typically don't expose the dashboard (the deployed dashboard would require a public API gateway, which is the wrong trust boundary for an admin tool). Use the local dashboard CLI to view migration state — including in production — entirely through your AWS SSO credentials:
+
+```bash
+# pick a profile interactively, autodiscover the deployed Lambda + table
+npx -y @auriclabs/migrations auric-migrate-dashboard
+
+# or skip the picker
+npx -y @auriclabs/migrations auric-migrate-dashboard --profile alfe-prod
+```
+
+The CLI:
+
+1. Lists profiles from `~/.aws/config` and `~/.aws/credentials`; honours `--profile <name>` and `AWS_PROFILE`.
+2. Resolves credentials via `fromIni` (transparently follows SSO sessions and `role_arn` assumed roles). On expired SSO it prompts to confirm and runs `aws sso login --profile <name>` for you.
+3. Discovers the deployed `MigrationFn` Lambda and `MigrationsTable` DynamoDB table; prompts you to choose if multiple match. Override with `--function-name <name>` / `--table-name <name>`.
+4. Spins up an HTTP server on `127.0.0.1:3100` (configurable via `--port`), serves the same dashboard UI the deployed version uses, and opens your browser.
+5. All `/api/*` calls flow through your AWS SDK identity — `Lambda Invoke` for migrate/rollback/status, `DynamoDB` for read queries.
+
+The CLI requires the AWS CLI on your `$PATH` for the SSO auto-login flow. The local server only listens on `127.0.0.1` — nothing is exposed to the network.
 
 ## Installation
 
