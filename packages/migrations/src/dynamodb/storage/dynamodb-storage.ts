@@ -24,10 +24,21 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
   private entity: MigrationRecordEntity;
 
   constructor(options?: DynamoDBMigrationStorageOptions) {
-    const resourceTableName = (
-      Resource as unknown as Record<string, Record<string, string> | undefined>
-    ).MigrationsTable?.name;
-    const tableName = options?.tableName ?? resourceTableName ?? '';
+    // When the consumer supplies `tableName`, skip the SST `Resource` lookup
+    // entirely — the lookup throws when SST link env vars aren't present
+    // (e.g. running outside Lambda, like the local dashboard CLI), even
+    // before optional-chaining can short-circuit.
+    let tableName = options?.tableName;
+    if (!tableName) {
+      try {
+        const resourceTableName = (
+          Resource as unknown as Record<string, Record<string, string> | undefined>
+        ).MigrationsTable?.name;
+        tableName = resourceTableName ?? '';
+      } catch {
+        tableName = '';
+      }
+    }
     const client = options?.client ?? new DynamoDBClient();
 
     this.entity = createMigrationRecordEntity({ table: tableName, client });
