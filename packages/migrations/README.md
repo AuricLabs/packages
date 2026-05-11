@@ -51,6 +51,38 @@ What `createFargateRunner({ bundle })` does:
 - Adds the bundle's linkable to the Task's `link`, granting **only** `s3:GetObject` on the exact bundle key.
 - Pre-fills `MIGRATION_BUNDLE_URL` and `MIGRATION_BUNDLE_SHA256` env vars so the runner image's wrapper finds and verifies the bundle on start.
 
+### Detecting dead Fargate tasks — `attachTaskStoppedRule`
+
+If a Fargate task crashes before its bundle can write per-migration records
+(e.g. the bundle throws at module-import time), the `MigrationsTable` stays
+empty for that `executionId` and `MigrationRunner.status()` will report
+`pending` forever. To close that visibility gap, wire the EventBridge rule:
+
+```ts
+import { attachTaskStoppedRule, createFargateRunner } from '@auriclabs/migrations/infra';
+
+const runner = createFargateRunner({ sst, bundle, link: [...] });
+
+const migrationFn = new sst.aws.Function('MigrationFn', {
+  handler: 'migrations/handler.handler',
+  link: [..., runner.task],
+});
+
+await attachTaskStoppedRule({
+  cluster: runner.cluster,
+  dispatcherFn: migrationFn,
+});
+```
+
+EventBridge routes `aws.ecs` / `ECS Task State Change` events with
+`lastStatus: STOPPED` from the migration cluster into `migrationFn`. The
+handler created by `createLambdaHandler` detects the event shape and, when
+the task exited non-zero with no per-migration rows yet, writes an
+`execution:<uuid>` failed row capturing `stoppedReason` and `taskArn`.
+`MigrationRunner.status()` surfaces it in `failed[]` via the standard path,
+so CI pollers exit cleanly within seconds instead of timing out at the
+Lambda budget.
+
 ### Pinning the image by digest
 
 `docker.io/auriclabs/migrations-runner:1` is a mutable major-version alias that picks up patches. For byte-exact production reproducibility, pin to the digest your CI just published:

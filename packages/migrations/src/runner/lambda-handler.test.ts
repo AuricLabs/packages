@@ -569,4 +569,195 @@ describe('createLambdaHandler', () => {
       expect(invokeLambdaAsync).not.toHaveBeenCalled();
     });
   });
+
+  describe('ECS task-stopped events (EventBridge)', () => {
+    function buildEvent(overrides?: {
+      exitCode?: number;
+      executionId?: string;
+      direction?: 'up' | 'down';
+      stoppedReason?: string;
+      lastStatus?: string;
+      includeEnv?: boolean;
+    }) {
+      const env: { name: string; value: string }[] = [];
+      if (overrides?.includeEnv !== false) {
+        if (overrides?.executionId !== undefined) {
+          env.push({ name: 'MIGRATION_EXECUTION_ID', value: overrides.executionId });
+        }
+        if (overrides?.direction !== undefined) {
+          env.push({ name: 'MIGRATION_DIRECTION', value: overrides.direction });
+        }
+      }
+      return {
+        source: 'aws.ecs',
+        'detail-type': 'ECS Task State Change',
+        detail: {
+          taskArn: 'arn:aws:ecs:us-east-1:123456789012:task/cluster/abc123',
+          lastStatus: overrides?.lastStatus ?? 'STOPPED',
+          stoppedReason: overrides?.stoppedReason,
+          containers: [{ exitCode: overrides?.exitCode }],
+          overrides: { containerOverrides: [{ environment: env }] },
+        },
+      };
+    }
+
+    it('records execution:<id> failed row when bundle crashes before writing any record', async () => {
+      const handler = createLambdaHandler({
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const event = buildEvent({
+        exitCode: 1,
+        executionId: 'exec-abc',
+        direction: 'up',
+        stoppedReason: 'Essential container exited',
+      });
+
+      const result = await handler(event as never, createMockContext());
+
+      expect(result).toEqual({ status: 'recorded' });
+      expect(storage.createRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'execution:exec-abc',
+          status: 'failed',
+          direction: 'up',
+          executionId: 'exec-abc',
+          error: 'Essential container exited',
+          taskArn: 'arn:aws:ecs:us-east-1:123456789012:task/cluster/abc123',
+        }),
+      );
+    });
+
+    it('falls back to exit code in error when stoppedReason is absent', async () => {
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({ exitCode: 137, executionId: 'exec-1', direction: 'up' });
+
+      await handler(event as never, createMockContext());
+
+      expect(storage.createRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: 'Fargate task exited with code 137',
+        }),
+      );
+    });
+
+    it('ignores clean exits (exitCode 0)', async () => {
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({ exitCode: 0, executionId: 'exec-2', direction: 'up' });
+      const result = await handler(event as never, createMockContext());
+
+      expect(result).toEqual({ status: 'ignored' });
+      expect(storage.createRecord).not.toHaveBeenCalled();
+    });
+
+    it('ignores events without migration env overrides (not one of our tasks)', async () => {
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({ exitCode: 1, includeEnv: false });
+      const result = await handler(event as never, createMockContext());
+
+      expect(result).toEqual({ status: 'ignored' });
+      expect(storage.createRecord).not.toHaveBeenCalled();
+    });
+
+    it('ignores events for tasks that are not STOPPED', async () => {
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({
+        exitCode: 1,
+        executionId: 'exec-3',
+        direction: 'up',
+        lastStatus: 'PROVISIONING',
+      });
+      const result = await handler(event as never, createMockContext());
+
+      expect(result).toEqual({ status: 'ignored' });
+      expect(storage.createRecord).not.toHaveBeenCalled();
+    });
+
+    it('suppresses the meta row when bundle wrote rows for the same execution', async () => {
+      // Simulate the bundle having written at least one per-migration row.
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 1000,
+          executionId: 'exec-bundle',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({ exitCode: 1, executionId: 'exec-bundle', direction: 'up' });
+      const result = await handler(event as never, createMockContext());
+
+      expect(result).toEqual({ status: 'ignored' });
+      expect(storage.createRecord).not.toHaveBeenCalled();
+    });
+
+    it('execution:<id> failed rows surface in status().failed via the standard path', async () => {
+      // Combined check: the meta row written by handleTaskStoppedEvent must
+      // appear in StatusResult.failed without any special injection logic —
+      // MigrationRunner.status() reads getAllRecords() and includes any
+      // record whose status is 'failed' in its `failed[]` output.
+      vi.mocked(storage.getAllRecords).mockResolvedValue([
+        {
+          id: 'execution:exec-zzz',
+          name: 'execution-exec-zzz',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 5000,
+          completedAt: 5000,
+          executionId: 'exec-zzz',
+          error: 'task exited 1',
+          taskArn: 'arn:aws:ecs:us-east-1:123:task/x',
+          createdAt: 5000,
+          updatedAt: 5000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({ action: 'status' }, createMockContext());
+
+      expect(result).toHaveProperty('failed');
+      expect((result as { failed: string[] }).failed).toContain('execution:exec-zzz');
+    });
+  });
 });

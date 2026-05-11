@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { invokeLambdaAsync } from '../utils/lambda';
 
 import { MigrationRunner } from './migration-runner';
+import { handleTaskStoppedEvent, isTaskStateChangeEvent } from './task-stopped';
 import { createLambdaTimeoutManager } from './timeout-manager';
 
 import type {
@@ -10,6 +11,7 @@ import type {
   ExecutionResult,
   LambdaHandlerOptions,
   MigrationContext,
+  TaskStoppedResult,
 } from '../types';
 import type { Context } from 'aws-lambda';
 
@@ -27,7 +29,16 @@ export function createLambdaHandler<TContext extends MigrationContext>(
   return async (
     event: Record<string, unknown>,
     context: Context,
-  ): Promise<ExecutionResult | StatusResult | DispatchResult> => {
+  ): Promise<ExecutionResult | StatusResult | DispatchResult | TaskStoppedResult> => {
+    // EventBridge `ECS Task State Change` events arrive here when
+    // `createFargateRunner` wired the dispatcher Lambda as the rule target.
+    // Detect and dispatch before any direction/action parsing — the event
+    // shape has no `action` field.
+    if (isTaskStateChangeEvent(event)) {
+      const config = await options.createConfig();
+      return handleTaskStoppedEvent(event, config);
+    }
+
     const action = event.action as string | undefined;
 
     const config = await options.createConfig();

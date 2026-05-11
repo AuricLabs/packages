@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -121,6 +122,30 @@ export const x = fakeLib;
     expect(DEFAULT_BUNDLE_EXTERNALS).toContain('@aws-crypto/*');
     // Frozen so consumers can't accidentally mutate the shared default.
     expect(Object.isFrozen(DEFAULT_BUNDLE_EXTERNALS)).toBe(true);
+  });
+
+  it('every DEFAULT_BUNDLE_EXTERNALS pattern has a matching dep in the runner image', async () => {
+    // Parity contract: anything externalised by default must be installable
+    // by the runner image's runner-package.json. Drift in either direction
+    // causes ERR_MODULE_NOT_FOUND at runtime — this test fails CI instead
+    // so the package and image stay in lock-step.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const runnerPkgPath = resolve(here, '../../dockerfiles/runner/runner-package.json');
+    const runnerPkg = JSON.parse(await readFile(runnerPkgPath, 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    const deps = Object.keys(runnerPkg.dependencies);
+
+    const missing: string[] = [];
+    for (const pattern of DEFAULT_BUNDLE_EXTERNALS) {
+      if (!pattern.endsWith('/*')) {
+        if (!deps.includes(pattern)) missing.push(pattern);
+        continue;
+      }
+      const prefix = pattern.slice(0, -1); // strip trailing '*'
+      if (!deps.some((dep) => dep.startsWith(prefix))) missing.push(pattern);
+    }
+    expect(missing).toEqual([]);
   });
 
   it('defaults to cwd when cwd is omitted', async () => {

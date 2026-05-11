@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { bundleMigrations } from '../bundling';
 
+import type { BuildOptions } from 'esbuild';
+
 export interface SstProvider {
   aws: {
     Dynamo: typeof sst.aws.Dynamo;
@@ -182,6 +184,21 @@ export interface CreateMigrationBundleOptions {
    * becomes `<prefix>bundle-<sha256>.mjs` (content-addressed).
    */
   keyPrefix?: string;
+  /**
+   * Additional packages to mark external in the bundle. Forwarded to
+   * `bundleMigrations`. Defaults to AWS SDK + smithy + crypto (see
+   * `DEFAULT_BUNDLE_EXTERNALS`). Pass `external: []` together with
+   * `esbuildOptions: { external: [] }` if you need a fully self-contained
+   * bundle (e.g. when your migrations import packages the runner image
+   * doesn't ship).
+   */
+  external?: string[];
+  /**
+   * Override esbuild config used by `bundleMigrations`. Use sparingly —
+   * the defaults are tuned to match the published `migrations-runner`
+   * image's expectations.
+   */
+  esbuildOptions?: Partial<BuildOptions>;
 }
 
 /**
@@ -240,6 +257,8 @@ export async function createMigrationBundle(
     entryPoint: options.entryPoint,
     outFile: localOutFile,
     cwd,
+    external: options.external,
+    esbuildOptions: options.esbuildOptions,
   });
 
   const bucket =
@@ -403,6 +422,69 @@ export function createFargateRunner(options: FargateRunnerOptions): FargateRunne
   const task = new sst.aws.Task(`${prefix}Task`, taskArgs);
 
   return { vpc, cluster, task };
+}
+
+export interface TaskStoppedRuleOptions {
+  /** ECS cluster to filter the rule on — typically `FargateRunnerHandles.cluster`. */
+  cluster: sst.aws.Cluster;
+  /**
+   * Dispatcher Lambda that handles the synthesised `task-stopped` event.
+   * Must be the same function created by `createLambdaHandler` so its
+   * `isTaskStateChangeEvent` branch fires.
+   */
+  dispatcherFn: sst.aws.Function;
+  /** Override the resource name prefix. Defaults to `Migration`. */
+  namePrefix?: string;
+}
+
+/**
+ * Attaches an EventBridge rule that routes `aws.ecs` / `ECS Task State Change`
+ * events with `lastStatus: STOPPED` from the migration cluster to the
+ * dispatcher Lambda. The Lambda's `isTaskStateChangeEvent` branch writes an
+ * `execution:<uuid>` failed row whenever the bundle crashes before its
+ * `MigrationRunner` could record per-migration rows — so the consumer's
+ * status poller fails loudly within seconds instead of hanging on
+ * `pending=N` forever.
+ *
+ * Call this **after** both `createFargateRunner` and the dispatcher
+ * `sst.aws.Function` have been constructed.
+ */
+export async function attachTaskStoppedRule(options: TaskStoppedRuleOptions) {
+  const prefix = options.namePrefix ?? 'Migration';
+  const [aws] = await Promise.all([import('@pulumi/aws')]);
+
+  // SST's `Cluster` exposes the underlying ECS Pulumi resource via
+  // `nodes.cluster`; its `.arn` is what EventBridge filters on.
+  const clusterArn = options.cluster.nodes.cluster.apply((c) => c.arn);
+
+  const rule = new aws.cloudwatch.EventRule(`${prefix}TaskStoppedRule`, {
+    description:
+      'Routes ECS Task STOPPED events for the migration cluster to the dispatcher Lambda so dead Fargate tasks are recorded as failed migration runs.',
+    eventPattern: clusterArn.apply((arn) =>
+      JSON.stringify({
+        source: ['aws.ecs'],
+        'detail-type': ['ECS Task State Change'],
+        detail: {
+          clusterArn: [arn],
+          lastStatus: ['STOPPED'],
+        },
+      }),
+    ),
+  });
+
+  new aws.cloudwatch.EventTarget(`${prefix}TaskStoppedTarget`, {
+    rule: rule.name,
+    arn: options.dispatcherFn.arn,
+  });
+
+  new aws.lambda.Permission(`${prefix}TaskStoppedPermission`, {
+    action: 'lambda:InvokeFunction',
+    function: options.dispatcherFn.name,
+    principal: 'events.amazonaws.com',
+    sourceArn: rule.arn,
+  });
+
+  return { rule };
 }
 
 function buildBasicAuthInjection(auth: BasicAuthConfig) {

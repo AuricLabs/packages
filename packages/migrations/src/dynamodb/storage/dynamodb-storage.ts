@@ -123,6 +123,7 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
         description: record.description,
         output: record.output,
         outputTruncated: record.outputTruncated,
+        taskArn: record.taskArn,
       })
       .go()) as unknown as { data: Record<string, unknown> };
 
@@ -146,6 +147,7 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
         ...(updates.description !== undefined && { description: updates.description }),
         ...(updates.output !== undefined && { output: updates.output }),
         ...(updates.outputTruncated !== undefined && { outputTruncated: updates.outputTruncated }),
+        ...(updates.taskArn !== undefined && { taskArn: updates.taskArn }),
       })
       .go({ response: 'all_new' })) as unknown as { data: Record<string, unknown> };
 
@@ -167,6 +169,7 @@ export class DynamoDBMigrationStorage implements MigrationStorage {
       description: item.description as string | undefined,
       output: item.output as string | undefined,
       outputTruncated: item.outputTruncated as boolean | undefined,
+      taskArn: item.taskArn as string | undefined,
       createdAt: item.createdAt as number,
       updatedAt: item.updatedAt as number,
     };

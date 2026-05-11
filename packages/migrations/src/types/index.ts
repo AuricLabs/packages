@@ -15,4 +15,5 @@ export type {
   LambdaHandlerOptions,
   DispatchPayload,
   DispatchResult,
+  TaskStoppedResult,
 } from './runner.types';

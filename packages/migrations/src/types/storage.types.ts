@@ -25,6 +25,13 @@ export interface MigrationRecord {
   output?: string;
   /** True when output exceeded the storage cap and the oldest bytes were dropped. */
   outputTruncated?: boolean;
+  /**
+   * ECS task ARN, recorded on execution-level rows (id `execution:<uuid>`)
+   * written by the dispatcher's `task-stopped` action so an operator can
+   * trace a failed migration run back to the underlying Fargate task in
+   * CloudWatch / ECS console.
+   */
+  taskArn?: string;
   createdAt: number;
   updatedAt: number;
 }

@@ -69,6 +69,10 @@ export function createMigrationRecordEntity(config?: EntityConfiguration) {
           type: 'boolean',
           required: false,
         },
+        taskArn: {
+          type: 'string',
+          required: false,
+        },
         createdAt: {
           type: 'number',
           readOnly: true,

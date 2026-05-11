@@ -17,7 +17,14 @@ import { pipeline } from 'node:stream/promises';
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
-const BUNDLE_PATH = '/tmp/migrations-bundle.mjs';
+// Live next to /app/node_modules so the bundle's externalised
+// `@aws-sdk/*` / `@smithy/*` / `@aws-crypto/*` imports resolve via Node's
+// standard upward `node_modules/` walk. Previously /tmp/, which meant the
+// walk hit /tmp/node_modules → /node_modules and never reached
+// /app/node_modules — so any bundle that imported the AWS SDK died with
+// ERR_MODULE_NOT_FOUND before the first migration ran. (NODE_PATH does
+// not apply to ESM bare-specifier resolution.)
+const BUNDLE_PATH = '/app/migrations-bundle.mjs';
 const SHUTDOWN_GRACE_MS = 30_000;
 
 function fail(message, code = 1) {

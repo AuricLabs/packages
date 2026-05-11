@@ -62,6 +62,22 @@ export type DispatchResult =
   | { status: 'no_work'; pending: string[]; failed: string[] }
   | { status: 'dispatched'; executionId: string; pending: string[] };
 
+/**
+ * Returned by the Lambda handler when invoked with an EventBridge
+ * `ECS Task State Change` payload (the `task-stopped` path used by
+ * `createFargateRunner`'s rule).
+ *
+ * - `recorded` — wrote an `execution:<uuid>` failed row because the
+ *   Fargate task stopped before its bundle could write any per-migration
+ *   row of its own (e.g. crashed at module-import time).
+ * - `ignored` — task exited cleanly, was unrelated to a migration run, or
+ *   the bundle already wrote rows for that execution so a meta row would
+ *   be redundant noise.
+ */
+export interface TaskStoppedResult {
+  status: 'recorded' | 'ignored';
+}
+
 export interface LambdaHandlerOptions<TContext extends MigrationContext = MigrationContext> {
   /** Override the function name used for self-continuation. If omitted, reads from the Lambda context. */
   functionName?: string;
