@@ -29,6 +29,13 @@ RUN npm install --omit=dev --no-package-lock --no-audit --no-fund
 # the image build if any package can't be resolved from the bundle's location
 # — catches drift between DEFAULT_BUNDLE_EXTERNALS, runner-package.json, and
 # BUNDLE_PATH at build time rather than at first consumer deploy.
+#
+# The `rm` at the end is load-bearing, not cosmetic: this layer runs as root,
+# so without it /app/migrations-bundle.mjs survives as a root-owned file. The
+# runtime wrapper later runs as USER node and opens BUNDLE_PATH with
+# createWriteStream(..., { mode: 0o600 }) — but mode only applies on create,
+# and `O_TRUNC` against an existing root-owned file fails with EACCES from
+# the `node` user regardless of parent-dir perms.
 RUN printf '%s\n' \
   "import '@aws-sdk/client-dynamodb';" \
   "import '@aws-sdk/client-eventbridge';" \

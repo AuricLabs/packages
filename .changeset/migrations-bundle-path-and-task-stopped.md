@@ -20,3 +20,5 @@ Fix `ERR_MODULE_NOT_FOUND` from the Fargate runner image and add EventBridge-dri
 - New `TaskStoppedResult` type and `task-stopped` action exported from `runner-types`.
 
 No breaking changes — existing consumers see no behaviour difference until they call `attachTaskStoppedRule(...)`. Update your `infra/migrations.ts` (or equivalent) and bump your runner image digest pin to the next `auriclabs/migrations-runner` publish.
+
+**Maintainer action required after merge:** the wrapper fix only takes effect once the Docker image is republished. Push a `migrations-runner-vX.Y.Z` tag (or run the `Publish Image (migrations-runner)` workflow manually) to trigger the rebuild — the npm package release alone won't move the image digest consumers pin against.

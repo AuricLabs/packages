@@ -451,16 +451,16 @@ export interface TaskStoppedRuleOptions {
  */
 export async function attachTaskStoppedRule(options: TaskStoppedRuleOptions) {
   const prefix = options.namePrefix ?? 'Migration';
-  const [aws] = await Promise.all([import('@pulumi/aws')]);
+  const aws = await import('@pulumi/aws');
 
-  // SST's `Cluster` exposes the underlying ECS Pulumi resource via
-  // `nodes.cluster`; its `.arn` is what EventBridge filters on.
-  const clusterArn = options.cluster.nodes.cluster.apply((c) => c.arn);
-
+  // `sst.aws.Cluster.id` is the cluster's ARN — that's literally what SST
+  // surfaces (see the `Cluster.get({ id: "arn:aws:ecs:..." })` import flow
+  // in its docs). EventBridge filters on `detail.clusterArn`, so this is
+  // the same string AWS emits in the event payload.
   const rule = new aws.cloudwatch.EventRule(`${prefix}TaskStoppedRule`, {
     description:
       'Routes ECS Task STOPPED events for the migration cluster to the dispatcher Lambda so dead Fargate tasks are recorded as failed migration runs.',
-    eventPattern: clusterArn.apply((arn) =>
+    eventPattern: options.cluster.id.apply((arn) =>
       JSON.stringify({
         source: ['aws.ecs'],
         'detail-type': ['ECS Task State Change'],
