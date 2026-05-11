@@ -1,4 +1,5 @@
 export {
+  attachTaskStoppedRule,
   createTable,
   createDashboard,
   createFargateRunner,
@@ -12,4 +13,5 @@ export {
   type MigrationBundleSstProvider,
   type CreateMigrationBundleOptions,
   type MigrationBundleHandle,
+  type TaskStoppedRuleOptions,
 } from './infra/index';
