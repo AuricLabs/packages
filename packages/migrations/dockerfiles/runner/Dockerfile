@@ -53,6 +53,15 @@ RUN printf '%s\n' \
 # Wrapper: fetch + verify + exec.
 COPY wrapper.mjs ./wrapper.mjs
 
+# Give `node` write access to /app so the wrapper can create
+# /app/migrations-bundle.mjs at runtime. WORKDIR is root-owned by default
+# (Docker creates it as root before any USER directive), so without this
+# the wrapper crashes immediately with EACCES on createWriteStream regardless
+# of file mode. Plain chown (no -R) only changes the dir entry; the pre-installed
+# /app/node_modules + wrapper.mjs stay root-owned and remain readable to node
+# under their default 0644 perms.
+RUN chown node:node /app
+
 # Run as non-root for least privilege. node:22-slim ships a `node` user.
 USER node
 
