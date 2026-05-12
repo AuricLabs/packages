@@ -74,17 +74,35 @@ export function parseTaskStoppedEvent(event: TaskStateChangeEvent): ParsedTaskSt
 }
 
 /**
- * Write an execution-level `failed` row when an ECS task stopped abnormally
- * before its bundle could record per-migration rows of its own (e.g. the
- * bundle crashed at module-import time before `MigrationRunner.execute()`
- * even ran). `MigrationRunner.status()` picks the row up via the standard
- * `getAllRecords()` pass and surfaces it in `failed[]` — the consumer's
- * status poller exits with the recorded `stoppedReason` instead of hanging
- * indefinitely waiting for migration records that will never arrive.
+ * Reserved id for the execution-level status row. Always written to this
+ * fixed id (not `execution:<uuid>`) so ElectroDB's `put()` overwrites the
+ * prior run's row on every task-stopped event. Without this, every failed
+ * run leaves a permanent `failed` row in the table — `MigrationRunner.status()`
+ * groups by id, so each unique `execution:<uuid>` accumulates forever and
+ * poisons every subsequent `failed[]` check until manually cleaned up.
+ */
+export const EXECUTION_ROW_ID = 'execution:latest';
+
+/**
+ * Write an execution-level row capturing the Fargate task's exit outcome.
+ * Always writes (success and failure) to a fixed id so `put()` overwrites
+ * the prior run's row.
  *
- * Idempotent: if the bundle DID manage to write any per-execution rows
- * (success or failure), this is a no-op — those rows are authoritative.
- * If the row already exists (event redelivery), this is also a no-op.
+ * - Success (`exitCode === 0`): status=`completed`. Doesn't surface in
+ *   `failed[]`. Critically, this OVERWRITES any prior `failed` row left
+ *   by a previous broken run — so a successful retry naturally clears
+ *   the stale failure.
+ * - Failure (`exitCode !== 0`): status=`failed`, with `stoppedReason` +
+ *   `taskArn` captured for diagnostics. Surfaces in `failed[]` so the
+ *   consumer's status poller exits within the next poll cycle.
+ *
+ * Idempotent under EventBridge redelivery: identical events produce
+ * identical writes via `put()`.
+ *
+ * The row's `executionId` field is stamped with `latest` (not the real
+ * runtime uuid) so the SK composite (`direction#executionId`) also
+ * collapses to a deterministic value, ensuring overwrite. The real
+ * runtime executionId is preserved on `name` and `metadata` for tracing.
  */
 export async function handleTaskStoppedEvent<TContext extends MigrationContext>(
   event: TaskStateChangeEvent,
@@ -107,46 +125,42 @@ export async function handleTaskStoppedEvent<TContext extends MigrationContext>(
     return { status: 'ignored' };
   }
 
-  if (exitCode === 0) {
-    // Clean exit — the runner's MigrationRunner wrote per-migration rows
-    // for everything it ran. No execution-level meta row needed.
-    return { status: 'ignored' };
-  }
-
-  // If the bundle wrote ANY row for this execution (success or failure of
-  // individual migrations), trust those. The meta row is only for the case
-  // where the task died before MigrationRunner.execute() got far enough to
-  // write a single record.
-  const existing = await config.storage.getRecordsByExecutionId(executionId);
-  if (existing.length > 0) {
-    config.logger?.info(
-      'ECS task stopped abnormally after bundle wrote rows; skipping execution meta-row',
-      { executionId, recordCount: existing.length, taskArn, exitCode, stoppedReason },
-    );
-    return { status: 'ignored' };
-  }
-
   const now = Date.now();
-  const id = `execution:${executionId}`;
-  const error =
-    stoppedReason ??
-    (typeof exitCode === 'number'
-      ? `Fargate task exited with code ${exitCode}`
-      : 'Fargate task stopped without an exit code');
+  const isSuccess = exitCode === 0;
+  const error = isSuccess
+    ? undefined
+    : (stoppedReason ??
+      (typeof exitCode === 'number'
+        ? `Fargate task exited with code ${exitCode}`
+        : 'Fargate task stopped without an exit code'));
 
   await config.storage.createRecord({
-    id,
+    id: EXECUTION_ROW_ID,
     name: `execution-${executionId}`,
-    status: 'failed',
+    status: isSuccess ? 'completed' : 'failed',
     direction,
     startedAt: now,
     completedAt: now,
-    executionId,
+    // SK composite uses `executionId`; stamp it with the literal `latest`
+    // so successive task-stopped events land on the same primary key and
+    // `put()` overwrites in place. Real runtime executionId lives on `name`
+    // + `metadata` for traceability.
+    executionId: 'latest',
     error,
     taskArn,
+    metadata: { runtimeExecutionId: executionId },
   });
 
-  config.logger?.error('Recorded Fargate task failure as execution-level row', {
+  if (isSuccess) {
+    config.logger?.info('Recorded Fargate task success on execution row', {
+      executionId,
+      direction,
+      taskArn,
+    });
+    return { status: 'ignored' };
+  }
+
+  config.logger?.error('Recorded Fargate task failure on execution row', {
     executionId,
     direction,
     exitCode,

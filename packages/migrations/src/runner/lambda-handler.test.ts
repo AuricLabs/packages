@@ -601,7 +601,7 @@ describe('createLambdaHandler', () => {
       };
     }
 
-    it('records execution:<id> failed row when bundle crashes before writing any record', async () => {
+    it('records execution:latest failed row when task exits non-zero', async () => {
       const handler = createLambdaHandler({
         createConfig: () => ({
           migrations: [
@@ -627,10 +627,14 @@ describe('createLambdaHandler', () => {
       expect(result).toEqual({ status: 'recorded' });
       expect(storage.createRecord).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'execution:exec-abc',
+          // Fixed id (not `execution:<uuid>`) so put() overwrites prior runs.
+          id: 'execution:latest',
           status: 'failed',
           direction: 'up',
-          executionId: 'exec-abc',
+          // Synthetic executionId so the SK composite also collapses.
+          executionId: 'latest',
+          name: 'execution-exec-abc',
+          metadata: { runtimeExecutionId: 'exec-abc' },
           error: 'Essential container exited',
           taskArn: 'arn:aws:ecs:us-east-1:123456789012:task/cluster/abc123',
         }),
@@ -653,7 +657,7 @@ describe('createLambdaHandler', () => {
       );
     });
 
-    it('ignores clean exits (exitCode 0)', async () => {
+    it('writes execution:latest completed row on clean exit so prior failures clear', async () => {
       const handler = createLambdaHandler({
         createConfig: () => ({ migrations: [], storage, context: {} }),
       });
@@ -662,7 +666,16 @@ describe('createLambdaHandler', () => {
       const result = await handler(event as never, createMockContext());
 
       expect(result).toEqual({ status: 'ignored' });
-      expect(storage.createRecord).not.toHaveBeenCalled();
+      // Must still write — overwriting any stale `failed` row from a prior
+      // broken run. This is what makes successful retries self-healing.
+      expect(storage.createRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'execution:latest',
+          status: 'completed',
+          executionId: 'latest',
+          error: undefined,
+        }),
+      );
     });
 
     it('ignores events without migration env overrides (not one of our tasks)', async () => {
@@ -694,46 +707,16 @@ describe('createLambdaHandler', () => {
       expect(storage.createRecord).not.toHaveBeenCalled();
     });
 
-    it('suppresses the meta row when bundle wrote rows for the same execution', async () => {
-      // Simulate the bundle having written at least one per-migration row.
-      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
-        {
-          id: '20250601_first',
-          name: 'first',
-          status: 'failed',
-          direction: 'up',
-          startedAt: 1000,
-          executionId: 'exec-bundle',
-          createdAt: 1000,
-          updatedAt: 1000,
-        },
-      ]);
-
-      const handler = createLambdaHandler({
-        createConfig: () => ({ migrations: [], storage, context: {} }),
-      });
-
-      const event = buildEvent({ exitCode: 1, executionId: 'exec-bundle', direction: 'up' });
-      const result = await handler(event as never, createMockContext());
-
-      expect(result).toEqual({ status: 'ignored' });
-      expect(storage.createRecord).not.toHaveBeenCalled();
-    });
-
-    it('execution:<id> failed rows surface in status().failed via the standard path', async () => {
-      // Combined check: the meta row written by handleTaskStoppedEvent must
-      // appear in StatusResult.failed without any special injection logic —
-      // MigrationRunner.status() reads getAllRecords() and includes any
-      // record whose status is 'failed' in its `failed[]` output.
+    it('execution:latest failed row surfaces in status().failed via the standard path', async () => {
       vi.mocked(storage.getAllRecords).mockResolvedValue([
         {
-          id: 'execution:exec-zzz',
+          id: 'execution:latest',
           name: 'execution-exec-zzz',
           status: 'failed',
           direction: 'up',
           startedAt: 5000,
           completedAt: 5000,
-          executionId: 'exec-zzz',
+          executionId: 'latest',
           error: 'task exited 1',
           taskArn: 'arn:aws:ecs:us-east-1:123:task/x',
           createdAt: 5000,
@@ -757,7 +740,59 @@ describe('createLambdaHandler', () => {
       const result = await handler({ action: 'status' }, createMockContext());
 
       expect(result).toHaveProperty('failed');
-      expect((result as { failed: string[] }).failed).toContain('execution:exec-zzz');
+      expect((result as { failed: string[] }).failed).toContain('execution:latest');
+    });
+
+    it('status() filters out stale execution:<uuid> rows from pre-0.4.3 runs', async () => {
+      // Backwards compat: existing consumers may have execution:<uuid> rows
+      // permanently stuck in failed[] from before the fixed-id rewrite.
+      // status() must hide them so upgrading is zero-touch.
+      vi.mocked(storage.getAllRecords).mockResolvedValue([
+        {
+          id: 'execution:143fd061-2a9b-4222-b5f2-da1a80b37eaf',
+          name: 'execution-143fd061',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 1000,
+          completedAt: 1000,
+          executionId: '143fd061-2a9b-4222-b5f2-da1a80b37eaf',
+          error: 'EACCES',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 2000,
+          completedAt: 2000,
+          executionId: 'exec-real',
+          createdAt: 2000,
+          updatedAt: 2000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({ action: 'status' }, createMockContext());
+      const failed = (result as { failed: string[] }).failed;
+
+      // Real per-migration failure is still surfaced.
+      expect(failed).toContain('20250601_first');
+      // Stale execution:<uuid> row is hidden.
+      expect(failed).not.toContain('execution:143fd061-2a9b-4222-b5f2-da1a80b37eaf');
     });
   });
 });

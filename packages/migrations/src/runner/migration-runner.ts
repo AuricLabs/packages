@@ -4,6 +4,7 @@ import { getCompletedMigrationIds, getLatestRecordPerMigration } from '../utils/
 
 import { loadMigrations } from './migration-loader';
 import { OutputBuffer } from './output-buffer';
+import { EXECUTION_ROW_ID } from './task-stopped';
 
 import type {
   ExecutionResult,
@@ -67,9 +68,15 @@ export class MigrationRunner<TContext extends MigrationContext = MigrationContex
     const latestById = getLatestRecordPerMigration(allRecords);
     const failed: string[] = [];
     for (const [id, record] of latestById) {
-      if (record.status === 'failed') {
-        failed.push(id);
-      }
+      if (record.status !== 'failed') continue;
+      // Pre-0.4.3 task-stopped handler wrote `execution:<uuid>` rows that
+      // accumulated forever — different uuid each run meant no put-overwrite
+      // and every failed run permanently poisoned `failed[]`. Newer handler
+      // uses the fixed `execution:latest` id so put-overwrite works. Filter
+      // out any stale `execution:*` rows that aren't the canonical one so
+      // existing consumers don't need to clean their tables to upgrade.
+      if (id.startsWith('execution:') && id !== EXECUTION_ROW_ID) continue;
+      failed.push(id);
     }
 
     return { pending, completed, failed };
