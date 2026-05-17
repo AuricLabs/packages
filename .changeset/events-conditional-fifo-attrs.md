@@ -1,5 +1,5 @@
 ---
-"@auriclabs/events": minor
+"@auriclabs/events": patch
 ---
 
 stream-handler: detect FIFO queues by `.fifo` URL suffix and only include
