@@ -31,30 +31,72 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
     return chunks;
   }
 
+  function summarizeBatchForLog(batch: EventRecord[]) {
+    return batch.map((eventRecord) => ({
+      eventId: eventRecord.eventId,
+      aggregateId: eventRecord.aggregateId,
+      aggregateType: eventRecord.aggregateType,
+      eventType: eventRecord.eventType,
+    }));
+  }
+
   async function sendToQueuesBatch(eventRecords: EventRecord[]) {
     await Promise.all(config.queueUrls.map((queue) => sendToQueueBatch(eventRecords, queue)));
   }
 
   async function sendToQueueBatch(eventRecords: EventRecord[], queue: string) {
     const batches = chunkArray(eventRecords, BATCH_SIZE);
+    // SQS FIFO queues require MessageGroupId + MessageDeduplicationId on every entry;
+    // standard queues reject both as InvalidParameterValue. Queue URLs always end in
+    // `.fifo` for FIFO queues, so the suffix is the canonical detection.
+    const isFifo = queue.endsWith('.fifo');
 
     for (const batch of batches) {
       try {
         const entries = batch.map((eventRecord, index) => ({
           Id: `${eventRecord.eventId}-${index}`,
           MessageBody: JSON.stringify(eventRecord),
-          MessageGroupId: eventRecord.aggregateId,
-          MessageDeduplicationId: eventRecord.eventId,
+          ...(isFifo && {
+            MessageGroupId: eventRecord.aggregateId,
+            MessageDeduplicationId: eventRecord.eventId,
+          }),
         }));
 
-        await sqsClient.send(
+        const res = await sqsClient.send(
           new SendMessageBatchCommand({
             QueueUrl: queue,
             Entries: entries,
           }),
         );
+
+        // SendMessageBatch returns 200 with per-entry failures in Failed[] for
+        // partial-success scenarios (oversize body, duplicate Id, invalid attribute
+        // for queue type, throttling). Treat any Failed entry as a hard failure so
+        // misconfigured queues page loudly instead of dropping events.
+        if (res.Failed && res.Failed.length > 0) {
+          logger.error(
+            {
+              queue,
+              failedCount: res.Failed.length,
+              failed: res.Failed.map((f) => ({
+                Id: f.Id,
+                Code: f.Code,
+                SenderFault: f.SenderFault,
+                Message: f.Message,
+              })),
+              batch: summarizeBatchForLog(batch),
+            },
+            'SQS batch had failed entries',
+          );
+          throw new Error(
+            `SQS batch send had ${String(res.Failed.length)} failed entries on ${queue}`,
+          );
+        }
       } catch (error) {
-        logger.error({ error, batch, queue }, 'Error sending batch to queue');
+        logger.error(
+          { error, queue, batch: summarizeBatchForLog(batch) },
+          'Error sending batch to queue',
+        );
         throw error;
       }
     }
@@ -76,13 +118,38 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
           };
         });
 
-        await eventBridge.send(
+        const res = await eventBridge.send(
           new PutEventsCommand({
             Entries: entries,
           }),
         );
+
+        // PutEvents returns 200 with FailedEntryCount > 0 and per-entry ErrorCode on
+        // partial failures. Mirror the SQS path: any failed entry is a hard failure.
+        if (res.FailedEntryCount && res.FailedEntryCount > 0) {
+          logger.error(
+            {
+              failedCount: res.FailedEntryCount,
+              failed: (res.Entries ?? [])
+                .map((entry, idx) => ({
+                  idx,
+                  ErrorCode: entry.ErrorCode,
+                  ErrorMessage: entry.ErrorMessage,
+                }))
+                .filter((entry) => entry.ErrorCode),
+              batch: summarizeBatchForLog(batch),
+            },
+            'EventBridge PutEvents had failed entries',
+          );
+          throw new Error(
+            `EventBridge PutEvents had ${String(res.FailedEntryCount)} failed entries`,
+          );
+        }
       } catch (error) {
-        logger.error({ error, batch }, 'Error sending batch to bus');
+        logger.error(
+          { error, batch: summarizeBatchForLog(batch) },
+          'Error sending batch to bus',
+        );
         throw error;
       }
     }

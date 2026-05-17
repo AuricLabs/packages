@@ -211,11 +211,15 @@ describe('stream-handler', () => {
     expect(ebInput.Entries?.[0]?.Source).toBe('order');
   });
 
-  it('uses aggregateId as MessageGroupId', async () => {
+  it('uses aggregateId as MessageGroupId on FIFO queues', async () => {
     const eventRecord = makeEventRecord({ aggregateId: 'agg-123' });
     mockUnmarshall.mockReturnValue(eventRecord);
 
-    const handler = createStreamHandler(config);
+    const fifoConfig = {
+      busName: 'test-bus',
+      queueUrls: ['https://sqs.us-east-1.amazonaws.com/123/queue-1.fifo'],
+    };
+    const handler = createStreamHandler(fifoConfig);
     const event: DynamoDBStreamEvent = {
       Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
@@ -226,11 +230,15 @@ describe('stream-handler', () => {
     expect(sqsInput.Entries?.[0]?.MessageGroupId).toBe('agg-123');
   });
 
-  it('uses eventId as MessageDeduplicationId', async () => {
+  it('uses eventId as MessageDeduplicationId on FIFO queues', async () => {
     const eventRecord = makeEventRecord({ eventId: 'evt-dedup-1' });
     mockUnmarshall.mockReturnValue(eventRecord);
 
-    const handler = createStreamHandler(config);
+    const fifoConfig = {
+      busName: 'test-bus',
+      queueUrls: ['https://sqs.us-east-1.amazonaws.com/123/queue-1.fifo'],
+    };
+    const handler = createStreamHandler(fifoConfig);
     const event: DynamoDBStreamEvent = {
       Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
@@ -239,6 +247,111 @@ describe('stream-handler', () => {
 
     const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
     expect(sqsInput.Entries?.[0]?.MessageDeduplicationId).toBe('evt-dedup-1');
+  });
+
+  it('omits MessageGroupId and MessageDeduplicationId on standard queues', async () => {
+    const eventRecord = makeEventRecord({ aggregateId: 'agg-123', eventId: 'evt-dedup-1' });
+    mockUnmarshall.mockReturnValue(eventRecord);
+
+    // Standard queue URL (no `.fifo` suffix). FIFO-only attributes must be omitted
+    // — including them causes SQS to reject the entries with InvalidParameterValue
+    // and silently drop messages.
+    const handler = createStreamHandler(config);
+    const event: DynamoDBStreamEvent = {
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
+    };
+
+    await handler(event);
+
+    const sqsInput = vi.mocked(SendMessageBatchCommand).mock.calls[0][0] as SqsBatchInput;
+    expect(sqsInput.Entries?.[0]?.MessageGroupId).toBeUndefined();
+    expect(sqsInput.Entries?.[0]?.MessageDeduplicationId).toBeUndefined();
+  });
+
+  it('throws when SQS SendMessageBatch returns Failed[] entries', async () => {
+    const eventRecord = makeEventRecord();
+    mockUnmarshall.mockReturnValue(eventRecord);
+    mockSqsSend.mockResolvedValue({
+      Successful: [],
+      Failed: [
+        {
+          Id: 'evt-1-0',
+          Code: 'InvalidParameterValue',
+          SenderFault: true,
+          Message: 'Value for parameter MessageGroupId is invalid.',
+        },
+      ],
+    });
+
+    const handler = createStreamHandler(config);
+    const event: DynamoDBStreamEvent = {
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
+    };
+
+    await expect(handler(event)).rejects.toThrow(/failed entries/i);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queue: 'https://sqs.us-east-1.amazonaws.com/123/queue-1',
+        failedCount: 1,
+        failed: expect.arrayContaining([
+          expect.objectContaining({
+            Code: 'InvalidParameterValue',
+            SenderFault: true,
+          }) as unknown,
+        ]) as unknown,
+      }),
+      'SQS batch had failed entries',
+    );
+  });
+
+  it('error log redacts full event payloads (no PII)', async () => {
+    const eventRecord = makeEventRecord({ payload: { secret: 'pii-do-not-log' } });
+    mockUnmarshall.mockReturnValue(eventRecord);
+    mockSqsSend.mockRejectedValue(new Error('boom'));
+
+    const handler = createStreamHandler(config);
+    const event: DynamoDBStreamEvent = {
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
+    };
+
+    await expect(handler(event)).rejects.toThrow();
+
+    const callsWithBatch = vi.mocked(logger.error).mock.calls.filter((call) => {
+      const arg = call[0] as { batch?: unknown };
+      return arg.batch !== undefined;
+    });
+    expect(callsWithBatch.length).toBeGreaterThan(0);
+    for (const call of callsWithBatch) {
+      const logged = JSON.stringify(call[0]);
+      expect(logged).not.toContain('pii-do-not-log');
+    }
+  });
+
+  it('throws when EventBridge PutEvents returns FailedEntryCount > 0', async () => {
+    const eventRecord = makeEventRecord();
+    mockUnmarshall.mockReturnValue(eventRecord);
+    mockEbSend.mockResolvedValue({
+      FailedEntryCount: 1,
+      Entries: [
+        { ErrorCode: 'InternalException', ErrorMessage: 'transient' },
+      ],
+    });
+
+    const handler = createStreamHandler(config);
+    const event: DynamoDBStreamEvent = {
+      Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
+    };
+
+    await expect(handler(event)).rejects.toThrow(/failed entries/i);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failedCount: 1,
+        failed: expect.arrayContaining([
+          expect.objectContaining({ ErrorCode: 'InternalException' }) as unknown,
+        ]) as unknown,
+      }),
+      'EventBridge PutEvents had failed entries',
+    );
   });
 
   it('batches correctly (respects BATCH_SIZE of 10)', async () => {
