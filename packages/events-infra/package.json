@@ -32,7 +32,7 @@
     "sst": "^4.3.7"
   },
   "peerDependencies": {
-    "@auriclabs/events": "^0.4.3",
+    "@auriclabs/events": "^0.4.4",
     "@auriclabs/sst-types": "^0.1.0",
     "sst": "^4.3.7"
   },
