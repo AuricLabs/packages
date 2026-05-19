@@ -6,4 +6,5 @@ export * from './dispatch-event';
 export * from './dispatch-events';
 export * from './create-dispatch';
 export * from './create-event-listener';
+export * from './staleness';
 export * from './stream-handler';

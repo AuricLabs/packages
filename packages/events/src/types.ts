@@ -39,6 +39,24 @@ export interface EventRecord<P = unknown> {
 
   /** Domain payload */
   payload: Readonly<P>;
+
+  /**
+   * Wire-only metadata. NOT persisted to the EventStore row by
+   * `event-service.appendEvent` — `meta` only lives on republished SQS bodies
+   * (e.g. set by recovery scripts) or on records mutated in place by the
+   * listener dispatch loop (e.g. `isStale`/`ageMs` under `process-degraded`).
+   *
+   * - `replay`: true when this event was republished by an out-of-band
+   *   recovery script (vs. fresh fan-out delivery).
+   * - `isStale`: set by the listener when `eventAgeMs(event) > policy.maxAgeMs`
+   *   and the policy is `process-degraded`.
+   * - `ageMs`: age in ms at handler entry, when set by the listener.
+   */
+  meta?: {
+    replay?: boolean;
+    isStale?: boolean;
+    ageMs?: number;
+  };
 }
 
 // ---------- HEAD (aggregate metadata) ----------

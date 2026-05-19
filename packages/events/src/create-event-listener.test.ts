@@ -3,7 +3,7 @@ const { mockSetEventContext } = vi.hoisted(() => ({
 }));
 
 vi.mock('@auriclabs/logger', () => ({
-  logger: { debug: vi.fn(), error: vi.fn() },
+  logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
 vi.mock('./context', () => ({
@@ -30,7 +30,7 @@ const makeRecord = (body: object, messageId = 'msg-1', messageGroupId?: string) 
   awsRegion: 'us-east-1',
 });
 
-const makeEvent = (overrides = {}) => ({
+const makeEvent = (overrides: Record<string, unknown> = {}) => ({
   eventType: 'OrderCreated',
   eventId: 'evt-1',
   tenantId: 'tenant-1',
@@ -38,6 +38,7 @@ const makeEvent = (overrides = {}) => ({
   aggregateId: 'o-1',
   correlationId: 'corr-1',
   actorId: 'actor-1',
+  occurredAt: new Date().toISOString(),
   payload: {},
   ...overrides,
 });
@@ -274,6 +275,158 @@ describe('createEventListener', () => {
       expect.objectContaining({ error, event: expect.any(Object) as unknown }),
       'Error processing event',
     );
+  });
+
+  describe('staleness policy', () => {
+    const oldTimestamp = () => new Date(Date.now() - 10 * 60_000).toISOString(); // 10 min ago
+
+    it('default policy preserves existing behavior (no opt-in, handler called as before)', async () => {
+      const orderHandler = vi.fn();
+      const handler = createEventListener({ OrderCreated: orderHandler });
+
+      const event = makeEvent({ occurredAt: oldTimestamp() });
+      const sqsEvent: SQSEvent = { Records: [makeRecord(event)] };
+
+      const result = await handler(sqsEvent);
+
+      expect(orderHandler).toHaveBeenCalledTimes(1);
+      const calledWith = orderHandler.mock.calls[0][0] as { meta?: unknown };
+      expect(calledWith.meta).toBeUndefined();
+      expect(result.batchItemFailures).toEqual([]);
+    });
+
+    it("onStale: 'skip' — handler not invoked, no failedGroups entry, no batch failure", async () => {
+      const orderHandler = vi.fn();
+      const handler = createEventListener(
+        { OrderCreated: orderHandler },
+        { staleness: { maxAgeMs: 60_000, onStale: 'skip' } },
+      );
+
+      const sqsEvent: SQSEvent = {
+        Records: [makeRecord(makeEvent({ occurredAt: oldTimestamp() }), 'msg-skip', 'o-1')],
+      };
+
+      const result = await handler(sqsEvent);
+
+      expect(orderHandler).not.toHaveBeenCalled();
+      expect(result.batchItemFailures).toEqual([]);
+      expect(logger.info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: 'OrderCreated',
+          maxAgeMs: 60_000,
+        }),
+        'Skipping stale event',
+      );
+    });
+
+    it("onStale: 'skip' does NOT poison subsequent same-group records", async () => {
+      // A skip is not a failure: later records in the same group should still
+      // be evaluated independently rather than being short-circuited.
+      const orderHandler = vi.fn();
+      const handler = createEventListener(
+        { OrderCreated: orderHandler },
+        { staleness: { maxAgeMs: 60_000, onStale: 'skip' } },
+      );
+
+      const sqsEvent: SQSEvent = {
+        Records: [
+          makeRecord(makeEvent({ occurredAt: oldTimestamp() }), 'msg-1', 'o-1'),
+          makeRecord(makeEvent({ occurredAt: new Date().toISOString() }), 'msg-2', 'o-1'),
+        ],
+      };
+
+      const result = await handler(sqsEvent);
+
+      expect(orderHandler).toHaveBeenCalledTimes(1);
+      expect(result.batchItemFailures).toEqual([]);
+    });
+
+    it("onStale: 'process-degraded' — handler invoked with meta.isStale === true and ageMs > 0", async () => {
+      const orderHandler = vi.fn();
+      const handler = createEventListener(
+        { OrderCreated: orderHandler },
+        { staleness: { maxAgeMs: 60_000, onStale: 'process-degraded' } },
+      );
+
+      const sqsEvent: SQSEvent = {
+        Records: [makeRecord(makeEvent({ occurredAt: oldTimestamp() }))],
+      };
+
+      await handler(sqsEvent);
+
+      expect(orderHandler).toHaveBeenCalledTimes(1);
+      const arg = orderHandler.mock.calls[0][0] as {
+        meta?: { isStale?: boolean; ageMs?: number };
+      };
+      expect(arg.meta?.isStale).toBe(true);
+      expect(arg.meta?.ageMs).toBeGreaterThan(60_000);
+    });
+
+    it("onStale: 'process-normally' — handler invoked, no meta mutation", async () => {
+      const orderHandler = vi.fn();
+      const handler = createEventListener(
+        { OrderCreated: orderHandler },
+        { staleness: { maxAgeMs: 60_000, onStale: 'process-normally' } },
+      );
+
+      const sqsEvent: SQSEvent = {
+        Records: [makeRecord(makeEvent({ occurredAt: oldTimestamp() }))],
+      };
+
+      await handler(sqsEvent);
+
+      expect(orderHandler).toHaveBeenCalledTimes(1);
+      const arg = orderHandler.mock.calls[0][0] as { meta?: unknown };
+      expect(arg.meta).toBeUndefined();
+    });
+
+    it('per-event-type override beats default staleness', async () => {
+      const orderHandler = vi.fn();
+      const otherHandler = vi.fn();
+      const handler = createEventListener(
+        { OrderCreated: orderHandler, OtherEvent: otherHandler },
+        {
+          staleness: { maxAgeMs: Infinity, onStale: 'process-normally' },
+          stalenessByEventType: {
+            OrderCreated: { maxAgeMs: 60_000, onStale: 'skip' },
+          },
+        },
+      );
+
+      const sqsEvent: SQSEvent = {
+        Records: [
+          makeRecord(makeEvent({ eventType: 'OrderCreated', occurredAt: oldTimestamp() }), 'msg-1'),
+          makeRecord(makeEvent({ eventType: 'OtherEvent', occurredAt: oldTimestamp() }), 'msg-2'),
+        ],
+      };
+
+      await handler(sqsEvent);
+
+      expect(orderHandler).not.toHaveBeenCalled(); // skipped via override
+      expect(otherHandler).toHaveBeenCalledTimes(1); // processed normally via default
+    });
+
+    it('meta.replay survives JSON round-trip and is readable from inside the handler', async () => {
+      // Recovery scripts set meta.replay = true on the republished body before
+      // JSON.stringify. The listener must hand the handler an object where
+      // meta.replay is still observable after JSON.parse.
+      const orderHandler = vi.fn();
+      const handler = createEventListener({ OrderCreated: orderHandler });
+
+      const eventWithReplay = {
+        ...makeEvent(),
+        meta: { replay: true },
+      };
+
+      const sqsEvent: SQSEvent = {
+        Records: [makeRecord(eventWithReplay)],
+      };
+
+      await handler(sqsEvent);
+
+      const arg = orderHandler.mock.calls[0][0] as { meta?: { replay?: boolean } };
+      expect(arg.meta?.replay).toBe(true);
+    });
   });
 
   it('handles multiple successful records', async () => {

@@ -131,6 +131,12 @@ export function createEventService(tableName: string): EventService {
               {
                 Put: {
                   TableName: TABLE,
+                  // NOTE: `EventRecord.meta` is intentionally NOT written here.
+                  // `meta` is a wire-only field (set by recovery scripts on
+                  // republished SQS bodies, or mutated in place by the
+                  // listener under `process-degraded`). The persisted source
+                  // row stays meta-free so `meta.replay` / `meta.isStale` can
+                  // never accidentally leak into the canonical event store.
                   Item: {
                     pk,
                     sk,
