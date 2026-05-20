@@ -74,35 +74,60 @@ export function parseTaskStoppedEvent(event: TaskStateChangeEvent): ParsedTaskSt
 }
 
 /**
- * Reserved id for the execution-level status row. Always written to this
- * fixed id (not `execution:<uuid>`) so ElectroDB's `put()` overwrites the
- * prior run's row on every task-stopped event. Without this, every failed
- * run leaves a permanent `failed` row in the table — `MigrationRunner.status()`
- * groups by id, so each unique `execution:<uuid>` accumulates forever and
- * poisons every subsequent `failed[]` check until manually cleaned up.
+ * @deprecated Pre-0.4.4 task-stopped handler wrote rows to this fixed id
+ * (`execution:latest`) to collapse the SK composite and let `put()`
+ * overwrite the prior run's row. That design is last-writer-wins across
+ * concurrent or retried runs — a failed task followed by a successful
+ * retry could leave the row in either state depending on event ordering,
+ * making the polling consumer's exit code unreliable.
+ *
+ * 0.4.4+ stops writing this row entirely and instead transitions a per-run
+ * `dispatch:<executionId>` sentinel via {@link MigrationRunner.statusByExecution}.
+ * The export is preserved so external code that imports it still compiles,
+ * and {@link MigrationRunner.status} keeps filtering rows with this id out
+ * of `failed[]` for backwards compat with existing tables. Do not write
+ * new rows with this id.
  */
 export const EXECUTION_ROW_ID = 'execution:latest';
 
+/** Prefix used for per-execution dispatch sentinel rows. */
+const DISPATCH_SENTINEL_PREFIX = 'dispatch:';
+
+/** Build the canonical sentinel id for a given executionId. */
+export function dispatchSentinelId(executionId: string): string {
+  return `${DISPATCH_SENTINEL_PREFIX}${executionId}`;
+}
+
 /**
- * Write an execution-level row capturing the Fargate task's exit outcome.
- * Always writes (success and failure) to a fixed id so `put()` overwrites
- * the prior run's row.
+ * True if `id` is a dispatch sentinel row (any executionId). Used by
+ * `MigrationRunner.status` to filter sentinels out of the global
+ * `failed[]` rollup — sentinels are per-run state and should only surface
+ * via `statusByExecution`.
+ */
+export function isDispatchSentinelId(id: string): boolean {
+  return id.startsWith(DISPATCH_SENTINEL_PREFIX);
+}
+
+/**
+ * Handle an EventBridge `ECS Task State Change` event where `lastStatus`
+ * is `STOPPED`. Two failure modes need to be papered over:
  *
- * - Success (`exitCode === 0`): status=`completed`. Doesn't surface in
- *   `failed[]`. Critically, this OVERWRITES any prior `failed` row left
- *   by a previous broken run — so a successful retry naturally clears
- *   the stale failure.
- * - Failure (`exitCode !== 0`): status=`failed`, with `stoppedReason` +
- *   `taskArn` captured for diagnostics. Surfaces in `failed[]` so the
- *   consumer's status poller exits within the next poll cycle.
+ * 1. **Runner ran but a migration failed.** The runner already wrote a
+ *    per-migration `failed` row and transitioned its dispatch sentinel
+ *    to `failed`. We don't need to do anything — the records reflect
+ *    reality. We still walk records to mark any stray `running` rows
+ *    failed (defence against the runner crashing between writing a
+ *    `running` row and writing its terminal write).
+ * 2. **Fargate died before the runner could write.** No per-migration
+ *    rows exist; no sentinel exists. We create the sentinel as `failed`
+ *    so `statusByExecution(executionId)` can return a definitive failure
+ *    to a polling caller instead of `not_found` forever.
  *
- * Idempotent under EventBridge redelivery: identical events produce
- * identical writes via `put()`.
- *
- * The row's `executionId` field is stamped with `latest` (not the real
- * runtime uuid) so the SK composite (`direction#executionId`) also
- * collapses to a deterministic value, ensuring overwrite. The real
- * runtime executionId is preserved on `name` and `metadata` for tracing.
+ * On clean exit (`exitCode === 0`), the runner already transitioned the
+ * sentinel to `completed` and wrote terminal per-migration rows; we still
+ * sweep for any stray `running` row (would indicate a runner bug, but
+ * worth defending against). No `execution:latest` row is written — that
+ * pattern is removed (see {@link EXECUTION_ROW_ID}).
  */
 export async function handleTaskStoppedEvent<TContext extends MigrationContext>(
   event: TaskStateChangeEvent,
@@ -117,56 +142,119 @@ export async function handleTaskStoppedEvent<TContext extends MigrationContext>(
 
   if (!executionId || !direction) {
     // Task wasn't dispatched by us — no MIGRATION_EXECUTION_ID in overrides.
-    // (Other STOPPED events on the cluster — e.g. ad-hoc one-shot tasks —
-    // would land here and should not write meta rows.)
     config.logger?.warn('ECS task-stopped event missing migration env overrides; ignoring', {
       taskArn,
     });
     return { status: 'ignored' };
   }
 
-  const now = Date.now();
   const isSuccess = exitCode === 0;
-  const error = isSuccess
+  const errorMessage = isSuccess
     ? undefined
     : (stoppedReason ??
       (typeof exitCode === 'number'
         ? `Fargate task exited with code ${exitCode}`
         : 'Fargate task stopped without an exit code'));
 
-  await config.storage.createRecord({
-    id: EXECUTION_ROW_ID,
-    name: `execution-${executionId}`,
-    status: isSuccess ? 'completed' : 'failed',
-    direction,
-    startedAt: now,
-    completedAt: now,
-    // SK composite uses `executionId`; stamp it with the literal `latest`
-    // so successive task-stopped events land on the same primary key and
-    // `put()` overwrites in place. Real runtime executionId lives on `name`
-    // + `metadata` for traceability.
-    executionId: 'latest',
-    error,
-    taskArn,
-    metadata: { runtimeExecutionId: executionId },
-  });
+  // Pull every record written under this executionId. The dispatch sentinel
+  // and every per-migration row share the same executionId, so this is the
+  // single query that drives all reconciliation below.
+  const records = await config.storage.getRecordsByExecutionId(executionId);
+  const sentinelId = dispatchSentinelId(executionId);
+  const sentinel = records.find((r) => r.id === sentinelId);
+  const stillRunning = records.filter((r) => r.id !== sentinelId && r.status === 'running');
 
-  if (isSuccess) {
-    config.logger?.info('Recorded Fargate task success on execution row', {
-      executionId,
-      direction,
-      taskArn,
-    });
-    return { status: 'ignored' };
+  const now = Date.now();
+  let recorded = false;
+
+  // (1) Mark any per-migration rows that are still `running`. The runner
+  // writes terminal rows itself; this is purely defence-in-depth for the
+  // "Fargate died mid-migration" case.
+  for (const stale of stillRunning) {
+    try {
+      await config.storage.updateRecord(stale.id, stale.direction, stale.executionId, {
+        status: 'failed',
+        completedAt: now,
+        error: errorMessage ?? 'Fargate task stopped while migration was still running',
+      });
+      recorded = true;
+    } catch (err) {
+      config.logger?.warn('Failed to mark stale running migration row failed on task-stopped', {
+        executionId,
+        recordId: stale.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
-  config.logger?.error('Recorded Fargate task failure on execution row', {
-    executionId,
-    direction,
-    exitCode,
-    stoppedReason,
-    taskArn,
-  });
+  // (2) If the task failed and the sentinel doesn't exist (or is still
+  // running), force it to `failed`. This is the path that closes the loop
+  // for callers polling `statusByExecution` when Fargate crashed at boot.
+  // On clean exit we leave the sentinel alone — the runner already wrote
+  // its terminal state.
+  if (!isSuccess) {
+    const sentinelNeedsClose = !sentinel || sentinel.status === 'running';
+    if (sentinelNeedsClose) {
+      try {
+        await config.storage.createRecord({
+          id: sentinelId,
+          name: `Execution ${executionId}`,
+          status: 'failed',
+          direction,
+          startedAt: sentinel?.startedAt ?? now,
+          completedAt: now,
+          executionId,
+          error: errorMessage,
+          taskArn,
+          metadata: { runtimeExecutionId: executionId, stoppedReason, exitCode },
+        });
+        recorded = true;
+      } catch (err) {
+        config.logger?.warn('Failed to write/refresh dispatch sentinel on task-stopped', {
+          executionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
 
-  return { status: 'recorded' };
+    config.logger?.error('Fargate task stopped with failure', {
+      executionId,
+      direction,
+      exitCode,
+      stoppedReason,
+      taskArn,
+    });
+  } else if (sentinel && sentinel.status === 'running') {
+    // Edge case: Fargate exited 0 but the runner never wrote a terminal
+    // sentinel (e.g. the process was killed *after* migrations completed
+    // but before the sentinel update flushed). Close it as completed so
+    // polling consumers don't hang.
+    try {
+      await config.storage.createRecord({
+        id: sentinelId,
+        name: `Execution ${executionId}`,
+        status: 'completed',
+        direction,
+        startedAt: sentinel.startedAt,
+        completedAt: now,
+        executionId,
+        taskArn,
+        metadata: { runtimeExecutionId: executionId, exitCode },
+      });
+      recorded = true;
+    } catch (err) {
+      config.logger?.warn('Failed to close dispatch sentinel on clean task-stopped', {
+        executionId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+    config.logger?.info('Fargate task stopped cleanly; closed stale running sentinel', {
+      executionId,
+      taskArn,
+    });
+  } else {
+    config.logger?.info('Fargate task stopped cleanly', { executionId, taskArn });
+  }
+
+  return { status: recorded ? 'recorded' : 'ignored' };
 }

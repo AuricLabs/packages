@@ -77,6 +77,171 @@ describe('createLambdaHandler', () => {
     expect(result).toHaveProperty('failed');
   });
 
+  describe('action: statusByExecution', () => {
+    it('returns not_found when no records exist for executionId', async () => {
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const result = await handler(
+        { action: 'statusByExecution', executionId: 'no-such-exec' },
+        createMockContext(),
+      );
+
+      expect(result).toMatchObject({
+        executionId: 'no-such-exec',
+        status: 'not_found',
+        migrations: [],
+      });
+    });
+
+    it('returns running when sentinel says running', async () => {
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: 'dispatch:exec-x',
+          name: 'Execution exec-x',
+          status: 'running',
+          direction: 'up',
+          startedAt: 1000,
+          executionId: 'exec-x',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const result = await handler(
+        { action: 'statusByExecution', executionId: 'exec-x' },
+        createMockContext(),
+      );
+
+      expect(result).toMatchObject({ status: 'running', migrations: [] });
+    });
+
+    it('returns completed when sentinel says completed', async () => {
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: 'dispatch:exec-y',
+          name: 'Execution exec-y',
+          status: 'completed',
+          direction: 'up',
+          startedAt: 1000,
+          completedAt: 2000,
+          executionId: 'exec-y',
+          createdAt: 1000,
+          updatedAt: 2000,
+        },
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'completed',
+          direction: 'up',
+          startedAt: 1000,
+          completedAt: 1500,
+          executionId: 'exec-y',
+          createdAt: 1000,
+          updatedAt: 1500,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const result = await handler(
+        { action: 'statusByExecution', executionId: 'exec-y' },
+        createMockContext(),
+      );
+
+      expect(result).toMatchObject({
+        status: 'completed',
+        migrations: [{ id: '20250601_first', status: 'completed' }],
+      });
+    });
+
+    it('returns failed and surfaces sentinel error when sentinel is failed', async () => {
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: 'dispatch:exec-z',
+          name: 'Execution exec-z',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 1000,
+          completedAt: 2000,
+          executionId: 'exec-z',
+          error: 'Fargate task exited with code 1',
+          createdAt: 1000,
+          updatedAt: 2000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const result = await handler(
+        { action: 'statusByExecution', executionId: 'exec-z' },
+        createMockContext(),
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        error: 'Fargate task exited with code 1',
+      });
+    });
+
+    it('returns failed when any per-migration record is failed even if sentinel is missing', async () => {
+      // Edge: runner crashed before writing terminal sentinel, but it did
+      // write a per-migration failed row.
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 1000,
+          completedAt: 1500,
+          executionId: 'exec-q',
+          error: 'boom',
+          createdAt: 1000,
+          updatedAt: 1500,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const result = await handler(
+        { action: 'statusByExecution', executionId: 'exec-q' },
+        createMockContext(),
+      );
+
+      expect(result).toMatchObject({
+        status: 'failed',
+        error: 'boom',
+      });
+    });
+
+    it('returns not_found when executionId missing or empty', async () => {
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const result = await handler({ action: 'statusByExecution' }, createMockContext());
+
+      expect(result).toMatchObject({
+        status: 'not_found',
+        executionId: '',
+      });
+    });
+  });
+
   it('runs migrations up by default', async () => {
     const upFn = vi.fn().mockResolvedValue(undefined);
     const handler = createLambdaHandler({
@@ -543,6 +708,53 @@ describe('createLambdaHandler', () => {
       expect(dispatchTo).not.toHaveBeenCalled();
     });
 
+    it('writes dispatch sentinel before invoking dispatchTo', async () => {
+      // The sentinel exists BEFORE the Fargate task is started so even if
+      // task.run() throws or Fargate crashes at module-import time, a polling
+      // consumer calling statusByExecution finds the sentinel and can observe
+      // the eventual `failed` transition via the task-stopped handler.
+      const dispatchTo = vi.fn(async () => {});
+
+      const handler = createLambdaHandler({
+        dispatchTo,
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({}, createMockContext());
+
+      const dispatched = result as { status: string; executionId: string };
+      expect(dispatched.status).toBe('dispatched');
+
+      // Sentinel was written with the same executionId we'll hand back to caller.
+      expect(storage.createRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: `dispatch:${dispatched.executionId}`,
+          status: 'running',
+          executionId: dispatched.executionId,
+          direction: 'up',
+        }),
+      );
+
+      // dispatchTo received the same id.
+      expect(dispatchTo).toHaveBeenCalledWith(
+        expect.objectContaining({ executionId: dispatched.executionId }),
+      );
+
+      // Order matters: sentinel must be written before dispatch.
+      const sentinelCallIndex = vi.mocked(storage.createRecord).mock.invocationCallOrder[0];
+      const dispatchCallIndex = dispatchTo.mock.invocationCallOrder[0];
+      expect(sentinelCallIndex).toBeLessThan(dispatchCallIndex);
+    });
+
     it('does not self-reinvoke in dispatcher mode (no needs_continuation path)', async () => {
       const { invokeLambdaAsync } = await import('../utils/lambda');
       const dispatchTo = vi.fn().mockResolvedValue(undefined);
@@ -601,7 +813,12 @@ describe('createLambdaHandler', () => {
       };
     }
 
-    it('records execution:latest failed row when task exits non-zero', async () => {
+    it('creates dispatch sentinel as failed when task exits non-zero and no sentinel exists', async () => {
+      // Fargate died before the runner could write any record itself.
+      // task-stopped handler is the only writer for this run, so it must
+      // synthesize the sentinel so polling consumers see `failed`.
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([]);
+
       const handler = createLambdaHandler({
         createConfig: () => ({
           migrations: [
@@ -627,14 +844,12 @@ describe('createLambdaHandler', () => {
       expect(result).toEqual({ status: 'recorded' });
       expect(storage.createRecord).toHaveBeenCalledWith(
         expect.objectContaining({
-          // Fixed id (not `execution:<uuid>`) so put() overwrites prior runs.
-          id: 'execution:latest',
+          // Per-run sentinel id, not the deprecated execution:latest.
+          id: 'dispatch:exec-abc',
           status: 'failed',
           direction: 'up',
-          // Synthetic executionId so the SK composite also collapses.
-          executionId: 'latest',
-          name: 'execution-exec-abc',
-          metadata: { runtimeExecutionId: 'exec-abc' },
+          // Real executionId so the SK composite is unique per run.
+          executionId: 'exec-abc',
           error: 'Essential container exited',
           taskArn: 'arn:aws:ecs:us-east-1:123456789012:task/cluster/abc123',
         }),
@@ -642,6 +857,7 @@ describe('createLambdaHandler', () => {
     });
 
     it('falls back to exit code in error when stoppedReason is absent', async () => {
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([]);
       const handler = createLambdaHandler({
         createConfig: () => ({ migrations: [], storage, context: {} }),
       });
@@ -652,12 +868,29 @@ describe('createLambdaHandler', () => {
 
       expect(storage.createRecord).toHaveBeenCalledWith(
         expect.objectContaining({
+          id: 'dispatch:exec-1',
           error: 'Fargate task exited with code 137',
         }),
       );
     });
 
-    it('writes execution:latest completed row on clean exit so prior failures clear', async () => {
+    it('does NOT touch sentinel on clean exit when runner already wrote terminal state', async () => {
+      // Happy path: runner ran to completion, wrote its own sentinel as
+      // `completed`. task-stopped should be a no-op (status: ignored).
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: 'dispatch:exec-2',
+          name: 'Execution exec-2',
+          status: 'completed',
+          direction: 'up',
+          startedAt: 1000,
+          completedAt: 2000,
+          executionId: 'exec-2',
+          createdAt: 1000,
+          updatedAt: 2000,
+        },
+      ]);
+
       const handler = createLambdaHandler({
         createConfig: () => ({ migrations: [], storage, context: {} }),
       });
@@ -666,14 +899,78 @@ describe('createLambdaHandler', () => {
       const result = await handler(event as never, createMockContext());
 
       expect(result).toEqual({ status: 'ignored' });
-      // Must still write — overwriting any stale `failed` row from a prior
-      // broken run. This is what makes successful retries self-healing.
+      // No write — sentinel already final, no stray running rows.
+      expect(storage.createRecord).not.toHaveBeenCalled();
+    });
+
+    it('does NOT write execution:latest under any circumstance (deprecated row)', async () => {
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([]);
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({ exitCode: 1, executionId: 'exec-3', direction: 'up' });
+      await handler(event as never, createMockContext());
+
+      // Backwards-compat reminder: every createRecord call MUST land on a
+      // `dispatch:<uuid>` id or a per-migration id, never the old fixed row.
+      for (const call of vi.mocked(storage.createRecord).mock.calls) {
+        expect((call[0] as { id: string }).id).not.toBe('execution:latest');
+      }
+    });
+
+    it('marks per-migration rows still running as failed when task is killed mid-run', async () => {
+      // The runner wrote `running` for a migration, then Fargate died
+      // (OOM, segfault, manual stop) — exit code !== 0 and the row never
+      // got its terminal update. task-stopped fills it in.
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'running',
+          direction: 'up',
+          startedAt: 1000,
+          executionId: 'exec-mid',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+        {
+          id: 'dispatch:exec-mid',
+          name: 'Execution exec-mid',
+          status: 'running',
+          direction: 'up',
+          startedAt: 1000,
+          executionId: 'exec-mid',
+          createdAt: 1000,
+          updatedAt: 1000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({ migrations: [], storage, context: {} }),
+      });
+
+      const event = buildEvent({
+        exitCode: 137,
+        executionId: 'exec-mid',
+        direction: 'up',
+        stoppedReason: 'OutOfMemoryError',
+      });
+      const result = await handler(event as never, createMockContext());
+
+      expect(result).toEqual({ status: 'recorded' });
+      // Stale running migration row was force-failed.
+      expect(storage.updateRecord).toHaveBeenCalledWith(
+        '20250601_first',
+        'up',
+        'exec-mid',
+        expect.objectContaining({ status: 'failed' }),
+      );
+      // Sentinel was transitioned to failed too.
       expect(storage.createRecord).toHaveBeenCalledWith(
         expect.objectContaining({
-          id: 'execution:latest',
-          status: 'completed',
-          executionId: 'latest',
-          error: undefined,
+          id: 'dispatch:exec-mid',
+          status: 'failed',
         }),
       );
     });
@@ -741,6 +1038,56 @@ describe('createLambdaHandler', () => {
 
       expect(result).toHaveProperty('failed');
       expect((result as { failed: string[] }).failed).toContain('execution:latest');
+    });
+
+    it('status() filters out dispatch:<uuid> sentinel rows', async () => {
+      // Dispatch sentinels are per-run state and should only surface via
+      // statusByExecution(executionId). They must NOT appear in the global
+      // failed[] rollup — otherwise every failed run permanently poisons
+      // the dashboard's failed list.
+      vi.mocked(storage.getAllRecords).mockResolvedValue([
+        {
+          id: 'dispatch:exec-poisoning',
+          name: 'Execution exec-poisoning',
+          status: 'failed',
+          direction: 'up',
+          startedAt: 5000,
+          completedAt: 5000,
+          executionId: 'exec-poisoning',
+          error: 'task exited 1',
+          createdAt: 5000,
+          updatedAt: 5000,
+        },
+        {
+          id: '20250601_first',
+          name: 'first',
+          status: 'completed',
+          direction: 'up',
+          startedAt: 6000,
+          completedAt: 6000,
+          executionId: 'exec-poisoning',
+          createdAt: 6000,
+          updatedAt: 6000,
+        },
+      ]);
+
+      const handler = createLambdaHandler({
+        createConfig: () => ({
+          migrations: [
+            {
+              id: '20250601_first',
+              migration: { name: 'first', up: async () => {}, down: async () => {} },
+            },
+          ],
+          storage,
+          context: {},
+        }),
+      });
+
+      const result = await handler({ action: 'status' }, createMockContext());
+      const failed = (result as { failed: string[] }).failed;
+
+      expect(failed).not.toContain('dispatch:exec-poisoning');
     });
 
     it('status() filters out stale execution:<uuid> rows from pre-0.4.3 runs', async () => {

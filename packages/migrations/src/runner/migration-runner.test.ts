@@ -741,6 +741,259 @@ describe('MigrationRunner', () => {
     });
   });
 
+  describe('executionId plumbing', () => {
+    it('uses caller-supplied executionId when passed via options', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [{ id: '20250601_first', migration: makeMigration('first') }],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      const result = await runner.up(undefined, { executionId: 'caller-supplied-id' });
+
+      expect(result.executionId).toBe('caller-supplied-id');
+      // Per-migration record carries the same id.
+      expect(storage.createRecord).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '20250601_first',
+          executionId: 'caller-supplied-id',
+        }),
+      );
+    });
+
+    it('generates a fresh executionId when none is supplied', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [{ id: '20250601_first', migration: makeMigration('first') }],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      const result = await runner.up();
+
+      // UUID v4 length is 36.
+      expect(result.executionId).toHaveLength(36);
+    });
+
+    it('writes a dispatch sentinel as running at start and completed on success', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [{ id: '20250601_first', migration: makeMigration('first') }],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      await runner.up(undefined, { executionId: 'sentinel-exec' });
+
+      const sentinelCalls = vi
+        .mocked(storage.createRecord)
+        .mock.calls.filter((c) => (c[0] as { id: string }).id === 'dispatch:sentinel-exec');
+
+      // Expect at least two writes: running, then completed.
+      expect(sentinelCalls.length).toBeGreaterThanOrEqual(2);
+      expect(sentinelCalls[0][0]).toMatchObject({
+        id: 'dispatch:sentinel-exec',
+        status: 'running',
+        executionId: 'sentinel-exec',
+      });
+      const last = sentinelCalls[sentinelCalls.length - 1][0];
+      expect(last).toMatchObject({
+        id: 'dispatch:sentinel-exec',
+        status: 'completed',
+        executionId: 'sentinel-exec',
+      });
+    });
+
+    it('transitions sentinel to failed when a migration fails', async () => {
+      const storage = createMockStorage();
+      const config = createConfig(
+        [
+          {
+            id: '20250601_first',
+            migration: makeMigration('first', {
+              upFn: async () => {
+                throw new Error('boom');
+              },
+            }),
+          },
+        ],
+        storage,
+      );
+
+      const runner = new MigrationRunner(config);
+      await runner.up(undefined, { executionId: 'fail-exec' });
+
+      const sentinelWrites = vi
+        .mocked(storage.createRecord)
+        .mock.calls.filter((c) => (c[0] as { id: string }).id === 'dispatch:fail-exec');
+      const last = sentinelWrites[sentinelWrites.length - 1][0];
+      expect(last).toMatchObject({
+        id: 'dispatch:fail-exec',
+        status: 'failed',
+        executionId: 'fail-exec',
+      });
+      expect((last as { error?: string }).error).toContain('boom');
+    });
+
+    it('leaves sentinel as running on needs_continuation', async () => {
+      const storage = createMockStorage();
+      let shouldStop = false;
+      const config = createConfig(
+        [
+          {
+            id: '20250601_first',
+            migration: makeMigration('first', {
+              upFn: async () => {
+                shouldStop = true;
+              },
+            }),
+          },
+          { id: '20250602_second', migration: makeMigration('second') },
+        ],
+        storage,
+      );
+      config.timeoutManager = {
+        threshold: 60_000,
+        getRemainingTimeMs: () => (shouldStop ? 30_000 : 120_000),
+        shouldStop: () => shouldStop,
+      };
+
+      const runner = new MigrationRunner(config);
+      const result = await runner.up(undefined, { executionId: 'cont-exec' });
+
+      expect(result.status).toBe('needs_continuation');
+      const sentinelWrites = vi
+        .mocked(storage.createRecord)
+        .mock.calls.filter((c) => (c[0] as { id: string }).id === 'dispatch:cont-exec');
+      // Only the initial `running` write; no terminal write.
+      expect(sentinelWrites).toHaveLength(1);
+      expect(sentinelWrites[0][0]).toMatchObject({ status: 'running' });
+    });
+  });
+
+  describe('statusByExecution', () => {
+    it('returns not_found when no records exist', async () => {
+      const storage = createMockStorage();
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([]);
+
+      const runner = new MigrationRunner(createConfig([], storage));
+      const result = await runner.statusByExecution('missing');
+
+      expect(result).toEqual({
+        executionId: 'missing',
+        status: 'not_found',
+        migrations: [],
+      });
+    });
+
+    it('returns running when sentinel is running and no migrations failed', async () => {
+      const storage = createMockStorage();
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        makeRecord({
+          id: 'dispatch:run-1',
+          status: 'running',
+          executionId: 'run-1',
+        }),
+        makeRecord({
+          id: '20250601_first',
+          status: 'running',
+          executionId: 'run-1',
+        }),
+      ]);
+
+      const runner = new MigrationRunner(createConfig([], storage));
+      const result = await runner.statusByExecution('run-1');
+
+      expect(result.status).toBe('running');
+      expect(result.migrations).toEqual([
+        expect.objectContaining({ id: '20250601_first', status: 'running' }),
+      ]);
+    });
+
+    it('returns completed when sentinel is completed', async () => {
+      const storage = createMockStorage();
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        makeRecord({
+          id: 'dispatch:done-1',
+          status: 'completed',
+          executionId: 'done-1',
+        }),
+        makeRecord({
+          id: '20250601_first',
+          status: 'completed',
+          executionId: 'done-1',
+        }),
+      ]);
+
+      const runner = new MigrationRunner(createConfig([], storage));
+      const result = await runner.statusByExecution('done-1');
+
+      expect(result.status).toBe('completed');
+    });
+
+    it('returns failed and surfaces sentinel error', async () => {
+      const storage = createMockStorage();
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        makeRecord({
+          id: 'dispatch:bad-1',
+          status: 'failed',
+          executionId: 'bad-1',
+          error: 'Fargate exited 1',
+        }),
+      ]);
+
+      const runner = new MigrationRunner(createConfig([], storage));
+      const result = await runner.statusByExecution('bad-1');
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toBe('Fargate exited 1');
+    });
+
+    it('returns failed when any migration is failed even without a sentinel', async () => {
+      const storage = createMockStorage();
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        makeRecord({
+          id: '20250601_first',
+          status: 'failed',
+          executionId: 'orphan-1',
+          error: 'boom',
+        }),
+      ]);
+
+      const runner = new MigrationRunner(createConfig([], storage));
+      const result = await runner.statusByExecution('orphan-1');
+
+      expect(result.status).toBe('failed');
+      expect(result.error).toBe('boom');
+    });
+
+    it('picks the latest sentinel record when multiple exist', async () => {
+      const storage = createMockStorage();
+      vi.mocked(storage.getRecordsByExecutionId).mockResolvedValue([
+        makeRecord({
+          id: 'dispatch:multi',
+          status: 'running',
+          executionId: 'multi',
+          createdAt: 1000,
+          updatedAt: 1000,
+        }),
+        makeRecord({
+          id: 'dispatch:multi',
+          status: 'completed',
+          executionId: 'multi',
+          createdAt: 1000,
+          updatedAt: 2000,
+        }),
+      ]);
+
+      const runner = new MigrationRunner(createConfig([], storage));
+      const result = await runner.statusByExecution('multi');
+
+      expect(result.status).toBe('completed');
+    });
+  });
+
   describe('stale migration handling', () => {
     it('marks stale running migration as failed before re-running', async () => {
       const storage = createMockStorage();

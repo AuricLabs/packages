@@ -9,6 +9,7 @@ import { createLambdaTimeoutManager } from './timeout-manager';
 import type {
   DispatchResult,
   ExecutionResult,
+  ExecutionStatus,
   LambdaHandlerOptions,
   MigrationContext,
   TaskStoppedResult,
@@ -29,7 +30,9 @@ export function createLambdaHandler<TContext extends MigrationContext>(
   return async (
     event: Record<string, unknown>,
     context: Context,
-  ): Promise<ExecutionResult | StatusResult | DispatchResult | TaskStoppedResult> => {
+  ): Promise<
+    ExecutionResult | StatusResult | DispatchResult | TaskStoppedResult | ExecutionStatus
+  > => {
     // EventBridge `ECS Task State Change` events arrive here when
     // `createFargateRunner` wired the dispatcher Lambda as the rule target.
     // Detect and dispatch before any direction/action parsing — the event
@@ -49,6 +52,24 @@ export function createLambdaHandler<TContext extends MigrationContext>(
     if (action === 'status') {
       const runner = new MigrationRunner<TContext>(config);
       return runner.status();
+    }
+
+    // Handle statusByExecution — scoped polling by a single executionId.
+    // CI's `scripts/run-migrations.ts` polls this to detect whether the run
+    // *it* dispatched completed, ignoring any other historical/concurrent
+    // executions writing to the same table. Always inline.
+    if (action === 'statusByExecution') {
+      const targetExecutionId = event.executionId;
+      if (typeof targetExecutionId !== 'string' || targetExecutionId.length === 0) {
+        return {
+          executionId: '',
+          status: 'not_found',
+          migrations: [],
+          error: 'statusByExecution requires a non-empty `executionId` field on the event',
+        };
+      }
+      const runner = new MigrationRunner<TContext>(config);
+      return runner.statusByExecution(targetExecutionId);
     }
 
     const direction = (event.direction as string | undefined) ?? 'up';
@@ -100,6 +121,31 @@ export function createLambdaHandler<TContext extends MigrationContext>(
         executionId,
         pending: status.pending,
       });
+
+      // Write the dispatch sentinel as `running` BEFORE calling dispatchTo
+      // (which is typically `ecs.RunTask`). This guarantees that even if the
+      // Fargate task dies before its bundle imports — i.e. the runner never
+      // gets to write any record itself — a polling caller calling
+      // `statusByExecution(executionId)` finds the sentinel and can observe
+      // the run transition to `failed` via the task-stopped handler. The
+      // runner's own `execute()` will idempotently re-`put` the same id once
+      // it starts, so no race.
+      try {
+        const sentinelNow = Date.now();
+        await config.storage.createRecord({
+          id: `dispatch:${executionId}`,
+          name: `Execution ${executionId}`,
+          status: 'running',
+          direction,
+          startedAt: sentinelNow,
+          executionId,
+        });
+      } catch (err) {
+        config.logger?.warn('Failed to write dispatch sentinel before task.run', {
+          executionId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
 
       await options.dispatchTo({ direction, target, executionId });
 

@@ -1,5 +1,5 @@
 import type { MigrationContext, MigrationEntry } from './migration.types';
-import type { MigrationStorage } from './storage.types';
+import type { MigrationStatus, MigrationStorage } from './storage.types';
 import type { TimeoutManager } from './timeout.types';
 
 export type { TimeoutManager };
@@ -39,6 +39,57 @@ export interface ExecutionResult {
   executionId: string;
   migrationsRun: string[];
   migrationsRemaining: string[];
+  error?: string;
+}
+
+/**
+ * Options that can be passed to `MigrationRunner.up()` / `.down()` / `.execute()`.
+ *
+ * The primary use case is letting the dispatcher (Lambda) generate an
+ * executionId and hand it to the runner (Fargate), so the records written by
+ * the runner share the same id as the value returned to the original caller.
+ * Without this, the dispatcher returns one UUID while the runner generates
+ * its own — making it impossible for callers (CI scripts, the dashboard) to
+ * scope a poll to a specific run via `statusByExecution(executionId)`.
+ */
+export interface RunOptions {
+  /**
+   * Caller-supplied execution id. When omitted, the runner generates a
+   * fresh UUID (preserves the pre-existing behavior for inline / ad-hoc runs).
+   */
+  executionId?: string;
+}
+
+/**
+ * Per-migration entry returned by {@link MigrationRunner.statusByExecution}.
+ */
+export interface ExecutionMigrationStatus {
+  id: string;
+  status: MigrationStatus;
+  error?: string;
+}
+
+/**
+ * Returned by {@link MigrationRunner.statusByExecution}. Scoped to a single
+ * `executionId` so a polling consumer (e.g. CI's `run-migrations.ts`) only
+ * sees state for the run it dispatched — historical/concurrent runs don't
+ * leak in.
+ *
+ * - `not_found` — no records were written for this executionId yet. Either
+ *   the dispatcher hasn't written the sentinel and the runner hasn't started,
+ *   or the executionId is bogus. Callers should keep polling for a bounded
+ *   window before giving up.
+ * - `running` — sentinel is `running`, or some migration is still `running`,
+ *   and nothing has failed.
+ * - `completed` — sentinel is `completed`, or all per-migration records are
+ *   `completed` (no failures observed).
+ * - `failed` — sentinel is `failed`, or any per-migration record is `failed`.
+ */
+export interface ExecutionStatus {
+  executionId: string;
+  status: 'running' | 'completed' | 'failed' | 'not_found';
+  migrations: ExecutionMigrationStatus[];
+  /** Error string captured on the sentinel or first failed migration, if any. */
   error?: string;
 }
 

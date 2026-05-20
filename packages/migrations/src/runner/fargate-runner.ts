@@ -16,6 +16,16 @@ export interface FargateRunnerOptions<TContext extends MigrationContext = Migrat
    * from env (treats empty string as "no target").
    */
   target?: string;
+  /**
+   * Override the execution id. If omitted, reads `MIGRATION_EXECUTION_ID`
+   * from env (set by the dispatcher Lambda via task overrides). If neither
+   * is set (ad-hoc run), the runner generates one.
+   *
+   * Passing this through is what allows the dispatcher's returned
+   * executionId to match the records the runner writes, so a polling
+   * caller can scope via `statusByExecution(executionId)`.
+   */
+  executionId?: string;
 }
 
 /**
@@ -42,8 +52,14 @@ export async function runMigrationsInFargate<TContext extends MigrationContext =
   const targetEnv = process.env.MIGRATION_TARGET;
   const target = options.target ?? (targetEnv && targetEnv.length > 0 ? targetEnv : undefined);
 
+  const executionIdEnv = process.env.MIGRATION_EXECUTION_ID;
+  const executionId =
+    options.executionId ??
+    (executionIdEnv && executionIdEnv.length > 0 ? executionIdEnv : undefined);
+  const runOptions = executionId ? { executionId } : undefined;
+
   const runner = new MigrationRunner<TContext>(config);
-  return direction === 'up' ? runner.up(target) : runner.down(target);
+  return direction === 'up' ? runner.up(target, runOptions) : runner.down(target, runOptions);
 }
 
 /**

@@ -188,6 +188,74 @@ describe('runMigrationsInFargate', () => {
     ).rejects.toThrow(/Invalid MIGRATION_DIRECTION/);
   });
 
+  it('reads executionId from MIGRATION_EXECUTION_ID env var', async () => {
+    delete process.env.MIGRATION_DIRECTION;
+    delete process.env.MIGRATION_TARGET;
+    process.env.MIGRATION_EXECUTION_ID = 'env-exec-id';
+
+    const result = await runMigrationsInFargate({
+      createConfig: () => ({
+        migrations: [
+          {
+            id: '20250601_first',
+            migration: { name: 'first', up: async () => {}, down: async () => {} },
+          },
+        ],
+        storage,
+        context: {},
+      }),
+    });
+
+    expect(result.executionId).toBe('env-exec-id');
+    // Per-migration record carries the env-supplied id.
+    expect(storage.createRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ id: '20250601_first', executionId: 'env-exec-id' }),
+    );
+  });
+
+  it('falls back to a generated executionId when MIGRATION_EXECUTION_ID is unset', async () => {
+    delete process.env.MIGRATION_DIRECTION;
+    delete process.env.MIGRATION_TARGET;
+    delete process.env.MIGRATION_EXECUTION_ID;
+
+    const result = await runMigrationsInFargate({
+      createConfig: () => ({
+        migrations: [
+          {
+            id: '20250601_first',
+            migration: { name: 'first', up: async () => {}, down: async () => {} },
+          },
+        ],
+        storage,
+        context: {},
+      }),
+    });
+
+    expect(result.executionId).toHaveLength(36);
+  });
+
+  it('explicit executionId option overrides MIGRATION_EXECUTION_ID env', async () => {
+    delete process.env.MIGRATION_DIRECTION;
+    delete process.env.MIGRATION_TARGET;
+    process.env.MIGRATION_EXECUTION_ID = 'env-id';
+
+    const result = await runMigrationsInFargate({
+      executionId: 'option-id',
+      createConfig: () => ({
+        migrations: [
+          {
+            id: '20250601_first',
+            migration: { name: 'first', up: async () => {}, down: async () => {} },
+          },
+        ],
+        storage,
+        context: {},
+      }),
+    });
+
+    expect(result.executionId).toBe('option-id');
+  });
+
   it('does NOT inject a timeoutManager (runs to completion)', async () => {
     delete process.env.MIGRATION_DIRECTION;
     delete process.env.MIGRATION_TARGET;

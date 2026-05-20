@@ -8,3 +8,12 @@ export {
   runMigrationsInFargateAsCli,
   type FargateRunnerOptions,
 } from './fargate-runner';
+export {
+  EXECUTION_ROW_ID,
+  dispatchSentinelId,
+  isDispatchSentinelId,
+  isTaskStateChangeEvent,
+  parseTaskStoppedEvent,
+  handleTaskStoppedEvent,
+  type TaskStateChangeEvent,
+} from './task-stopped';
