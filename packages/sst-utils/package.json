@@ -46,7 +46,7 @@
     "sst": "^4.3.7"
   },
   "peerDependencies": {
-    "@auriclabs/logger": "^0.1.1",
+    "@auriclabs/logger": "^0.1.2",
     "@auriclabs/sst-types": "^0.1.0",
     "@middy/core": ">=5.0.0",
     "@middy/http-router": ">=5.0.0"
