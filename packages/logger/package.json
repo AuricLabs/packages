@@ -28,18 +28,17 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@auriclabs/env": "workspace:*",
+    "axios": "^1.15.0",
     "lodash-es": "4.18.1",
-    "pino": "^9.6.0"
+    "pino": "^9.6.0",
+    "pino-lambda": "^4.4.1"
   },
   "devDependencies": {
-    "@auriclabs/env": "workspace:*",
     "@types/axios": "^0.14.4",
     "@types/lodash-es": "4.17.12"
   },
   "peerDependencies": {
-    "@auriclabs/env": "^0.0.4",
-    "axios": "^1.15.0",
-    "pino-lambda": "^4.4.1",
     "sst": "^4.3.7"
   },
   "publishConfig": {
