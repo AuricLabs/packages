@@ -358,6 +358,9 @@ importers:
 
   packages/logger:
     dependencies:
+      '@auriclabs/env':
+        specifier: workspace:*
+        version: link:../env
       axios:
         specifier: ^1.15.0
         version: 1.15.0
@@ -374,9 +377,6 @@ importers:
         specifier: ^4.3.7
         version: 4.3.7
     devDependencies:
-      '@auriclabs/env':
-        specifier: workspace:*
-        version: link:../env
       '@types/axios':
         specifier: ^0.14.4
         version: 0.14.4
