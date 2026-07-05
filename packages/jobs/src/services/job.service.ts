@@ -1,3 +1,4 @@
+import { PaginationResponse } from '@auriclabs/pagination';
 import { ElectroError } from 'electrodb';
 import { NotFoundError } from 'http-errors-enhanced';
 
@@ -5,8 +6,20 @@ import { JobErrorCodes } from '../errors';
 import { JobEntity, JobItem, JobCreateFields, JobUpdateFields } from '../models';
 import { JobStatus, jobStatus } from '../types';
 
+export interface ListJobsOptions {
+  limit?: number;
+}
+
+export type JobSummary = Record<JobStatus, number>;
+
 export interface JobServiceInstance {
   getJob(jobId: string): Promise<JobItem>;
+  listJobsByStatus(
+    status: JobStatus,
+    options?: ListJobsOptions,
+  ): Promise<PaginationResponse<JobItem>>;
+  listJobs(options?: Pick<ListJobsOptions, 'limit'>): Promise<JobItem[]>;
+  getJobSummary(): Promise<JobSummary>;
   updateJobStatus(jobId: string, status: JobStatus, expectedStatus: JobStatus): Promise<boolean>;
   updateJob(
     jobId: string,
@@ -32,6 +45,46 @@ export function createJobService(Job: JobEntity): JobServiceInstance {
       }
 
       return job as JobItem;
+    },
+
+    // The gsi1 SK is the job id (a uuid), so DynamoDB returns partitions in
+    // arbitrary order — both list methods read the full partition(s) and sort
+    // by createdAt in memory. Same cost profile as getJobSummary; fine for
+    // dashboard scale, not for hot paths on large tables.
+    async listJobsByStatus(
+      status: JobStatus,
+      options?: ListJobsOptions,
+    ): Promise<PaginationResponse<JobItem>> {
+      const { data } = await Job.query.jobStatuses({ status }).go({ pages: 'all' });
+      const jobs = data
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, options?.limit ?? 100);
+      return { data: jobs, cursor: null, hasMore: false };
+    },
+
+    async listJobs(options?: Pick<ListJobsOptions, 'limit'>): Promise<JobItem[]> {
+      const limit = options?.limit ?? 100;
+      const results = await Promise.all(
+        Object.values(jobStatus).map((status) =>
+          Job.query.jobStatuses({ status }).go({ pages: 'all' }),
+        ),
+      );
+      return results
+        .flatMap((result) => result.data)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, limit);
+    },
+
+    async getJobSummary(): Promise<JobSummary> {
+      const entries = await Promise.all(
+        Object.values(jobStatus).map(async (status) => {
+          const { data } = await Job.query
+            .jobStatuses({ status })
+            .go({ pages: 'all', attributes: ['id'] });
+          return [status, data.length] as const;
+        }),
+      );
+      return Object.fromEntries(entries) as JobSummary;
     },
 
     async updateJobStatus(

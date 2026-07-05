@@ -7,11 +7,16 @@ import { jobStatus } from '../types';
 
 import { createJobService, JobServiceInstance } from './job.service';
 
+vi.mock('@auriclabs/pagination', () => ({
+  normalizePaginationResponse: vi.fn((promise: Promise<unknown>) => promise),
+}));
+
 function createMockJobEntity() {
   const mockGo = vi.fn();
   const mockSet = vi.fn();
   const mockAdd = vi.fn();
   const mockWhere = vi.fn();
+  const mockQueryGo = vi.fn();
 
   // Chain: patch() -> { set, add, where, go }
   // set() -> { where, go, add }
@@ -26,9 +31,12 @@ function createMockJobEntity() {
     get: vi.fn(() => ({ go: mockGo })),
     create: vi.fn(() => ({ go: mockGo })),
     patch: vi.fn(() => chainable),
+    query: {
+      jobStatuses: vi.fn(() => ({ go: mockQueryGo })),
+    },
   };
 
-  return { entity, mockGo, mockSet, mockAdd, mockWhere };
+  return { entity, mockGo, mockSet, mockAdd, mockWhere, mockQueryGo };
 }
 
 describe('jobService', () => {
@@ -57,6 +65,90 @@ describe('jobService', () => {
 
       await expect(service.getJob('job-1')).rejects.toThrow(NotFoundError);
       await expect(service.getJob('job-1')).rejects.toThrow(JobErrorCodes.JOB_NOT_FOUND);
+    });
+  });
+
+  describe('listJobsByStatus', () => {
+    it('reads the full status partition and sorts newest-first', async () => {
+      mocks.mockQueryGo.mockResolvedValue({
+        data: [
+          { id: 'old', createdAt: '2025-01-01T00:00:00Z' },
+          { id: 'new', createdAt: '2025-03-01T00:00:00Z' },
+        ],
+      });
+
+      const result = await service.listJobsByStatus(jobStatus.failed, { limit: 25 });
+
+      expect(mocks.entity.query.jobStatuses).toHaveBeenCalledWith({ status: jobStatus.failed });
+      expect(mocks.mockQueryGo).toHaveBeenCalledWith({ pages: 'all' });
+      expect(result.data.map((job) => job.id)).toEqual(['new', 'old']);
+      expect(result.cursor).toBeNull();
+    });
+
+    it('caps the result at the limit', async () => {
+      mocks.mockQueryGo.mockResolvedValue({
+        data: [
+          { id: 'a', createdAt: '2025-01-01T00:00:00Z' },
+          { id: 'b', createdAt: '2025-01-02T00:00:00Z' },
+          { id: 'c', createdAt: '2025-01-03T00:00:00Z' },
+        ],
+      });
+
+      const result = await service.listJobsByStatus(jobStatus.completed, { limit: 2 });
+
+      expect(result.data.map((job) => job.id)).toEqual(['c', 'b']);
+    });
+  });
+
+  describe('listJobs', () => {
+    it('fans out one query per status and merges newest-first', async () => {
+      mocks.mockQueryGo
+        .mockResolvedValueOnce({ data: [{ id: 'a', createdAt: '2025-01-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({ data: [{ id: 'b', createdAt: '2025-03-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({ data: [{ id: 'c', createdAt: '2025-02-01T00:00:00Z' }] })
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [] });
+
+      const result = await service.listJobs();
+
+      expect(mocks.entity.query.jobStatuses).toHaveBeenCalledTimes(5);
+      expect(mocks.mockQueryGo).toHaveBeenCalledWith({ pages: 'all' });
+      expect(result.map((job) => job.id)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('caps the merged result at the limit', async () => {
+      mocks.mockQueryGo.mockResolvedValue({
+        data: [
+          { id: 'x', createdAt: '2025-01-01T00:00:00Z' },
+          { id: 'y', createdAt: '2025-01-02T00:00:00Z' },
+        ],
+      });
+
+      const result = await service.listJobs({ limit: 3 });
+
+      expect(result).toHaveLength(3);
+    });
+  });
+
+  describe('getJobSummary', () => {
+    it('returns a count per status', async () => {
+      mocks.mockQueryGo
+        .mockResolvedValueOnce({ data: [{ id: '1' }, { id: '2' }] })
+        .mockResolvedValueOnce({ data: [{ id: '3' }] })
+        .mockResolvedValueOnce({ data: [] })
+        .mockResolvedValueOnce({ data: [{ id: '4' }] })
+        .mockResolvedValueOnce({ data: [] });
+
+      const summary = await service.getJobSummary();
+
+      expect(summary).toEqual({
+        pending: 2,
+        running: 1,
+        completed: 0,
+        failed: 1,
+        cancelled: 0,
+      });
+      expect(mocks.mockQueryGo).toHaveBeenCalledWith({ pages: 'all', attributes: ['id'] });
     });
   });
 

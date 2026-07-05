@@ -285,6 +285,44 @@ ElectroDB entity with fields: `jobId`, `attempt`, `status`, `error`, `response`,
 
 Custom error class thrown when job execution fails. Has `.started` and `.completed` getters to determine job state.
 
+## Dashboard
+
+The package ships a jobs dashboard (bundled Vite/React UI in `ui/` + a
+Lambda API), modeled on the `@auriclabs/migrations` dashboard. It lists
+jobs with status filtering, shows per-attempt history (errors, responses,
+continuation state, durations), and can retry or cancel jobs. It cannot
+create jobs.
+
+### Dashboard API handler
+
+```typescript
+// services/job/dashboard.ts
+import { createJobsDashboardApiHandler, initJobs } from '@auriclabs/jobs';
+import { Resource } from 'sst';
+
+initJobs({ tableName: Resource.JobTable.name });
+export const handler = createJobsDashboardApiHandler();
+```
+
+Routes: `GET /api/jobs` (`status`/`cursor`/`limit` query params),
+`GET /api/jobs/summary`, `GET /api/jobs/:id` (job + attempts),
+`POST /api/jobs/:id/retry` (optional `{ scheduledAt }` body),
+`POST /api/jobs/:id/cancel` (pending jobs only, 409 otherwise).
+
+Deploy it with `createJobsDashboard()` from `@auriclabs/jobs-infra`.
+Note the API is CORS-`*` and unauthenticated (basic-auth only gates the
+static site) — deploy to dev/demo stages only.
+
+### Local CLI dashboard
+
+```bash
+auric-jobs-dashboard
+```
+
+Picks an AWS SSO profile (auto-runs `aws sso login` on expiry), discovers
+the deployed job table by name, and serves the same UI on
+`http://127.0.0.1:3101` against the real table using your IAM identity.
+
 ## Environment Variables
 
 | Variable | Format | Used by |

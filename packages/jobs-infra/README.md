@@ -159,6 +159,31 @@ export const handler = createRegistryExecutorHandler({
    - Sets `QUEUE_URL_LIST` env var (needed for scheduledAt re-enqueue and continuations)
    - Same batch config as the Lambda executor
 
+### `createJobsDashboard(options)`
+
+Deploys the jobs dashboard that ships inside `@auriclabs/jobs`: an
+`ApiGatewayV2` routing `$default` to your dashboard API handler, and a
+`StaticSite` serving the package's `ui/` bundle with the API URL injected
+at deploy time. Optional CloudFront basic-auth gates the static site
+(discovery prevention only — the API itself is unauthenticated, so deploy
+on dev/demo stages only).
+
+```typescript
+import { createJobsDashboard } from '@auriclabs/jobs-infra';
+
+if (['dev', 'demo'].includes($app.stage)) {
+  createJobsDashboard({
+    apiHandler: 'services/job/dashboard.handler', // wraps createJobsDashboardApiHandler
+    table,
+    basicAuth: { username: 'ops', password: secret.value },
+  });
+}
+```
+
+Options: `apiHandler`, `table`, `link?` (extra linkables for the API fn),
+`domain?`, `uiPath?` (override the resolved @auriclabs/jobs ui dir),
+`basicAuth?` (`{ username, password, realm? }`). Returns `{ api, site }`.
+
 ## Full Example
 
 ```typescript

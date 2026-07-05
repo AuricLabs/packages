@@ -29,14 +29,21 @@
   },
   "dependencies": {},
   "devDependencies": {
+    "@auriclabs/jobs": "workspace:*",
     "@auriclabs/sst-types": "workspace:*",
     "@auriclabs/sst-utils": "workspace:*",
     "sst": "^4.3.7"
   },
   "peerDependencies": {
+    "@auriclabs/jobs": ">=0.3.0 <1",
     "@auriclabs/sst-types": "^0.1.0",
     "@auriclabs/sst-utils": "^1.2.0",
     "sst": "^4.3.7"
+  },
+  "peerDependenciesMeta": {
+    "@auriclabs/jobs": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"

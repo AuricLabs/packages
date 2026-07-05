@@ -11,31 +11,60 @@
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "ui",
+    "!ui/node_modules"
+  ],
+  "bin": {
+    "auric-jobs-dashboard": "./dist/auric-jobs-dashboard.mjs"
   },
   "keywords": [],
   "author": "",
   "type": "module",
   "license": "ISC",
   "scripts": {
-    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash",
+    "build": "tsdown src/index.ts --format cjs,esm --dts --no-hash && tsdown bin/auric-jobs-dashboard.ts --format esm --no-hash --no-clean && pnpm build:ui",
+    "build:ui": "cd ui && npx vite build",
     "dev": "concurrently \"pnpm build --watch\" \"pnpm:y:watch\"",
     "y:watch": "chokidar dist --initial --silent -c \"yalc publish --push\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "ts-config-typecheck",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run --passWithNoTests && pnpm test:ui",
+    "test:ui": "cd ui && npx vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@aws-sdk/credential-providers": "^3.700.0",
+    "@inquirer/prompts": "^7.0.0",
+    "commander": "^13.1.0",
+    "open": "^10.0.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@auriclabs/api-core": "workspace:*",
+    "@aws-sdk/types": "^3.700.0",
     "@auriclabs/logger": "workspace:*",
     "@auriclabs/pagination": "workspace:*",
+    "@radix-ui/react-dialog": "1.1.15",
+    "@tailwindcss/vite": "4.2.4",
+    "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-table": "8.21.3",
     "@types/aws-lambda": "^8.10.148",
-    "@types/uuid": "^10.0.0"
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "lucide-react": "1.12.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
+    "tailwindcss": "4.2.4",
+    "vite": "^7.3.2"
   },
   "peerDependencies": {
     "@auriclabs/api-core": "^0.1.2",
