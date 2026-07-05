@@ -91,6 +91,16 @@ interface LambdaJobResource {
   fns: FunctionWithName[];  // From @auriclabs/sst-utils
 }
 
+// In-process jobs: SQS → consumer runs registered handlers directly
+interface InProcessJobResource {
+  id: string;
+  executor: 'in-process';
+  queue: sst.aws.Queue;
+  handler: string;          // wraps createRegistryExecutorHandler(...) from @auriclabs/jobs
+  link?: unknown[];         // extra linkables the handlers depend on
+  environment?: Record<string, string>;
+}
+
 // Worker jobs: SQS → custom processing (no executor subscription)
 interface WorkerJobResource {
   id: string;
@@ -98,7 +108,36 @@ interface WorkerJobResource {
   queue: sst.aws.Queue;
 }
 
-type JobResource = LambdaJobResource | WorkerJobResource;
+type JobResource = LambdaJobResource | InProcessJobResource | WorkerJobResource;
+```
+
+Example `'in-process'` executor wiring:
+
+```typescript
+registerJobResources({
+  table,
+  resources: [
+    {
+      id: 'worker',
+      executor: 'in-process',
+      queue: workerJobQueue,
+      handler: 'services/job/handlers/registry-executor.handler',
+      link: [bucket],
+    },
+  ],
+  handlerPaths: { ... },
+});
+```
+
+```typescript
+// services/job/handlers/registry-executor.ts
+import { createRegistryExecutorHandler, initJobs } from '@auriclabs/jobs';
+import { Resource } from 'sst';
+
+initJobs({ tableName: Resource.JobTable.name });
+export const handler = createRegistryExecutorHandler({
+  syncItems: async (payload) => { /* ... */ },
+});
 ```
 
 ### What `registerJobResources` sets up
@@ -113,6 +152,12 @@ type JobResource = LambdaJobResource | WorkerJobResource;
    - Links table, queue, and target Lambda functions
    - Sets `LAMBDA_FUNCTION_LIST` env var (maps function names to ARNs)
    - Batch config: 10 items, 3 second window, partial responses enabled
+
+3. **In-process executor subscriptions** for each `InProcessJobResource` (`executor: 'in-process'`)
+   - Subscribes queue to the consumer-provided handler
+   - Links table, queue, and any extra `link` entries
+   - Sets `QUEUE_URL_LIST` env var (needed for scheduledAt re-enqueue and continuations)
+   - Same batch config as the Lambda executor
 
 ## Full Example
 

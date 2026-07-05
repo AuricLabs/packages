@@ -42,6 +42,11 @@ export function createJobAttemptModel(tableName: string) {
           type: 'any',
           required: false,
         },
+        state: {
+          type: CustomAttributeType<unknown>('any'),
+          readOnly: true,
+          required: false,
+        },
         duration: {
           type: 'number',
           required: false,
@@ -112,6 +117,6 @@ export type JobAttemptEntity = ReturnType<typeof createJobAttemptModel>;
 export type JobAttemptItem = EntityItem<JobAttemptEntity>;
 export type JobAttemptCreateFields = Pick<
   CreateEntityItem<JobAttemptEntity>,
-  'jobId' | 'attempt' | 'scheduledAt'
+  'jobId' | 'attempt' | 'scheduledAt' | 'state'
 >;
 export type JobAttemptUpdateFields = Partial<Omit<UpdateEntityItem<JobAttemptEntity>, 'updatedAt'>>;

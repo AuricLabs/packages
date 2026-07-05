@@ -16,10 +16,12 @@ function createMockJobAttemptEntity() {
   const mockGo = vi.fn();
   const mockSet = vi.fn();
   const mockWhere = vi.fn();
+  const mockRemove = vi.fn();
 
-  const chainable = { set: mockSet, where: mockWhere, go: mockGo };
+  const chainable = { set: mockSet, where: mockWhere, remove: mockRemove, go: mockGo };
   mockSet.mockReturnValue(chainable);
   mockWhere.mockReturnValue(chainable);
+  mockRemove.mockReturnValue(chainable);
 
   const entity = {
     get: vi.fn(() => ({ go: mockGo })),
@@ -30,7 +32,7 @@ function createMockJobAttemptEntity() {
     },
   };
 
-  return { entity, mockGo, mockSet, mockWhere };
+  return { entity, mockGo, mockSet, mockWhere, mockRemove };
 }
 
 function createMockJobService(): JobServiceInstance {
@@ -40,6 +42,7 @@ function createMockJobService(): JobServiceInstance {
     updateJob: vi.fn(),
     createJob: vi.fn(),
     prepareNextJobAttempt: vi.fn(),
+    prepareContinuationAttempt: vi.fn(),
   };
 }
 
@@ -82,6 +85,93 @@ describe('jobAttemptService', () => {
         attempt: 1,
         scheduledAt: '2025-01-01T00:00:00Z',
       });
+    });
+  });
+
+  describe('continueJobAttempt', () => {
+    it('completes the current attempt, transitions the job, and creates the next attempt', async () => {
+      vi.mocked(mockJobService.prepareContinuationAttempt).mockResolvedValue(2);
+      const nextAttempt = { jobId: 'job-1', attempt: 2, state: { cursor: 'abc' } };
+      mocks.mockGo.mockResolvedValue({ data: nextAttempt });
+
+      const result = await service.continueJobAttempt(
+        'job-1',
+        1,
+        { duration: 5000, completedAt: '2025-01-01T00:00:05Z', response: { processed: 10 } },
+        { state: { cursor: 'abc' }, scheduledAt: '2025-01-01T00:01:00Z' },
+      );
+
+      expect(mocks.entity.patch).toHaveBeenCalledWith({ jobId: 'job-1', attempt: 1 });
+      expect(mocks.mockSet).toHaveBeenCalledWith({
+        status: jobStatus.completed,
+        duration: 5000,
+        completedAt: '2025-01-01T00:00:05Z',
+        response: { processed: 10 },
+      });
+      expect(mocks.mockRemove).toHaveBeenCalledWith(['error']);
+      // job status is never written from here — prepareContinuationAttempt owns it
+      expect(mockJobService.updateJobStatus).not.toHaveBeenCalled();
+      expect(mockJobService.prepareContinuationAttempt).toHaveBeenCalledWith('job-1');
+      expect(mocks.entity.create).toHaveBeenCalledWith({
+        jobId: 'job-1',
+        attempt: 2,
+        scheduledAt: '2025-01-01T00:01:00Z',
+        state: { cursor: 'abc' },
+      });
+      expect(result).toBe(nextAttempt);
+    });
+
+    it('reverts the attempt to running when the continuation fails after completion', async () => {
+      // attempt patch succeeds, then the job transition fails
+      mocks.mockGo.mockResolvedValue({});
+      vi.mocked(mockJobService.prepareContinuationAttempt).mockRejectedValue(
+        new Error('transition failed'),
+      );
+
+      await expect(
+        service.continueJobAttempt(
+          'job-1',
+          1,
+          { duration: 100, completedAt: '2025-01-01T00:00:00Z' },
+          { state: { cursor: 'abc' } },
+        ),
+      ).rejects.toThrow('transition failed');
+
+      // compensating patch: status back to running so stopJob can mark it failed
+      expect(mocks.mockSet).toHaveBeenLastCalledWith({ status: jobStatus.running });
+      expect(mocks.entity.create).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundError when the attempt is not running', async () => {
+      mocks.mockGo.mockRejectedValue(
+        new ElectroError(1000, {
+          message: 'condition failed',
+          sections: {},
+        } as unknown as ErrorConstructor),
+      );
+
+      await expect(
+        service.continueJobAttempt(
+          'job-1',
+          1,
+          { duration: 100, completedAt: '2025-01-01T00:00:00Z' },
+          { state: null },
+        ),
+      ).rejects.toThrow(NotFoundError);
+      expect(mockJobService.prepareContinuationAttempt).not.toHaveBeenCalled();
+    });
+
+    it('throws non-ElectroError errors', async () => {
+      mocks.mockGo.mockRejectedValue(new Error('network error'));
+
+      await expect(
+        service.continueJobAttempt(
+          'job-1',
+          1,
+          { duration: 100, completedAt: '2025-01-01T00:00:00Z' },
+          { state: null },
+        ),
+      ).rejects.toThrow('network error');
     });
   });
 
@@ -194,6 +284,24 @@ describe('jobAttemptService', () => {
         jobStatus.completed,
         jobStatus.running,
       );
+    });
+
+    it('removes error when completing an attempt', async () => {
+      mocks.mockGo.mockResolvedValue({});
+      vi.mocked(mockJobService.updateJobStatus).mockResolvedValue(true);
+
+      await service.updateJobAttempt('job-1', 1, { status: jobStatus.completed });
+
+      expect(mocks.mockRemove).toHaveBeenCalledWith(['error']);
+    });
+
+    it('does not remove error when failing an attempt', async () => {
+      mocks.mockGo.mockResolvedValue({});
+      vi.mocked(mockJobService.updateJobStatus).mockResolvedValue(true);
+
+      await service.updateJobAttempt('job-1', 1, { status: jobStatus.failed, error: 'boom' });
+
+      expect(mocks.mockRemove).not.toHaveBeenCalled();
     });
 
     it('does not sync job status when no status in update fields', async () => {

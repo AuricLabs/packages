@@ -17,8 +17,25 @@ export interface QueryOptions {
   consistent?: boolean;
 }
 
+export interface ContinuationFields {
+  duration: number;
+  completedAt: string;
+  response?: unknown;
+}
+
+export interface ContinuationNext {
+  state: unknown;
+  scheduledAt?: string;
+}
+
 export interface JobAttemptServiceInstance {
-  scheduleJobAttempt(jobId: string, scheduledAt?: string): Promise<JobAttemptItem>;
+  scheduleJobAttempt(jobId: string, scheduledAt?: string, state?: unknown): Promise<JobAttemptItem>;
+  continueJobAttempt(
+    jobId: string,
+    attempt: number,
+    fields: ContinuationFields,
+    next: ContinuationNext,
+  ): Promise<JobAttemptItem>;
   rescheduleJobAttempt(jobId: string, attempt: number, scheduledAt: string): Promise<void>;
   getJobAttempt(jobId: string, attempt: number): Promise<JobAttemptItem>;
   markJobAttemptAsRunning(jobId: string, attempt: number): Promise<false | string>;
@@ -38,14 +55,68 @@ export function createJobAttemptService(
   jobService: JobServiceInstance,
 ): JobAttemptServiceInstance {
   return {
-    async scheduleJobAttempt(jobId: string, scheduledAt?: string): Promise<JobAttemptItem> {
+    async scheduleJobAttempt(
+      jobId: string,
+      scheduledAt?: string,
+      state?: unknown,
+    ): Promise<JobAttemptItem> {
       const attempt = await jobService.prepareNextJobAttempt(jobId);
       const { data: jobAttempt } = await JobAttempt.create({
         jobId,
         attempt,
         scheduledAt,
+        state,
       }).go();
       return jobAttempt;
+    },
+
+    async continueJobAttempt(
+      jobId: string,
+      attempt: number,
+      fields: ContinuationFields,
+      next: ContinuationNext,
+    ): Promise<JobAttemptItem> {
+      try {
+        // complete the current attempt without touching job status — the job
+        // stays running until prepareContinuationAttempt flips it to pending
+        await JobAttempt.patch({ jobId, attempt })
+          .set({
+            status: jobStatus.completed,
+            duration: fields.duration,
+            completedAt: fields.completedAt,
+            response: fields.response,
+          })
+          .remove(['error'])
+          .where((attr, op) => op.eq<JobStatus, JobStatus>(attr.status, jobStatus.running))
+          .go();
+      } catch (error) {
+        if (error instanceof ElectroError) {
+          throw new NotFoundError(JobErrorCodes.JOB_NOT_FOUND, {
+            jobId,
+          });
+        }
+        throw error;
+      }
+
+      try {
+        const nextAttempt = await jobService.prepareContinuationAttempt(jobId);
+        const { data: jobAttempt } = await JobAttempt.create({
+          jobId,
+          attempt: nextAttempt,
+          scheduledAt: next.scheduledAt,
+          state: next.state,
+        }).go();
+        return jobAttempt;
+      } catch (error) {
+        // compensate: revert the attempt to running so the caller's standard
+        // failure path (stopJob) can mark it failed instead of wedging the job
+        await JobAttempt.patch({ jobId, attempt })
+          .set({ status: jobStatus.running })
+          .where((attr, op) => op.eq<JobStatus, JobStatus>(attr.status, jobStatus.completed))
+          .go()
+          .catch(() => undefined);
+        throw error;
+      }
     },
 
     async rescheduleJobAttempt(jobId: string, attempt: number, scheduledAt: string): Promise<void> {
@@ -89,8 +160,13 @@ export function createJobAttemptService(
 
     async updateJobAttempt(jobId: string, attempt: number, updateFields: JobAttemptUpdateFields) {
       try {
-        await JobAttempt.patch({ jobId, attempt })
-          .set(updateFields)
+        let action = JobAttempt.patch({ jobId, attempt }).set(updateFields);
+
+        if (updateFields.status === jobStatus.completed) {
+          action = action.remove(['error']);
+        }
+
+        await action
           .where((attr, op) => op.eq<JobStatus, JobStatus>(attr.status, jobStatus.running))
           .go();
 

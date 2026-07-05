@@ -5,3 +5,4 @@ export * from './services';
 export * from './helpers';
 export * from './handlers';
 export * from './init';
+export * from './typed';

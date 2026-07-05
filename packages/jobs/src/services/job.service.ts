@@ -15,6 +15,7 @@ export interface JobServiceInstance {
   ): Promise<void>;
   createJob(definition: JobCreateFields): Promise<JobItem>;
   prepareNextJobAttempt(jobId: string): Promise<number>;
+  prepareContinuationAttempt(jobId: string): Promise<number>;
 }
 
 export function createJobService(Job: JobEntity): JobServiceInstance {
@@ -78,16 +79,38 @@ export function createJobService(Job: JobEntity): JobServiceInstance {
       return job;
     },
 
+    async prepareContinuationAttempt(jobId: string): Promise<number> {
+      try {
+        const { data: job } = await Job.patch({ id: jobId })
+          .set({ status: jobStatus.pending })
+          .add({ totalAttempts: 1 })
+          // running -> pending directly, so status pollers never see a false 'completed'
+          .where((attr, op) => op.eq<JobStatus, JobStatus>(attr.status, jobStatus.running))
+          .go({
+            response: 'updated_new',
+          });
+        return job.totalAttempts ?? 1;
+      } catch (error) {
+        if (error instanceof ElectroError) {
+          throw new NotFoundError(JobErrorCodes.JOB_NOT_FOUND, {
+            jobId,
+          });
+        }
+        throw error;
+      }
+    },
+
     async prepareNextJobAttempt(jobId: string): Promise<number> {
       try {
         const { data: job } = await Job.patch({ id: jobId })
           .set({ status: jobStatus.pending })
           .add({ totalAttempts: 1 })
           .where((attr, op) => {
-            return `${op.eq<JobStatus, JobStatus>(
+            // retryable from pending/completed/failed; never while running or after cancel
+            return `${op.ne<JobStatus, JobStatus>(
               attr.status,
-              jobStatus.completed,
-            )} OR ${op.ne<JobStatus, JobStatus>(attr.status, jobStatus.failed)}`;
+              jobStatus.running,
+            )} AND ${op.ne<JobStatus, JobStatus>(attr.status, jobStatus.cancelled)}`;
           })
           .go({
             response: 'updated_new',

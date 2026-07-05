@@ -133,6 +133,44 @@ describe('jobService', () => {
     });
   });
 
+  describe('prepareContinuationAttempt', () => {
+    it('moves the job from running back to pending and increments attempts', async () => {
+      mocks.mockGo.mockResolvedValue({ data: { totalAttempts: 3 } });
+
+      const result = await service.prepareContinuationAttempt('job-1');
+
+      expect(result).toBe(3);
+      expect(mocks.entity.patch).toHaveBeenCalledWith({ id: 'job-1' });
+      expect(mocks.mockSet).toHaveBeenCalledWith({ status: jobStatus.pending });
+      expect(mocks.mockAdd).toHaveBeenCalledWith({ totalAttempts: 1 });
+
+      const whereFn = mocks.mockWhere.mock.calls[0][0] as (
+        attr: { status: string },
+        op: { eq: (attr: string, value: string) => string },
+      ) => string;
+      const eq = vi.fn((_attr: string, value: string) => `#status = ${value}`);
+      whereFn({ status: 'status' }, { eq });
+      expect(eq).toHaveBeenCalledWith('status', jobStatus.running);
+    });
+
+    it('throws NotFoundError on ElectroError', async () => {
+      mocks.mockGo.mockRejectedValue(
+        new ElectroError(1000, {
+          message: 'condition failed',
+          sections: {},
+        } as unknown as ErrorConstructor),
+      );
+
+      await expect(service.prepareContinuationAttempt('job-1')).rejects.toThrow(NotFoundError);
+    });
+
+    it('throws non-ElectroError errors', async () => {
+      mocks.mockGo.mockRejectedValue(new Error('network error'));
+
+      await expect(service.prepareContinuationAttempt('job-1')).rejects.toThrow('network error');
+    });
+  });
+
   describe('createJob', () => {
     it('creates and returns a job', async () => {
       const mockJob = { id: 'job-1', queue: 'test', fn: 'handler', payload: {} };
@@ -164,6 +202,25 @@ describe('jobService', () => {
       expect(mocks.mockSet).toHaveBeenCalledWith({ status: jobStatus.pending });
       expect(mocks.mockAdd).toHaveBeenCalledWith({ totalAttempts: 1 });
       expect(mocks.mockGo).toHaveBeenCalledWith({ response: 'updated_new' });
+    });
+
+    it('allows retry unless the job is running or cancelled', async () => {
+      mocks.mockGo.mockResolvedValue({ data: { totalAttempts: 2 } });
+
+      await service.prepareNextJobAttempt('job-1');
+
+      const whereFn = mocks.mockWhere.mock.calls[0][0] as (
+        attr: { status: string },
+        op: { ne: (attr: string, value: string) => string },
+      ) => string;
+      const ne = vi.fn((_attr: string, value: string) => `#status <> ${value}`);
+      const condition = whereFn({ status: 'status' }, { ne });
+
+      expect(ne).toHaveBeenCalledWith('status', jobStatus.running);
+      expect(ne).toHaveBeenCalledWith('status', jobStatus.cancelled);
+      expect(condition).toBe(
+        `#status <> ${jobStatus.running} AND #status <> ${jobStatus.cancelled}`,
+      );
     });
 
     it('returns 1 when totalAttempts is undefined', async () => {

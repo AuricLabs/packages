@@ -3,15 +3,18 @@ import { logger } from '@auriclabs/logger';
 import { JobAttemptItem, JobItem } from '../models';
 import { JobMessage, JobResponse, jobStatus } from '../types';
 
+import { applyContinuation, JobContinuation } from './continue-job';
 import { startJob, StartJobContext } from './start-job';
 import { stopJob } from './stop-job';
 
+export type JobExecutorResult = JobResponse | JobContinuation | null | undefined;
+
 export const executeJob = async (
   message: JobMessage,
-  executor: (job: StartJobContext) => Promise<JobResponse | null | undefined> | null | undefined,
+  executor: (job: StartJobContext) => Promise<JobExecutorResult> | JobExecutorResult,
 ): Promise<void> => {
   let context: StartJobContext | undefined;
-  let response: JobResponse | null | undefined;
+  let response: JobExecutorResult;
   logger.info(message, `processing job ${message.jobId}`);
 
   try {
@@ -22,6 +25,11 @@ export const executeJob = async (
     }
 
     response = await executor(context);
+
+    if (response instanceof JobContinuation) {
+      await applyContinuation(context, response);
+      return;
+    }
 
     await stopJob(context, response);
   } catch (error) {
@@ -37,7 +45,12 @@ export const executeJob = async (
       );
     }
 
-    throw new JobExecutionError(error, context?.job, context?.jobAttempt, response);
+    throw new JobExecutionError(
+      error,
+      context?.job,
+      context?.jobAttempt,
+      response instanceof JobContinuation ? undefined : response,
+    );
   }
 };
 

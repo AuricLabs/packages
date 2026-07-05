@@ -4,6 +4,7 @@ vi.mock('@auriclabs/logger', () => ({
 
 const mockStartJob = vi.fn();
 const mockStopJob = vi.fn();
+const mockApplyContinuation = vi.fn();
 
 vi.mock('./start-job', () => ({
   startJob: (...args: unknown[]) => mockStartJob(...args) as unknown,
@@ -13,9 +14,19 @@ vi.mock('./stop-job', () => ({
   stopJob: (...args: unknown[]) => mockStopJob(...args) as unknown,
 }));
 
+// JobContinuation must stay the real class — executeJob relies on instanceof
+vi.mock('./continue-job', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./continue-job')>();
+  return {
+    ...actual,
+    applyContinuation: (...args: unknown[]) => mockApplyContinuation(...args) as unknown,
+  };
+});
+
 import { JobAttemptItem, JobItem } from '../models';
 import { jobStatus } from '../types';
 
+import { continueJob } from './continue-job';
 import { executeJob, JobExecutionError } from './execute-job';
 
 describe('executeJob', () => {
@@ -85,6 +96,24 @@ describe('executeJob', () => {
     await expect(executeJob(baseMessage, executor)).rejects.toThrow(JobExecutionError);
 
     // stopJob should not have been called since context is undefined
+    expect(mockStopJob).not.toHaveBeenCalled();
+  });
+
+  it('applies a continuation instead of stopping the job', async () => {
+    const context = {
+      job: { id: 'job-1', status: jobStatus.running },
+      jobAttempt: { jobId: 'job-1', attempt: 1, startedAt: '2025-01-01T00:00:00Z' },
+      success: true,
+    };
+    const continuation = continueJob({ cursor: 'next' });
+
+    mockStartJob.mockResolvedValue(context);
+    const executor = vi.fn().mockResolvedValue(continuation);
+    mockApplyContinuation.mockResolvedValue(undefined);
+
+    await executeJob(baseMessage, executor);
+
+    expect(mockApplyContinuation).toHaveBeenCalledWith(context, continuation);
     expect(mockStopJob).not.toHaveBeenCalled();
   });
 

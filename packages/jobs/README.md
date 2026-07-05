@@ -89,6 +89,105 @@ export const handler = createLambdaExecutorHandler();
 FIFO queue behavior: processes sequentially, stops on first failure.
 Standard queue behavior: processes in parallel, collects individual failures.
 
+#### `createRegistryExecutorHandler(handlers)`
+
+In-process alternative to the Lambda executor: instead of invoking a separate
+target Lambda per job `fn`, runs a registered handler inside the SQS consumer.
+No second cold start, no cross-Lambda payload limit, one function to deploy.
+
+```typescript
+import { createRegistryExecutorHandler, initJobs } from '@auriclabs/jobs';
+import { Resource } from 'sst';
+
+initJobs({ tableName: Resource.JobTable.name });
+
+export const handler = createRegistryExecutorHandler({
+  syncItems: async (payload, context) => {
+    // return raw data — wrapped as { success: true, data }
+    return { processed: 42 };
+  },
+  sendEmail: async (payload) => {
+    // return nothing — wrapped as { success: true }
+  },
+});
+```
+
+Handlers return raw data (wrapped as a success response), a `JobContinuation`
+(see below), or throw to fail the attempt. An unregistered `fn` fails the
+attempt with a clear error. Wire the consumer with the `'in-process'` executor
+resource in `@auriclabs/jobs-infra`.
+
+### Typed job registry
+
+`defineJobs<T>()` adds compile-time safety over the untyped core: job `fn`
+keys and payload shapes are checked when scheduling, and the handler map must
+cover every declared job type.
+
+```typescript
+import { defineJobs } from '@auriclabs/jobs';
+
+interface MyJobs {
+  syncItems: { cursor?: string };
+  cloneItem: { itemId: string; count: number };
+}
+
+export const jobs = defineJobs<MyJobs>();
+
+// payload and fn key are type-checked
+await jobs.scheduleJob('worker', 'cloneItem', { itemId: 'x', count: 2 });
+
+// missing or mistyped handlers are compile errors
+export const handler = jobs.createRegistryExecutorHandler({
+  syncItems: async (payload) => { /* payload: { cursor?: string } */ },
+  cloneItem: async (payload) => ({ clonedId: payload.itemId }),
+});
+```
+
+### Long-running jobs (continuations)
+
+Jobs that exceed the Lambda time limit can process a slice, then return a
+continuation carrying a cursor. The current attempt completes, the job goes
+straight back to `pending` (never a false `completed` for status pollers),
+and a new attempt is created with the cursor in its `state` field.
+
+```typescript
+import { continueJob, createTimeBudget } from '@auriclabs/jobs';
+
+export const handler = jobs.createRegistryExecutorHandler({
+  syncItems: async (payload, context) => {
+    const budget = createTimeBudget(5 * 60 * 1000); // 5 minutes
+    let cursor = (context.jobAttempt.state as { cursor?: string } | undefined)?.cursor;
+
+    do {
+      cursor = await syncPage(cursor);
+    } while (budget.shouldRun(cursor));
+
+    if (cursor) {
+      return continueJob({ cursor }); // schedule the next slice
+    }
+    return { done: true };
+  },
+});
+```
+
+Note: each continuation slice counts as an attempt (`totalAttempts` includes
+slices, not just retries).
+
+### Retrying failed jobs
+
+```typescript
+import { retryJob } from '@auriclabs/jobs';
+
+const { jobAttempt } = await retryJob('job-123');
+// or defer the retry:
+await retryJob('job-123', '2025-12-01T00:00:00.000Z');
+```
+
+Retry is allowed from `pending`, `completed`, and `failed` — never while
+`running` or after `cancelled`. For long-running jobs, the retry carries the
+last attempt's continuation `state`, so a failed slice resumes from its cursor
+instead of restarting the whole job.
+
 ### Helper Functions
 
 ```typescript
@@ -180,7 +279,7 @@ ElectroDB entity with fields: `id`, `queue`, `fn`, `status`, `totalAttempts`, `p
 
 ### `JobAttemptItem`
 
-ElectroDB entity with fields: `jobId`, `attempt`, `status`, `error`, `response`, `duration`, `startedAt`, `scheduledAt`, `completedAt`, `failedAt`, `createdAt`, `updatedAt`.
+ElectroDB entity with fields: `jobId`, `attempt`, `status`, `error`, `response`, `state`, `duration`, `startedAt`, `scheduledAt`, `completedAt`, `failedAt`, `createdAt`, `updatedAt`. `state` carries the continuation cursor for long-running jobs.
 
 ### `JobExecutionError`
 

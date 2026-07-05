@@ -7,13 +7,24 @@ export interface LambdaJobResource {
   fns: FunctionWithName[];
 }
 
+export interface InProcessJobResource {
+  id: string;
+  executor: 'in-process';
+  queue: sst.aws.Queue;
+  /** Path to a handler that wraps createRegistryExecutorHandler(...) from @auriclabs/jobs. */
+  handler: string;
+  /** Extra linkables the in-process handlers depend on. */
+  link?: unknown[];
+  environment?: Record<string, string>;
+}
+
 export interface WorkerJobResource {
   id: string;
   executor?: never;
   queue: sst.aws.Queue;
 }
 
-export type JobResource = LambdaJobResource | WorkerJobResource;
+export type JobResource = LambdaJobResource | InProcessJobResource | WorkerJobResource;
 
 export interface RegisterJobResourcesConfig {
   table: sst.aws.Dynamo;
@@ -73,6 +84,30 @@ export function registerJobResources(config: RegisterJobResourcesConfig) {
           link: [table, resource.queue, ...resource.fns],
           environment: {
             LAMBDA_FUNCTION_LIST: $jsonStringify(resource.fns.map((f) => [f.name, f.arn])),
+            // needed for startJob's scheduledAt re-enqueue
+            QUEUE_URL_LIST,
+          },
+        },
+        {
+          batch: {
+            size: 10,
+            window: '3 seconds',
+            partialResponses: true,
+          },
+        },
+      );
+    }
+
+    if (resource.executor === 'in-process') {
+      resource.queue.subscribe(
+        {
+          handler: resource.handler,
+          link: [table, resource.queue, ...(resource.link ?? [])],
+          environment: {
+            ...resource.environment,
+            // in-process executors re-enqueue for scheduledAt deferrals and
+            // continuations — must win over consumer-provided environment
+            QUEUE_URL_LIST,
           },
         },
         {
