@@ -10,7 +10,30 @@ export interface JobsDashboardBasicAuthConfig {
   realm?: string;
 }
 
+/**
+ * The subset of the SST components namespace that {@link createJobsDashboard}
+ * needs at runtime.
+ *
+ * Passed in rather than referenced as the `sst` global for the same reason as
+ * {@link JobTableSstProvider}: this package ships as `.mjs`, and SST's config
+ * evaluator skips `.mjs`/`.cjs` when injecting the `sst` global (its esbuild
+ * `onLoad` plugin filters on `\.(js|ts|jsx|tsx)$`). See the note on
+ * {@link JobTableSstProvider} for the full mechanism.
+ */
+export interface JobsDashboardSstProvider {
+  aws: {
+    ApiGatewayV2: typeof sst.aws.ApiGatewayV2;
+    StaticSite: typeof sst.aws.StaticSite;
+  };
+}
+
 export interface JobsDashboardOptions {
+  /**
+   * SST components namespace — pass the injected `sst` global from your
+   * `sst.config.ts` (a `.ts` file, which SST *does* inject `sst` into).
+   * See {@link JobsDashboardSstProvider}.
+   */
+  sst: JobsDashboardSstProvider;
   /**
    * Handler path for the dashboard API Lambda. The handler should call
    * `initJobs({ tableName: Resource.<JobTable>.name })` and export
@@ -43,6 +66,7 @@ export interface JobsDashboardOptions {
 }
 
 export function createJobsDashboard(options: JobsDashboardOptions) {
+  const { sst } = options;
   const api = new sst.aws.ApiGatewayV2('JobsDashboardApi', { cors: true });
 
   const link: unknown[] = [options.table, ...(options.link ?? [])];
@@ -64,6 +88,7 @@ export function createJobsDashboard(options: JobsDashboardOptions) {
   // a script tag that sets globalThis.__JOBS_API_URL__ before the app loads.
   const site = new sst.aws.StaticSite('JobsDashboard', {
     path: uiRelative,
+
     build: {
       command: [
         // _deploy persists in node_modules across deploys — a stale copy would
