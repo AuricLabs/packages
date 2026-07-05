@@ -1,6 +1,6 @@
 {
   "name": "@auriclabs/jobs-infra",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "SST infrastructure helpers for job queue tables and resources",
   "prettier": "@auriclabs/prettier-config",
   "main": "dist/index.cjs",
