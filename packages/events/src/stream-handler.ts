@@ -146,10 +146,7 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
           );
         }
       } catch (error) {
-        logger.error(
-          { error, batch: summarizeBatchForLog(batch) },
-          'Error sending batch to bus',
-        );
+        logger.error({ error, batch: summarizeBatchForLog(batch) }, 'Error sending batch to bus');
         throw error;
       }
     }

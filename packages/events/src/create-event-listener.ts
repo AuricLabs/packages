@@ -35,7 +35,7 @@ export const createEventListener =
     };
     const failedGroups = new Set<string>();
     for (const record of sqsEvent.Records) {
-      const groupId = record.attributes?.MessageGroupId;
+      const groupId = record.attributes.MessageGroupId;
 
       // Skip records whose message group already failed (preserves FIFO ordering per aggregate)
       if (groupId && failedGroups.has(groupId)) {

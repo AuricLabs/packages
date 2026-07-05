@@ -332,9 +332,7 @@ describe('stream-handler', () => {
     mockUnmarshall.mockReturnValue(eventRecord);
     mockEbSend.mockResolvedValue({
       FailedEntryCount: 1,
-      Entries: [
-        { ErrorCode: 'InternalException', ErrorMessage: 'transient' },
-      ],
+      Entries: [{ ErrorCode: 'InternalException', ErrorMessage: 'transient' }],
     });
 
     const handler = createStreamHandler(config);
