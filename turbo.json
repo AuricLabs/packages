@@ -10,12 +10,15 @@
       "outputs": []
     },
     "test": {
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "lint": {
+      "dependsOn": ["^build"],
       "outputs": []
     },
     "typecheck": {
+      "dependsOn": ["^build"],
       "outputs": []
     }
   }

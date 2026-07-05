@@ -117,6 +117,9 @@ export function createDashboard(options: DashboardOptions) {
     path: uiRelative,
     build: {
       command: [
+        // _deploy persists in node_modules across deploys — a stale copy would
+        // nest the new dist and keep serving the old bundle
+        'rm -rf _deploy',
         'cp -r dist _deploy',
         `sed -i.bak 's|<head>|<head><script>window.__MIGRATIONS_API_URL__="'$VITE_API_URL'"</script>|' _deploy/index.html`,
         'rm -f _deploy/index.html.bak',
