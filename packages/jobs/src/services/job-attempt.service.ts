@@ -1,3 +1,4 @@
+import { logger } from '@auriclabs/logger';
 import { PaginationResponse, normalizePaginationResponse } from '@auriclabs/pagination';
 import { ElectroError } from 'electrodb';
 import { NotFoundError } from 'http-errors-enhanced';
@@ -114,7 +115,13 @@ export function createJobAttemptService(
           .set({ status: jobStatus.running })
           .where((attr, op) => op.eq<JobStatus, JobStatus>(attr.status, jobStatus.completed))
           .go()
-          .catch(() => undefined);
+          .catch((compensationError: unknown) => {
+            logger.warn(
+              { jobId, attempt, err: compensationError },
+              'continuation compensation failed — job may be stuck running and need manual repair',
+            );
+            return undefined;
+          });
         throw error;
       }
     },

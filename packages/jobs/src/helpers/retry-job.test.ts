@@ -16,6 +16,8 @@ vi.mock('../init', () => ({
   getJobAttemptService: () => mockJobAttemptService,
 }));
 
+import { NotFoundError } from 'http-errors-enhanced';
+
 import { retryJob } from './retry-job';
 
 describe('retryJob', () => {
@@ -70,9 +72,9 @@ describe('retryJob', () => {
     });
   });
 
-  it('still retries when the last attempt cannot be loaded', async () => {
+  it('still retries when the last attempt row is missing', async () => {
     mockJobService.getJob.mockResolvedValue({ id: 'job-1', totalAttempts: 2 });
-    mockJobAttemptService.getJobAttempt.mockRejectedValue(new Error('not found'));
+    mockJobAttemptService.getJobAttempt.mockRejectedValue(new NotFoundError('JOB_NOT_FOUND'));
     mockJobAttemptService.scheduleJobAttempt.mockResolvedValue({ jobId: 'job-1', attempt: 3 });
 
     const result = await retryJob('job-1');
@@ -83,5 +85,13 @@ describe('retryJob', () => {
       undefined,
       undefined,
     );
+  });
+
+  it('propagates unexpected errors from the last-attempt lookup', async () => {
+    mockJobService.getJob.mockResolvedValue({ id: 'job-1', totalAttempts: 2 });
+    mockJobAttemptService.getJobAttempt.mockRejectedValue(new Error('throttled'));
+
+    await expect(retryJob('job-1')).rejects.toThrow('throttled');
+    expect(mockJobAttemptService.scheduleJobAttempt).not.toHaveBeenCalled();
   });
 });

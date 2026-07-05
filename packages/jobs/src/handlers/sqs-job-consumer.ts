@@ -9,8 +9,9 @@ export type ProcessJobRecord = (message: JobMessage, record: SQSRecord) => Promi
 /**
  * Shared SQS batch loop for job executors. Handles FIFO (sequential,
  * stop-on-failure) vs standard (parallel, partial batch failures) queues and
- * swallows JobExecutionError for attempts that already started — those are
- * recorded as failed attempts, not retried at the SQS level.
+ * swallows JobExecutionError for attempts that already started — their
+ * outcome is tracked on the attempt row, so redelivering the message could
+ * only double-run the job.
  */
 export function createSqsJobConsumer(processRecord: ProcessJobRecord) {
   return async (event: SQSEvent): Promise<SQSBatchResponse> => {
