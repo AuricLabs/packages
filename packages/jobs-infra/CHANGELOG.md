@@ -1,5 +1,12 @@
 # @auriclabs/jobs-infra
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [04afb31]
+  - @auriclabs/jobs@0.4.0
+
 ## 2.2.0
 
 ### Minor Changes
