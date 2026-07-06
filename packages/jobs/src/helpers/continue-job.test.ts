@@ -14,6 +14,7 @@ import { JobAttemptItem, JobItem } from '../models';
 import { jobStatus } from '../types';
 
 import { applyContinuation, continueJob, JobContinuation } from './continue-job';
+import { OutputBuffer } from './output-buffer';
 
 describe('continueJob', () => {
   it('wraps state and options in a JobContinuation', () => {
@@ -80,6 +81,26 @@ describe('applyContinuation', () => {
       1,
       expect.objectContaining({ response: { processed: 10 } }),
       { state: { cursor: 'next' }, scheduledAt: '2025-06-01T00:00:00Z' },
+    );
+  });
+
+  it('persists captured output on the completed slice', async () => {
+    const context = createContext();
+    const outputBuffer = new OutputBuffer();
+    outputBuffer.append('info', 'synced page 7');
+    mockJobAttemptService.continueJobAttempt.mockResolvedValue({ jobId: 'job-1', attempt: 2 });
+
+    await applyContinuation({ ...context, outputBuffer }, continueJob({ cursor: 'next' }));
+
+    expect(mockJobAttemptService.continueJobAttempt).toHaveBeenCalledWith(
+      'job-1',
+      1,
+      expect.objectContaining({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        output: expect.stringContaining('synced page 7'),
+        outputTruncated: undefined,
+      }),
+      { state: { cursor: 'next' }, scheduledAt: undefined },
     );
   });
 

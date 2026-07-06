@@ -7,7 +7,7 @@ import type { Job } from '../api/types';
 import { AttemptTable } from '../components/AttemptTable';
 import { CancelDialog } from '../components/CancelDialog';
 import { JsonView } from '../components/JsonView';
-import { RetryDialog } from '../components/RetryDialog';
+import { RetryDialog, retryActionLabel } from '../components/RetryDialog';
 import { StatusChip } from '../components/StatusChip';
 import { TableSkeleton } from '../components/TableSkeleton';
 import { TimeAgo } from '../components/TimeAgo';
@@ -135,7 +135,7 @@ function Header({ id, job, attemptCount, onRetry, onCancel }: HeaderProps) {
               onClick={onRetry}
             >
               <RotateCcw className="size-4" />
-              Retry
+              {retryActionLabel(job)}
             </button>
           )}
           {job && canCancel(job) && (

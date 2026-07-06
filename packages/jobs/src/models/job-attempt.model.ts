@@ -47,6 +47,14 @@ export function createJobAttemptModel(tableName: string) {
           readOnly: true,
           required: false,
         },
+        output: {
+          type: 'string',
+          required: false,
+        },
+        outputTruncated: {
+          type: 'boolean',
+          required: false,
+        },
         duration: {
           type: 'number',
           required: false,

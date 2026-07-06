@@ -77,6 +77,24 @@ describe('startJob', () => {
     expect(result.success).toBe(false);
   });
 
+  it('exposes a capturing log context', async () => {
+    const mockJob = { id: 'job-1', status: jobStatus.pending, queue: 'lambda' };
+    const mockAttempt = { jobId: 'job-1', attempt: 1 };
+
+    mockJobAttemptService.getJobAttempt.mockResolvedValue(mockAttempt);
+    mockJobService.getJob.mockResolvedValue(mockJob);
+    mockJobAttemptService.markJobAttemptAsRunning.mockResolvedValue('2025-01-01T00:00:00Z');
+
+    const result = await startJob(baseMessage);
+
+    result.log('hello from the job');
+    result.logger.warn('watch out');
+
+    const output = result.outputBuffer.serialize();
+    expect(output).toContain('[info] hello from the job');
+    expect(output).toContain('[warn] watch out');
+  });
+
   it('does not re-queue when scheduledAt is in the past', async () => {
     const pastDate = new Date(Date.now() - 60000).toISOString();
     const mockJob = { id: 'job-1', status: jobStatus.pending, queue: 'lambda' };

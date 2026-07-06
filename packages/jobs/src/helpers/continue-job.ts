@@ -28,7 +28,11 @@ export function continueJob(state: unknown, options?: JobContinuationOptions): J
 }
 
 export const applyContinuation = async (
-  { job, jobAttempt }: Pick<StartJobContext, 'job' | 'jobAttempt'>,
+  {
+    job,
+    jobAttempt,
+    outputBuffer,
+  }: Pick<StartJobContext, 'job' | 'jobAttempt'> & Partial<Pick<StartJobContext, 'outputBuffer'>>,
   continuation: JobContinuation,
 ): Promise<void> => {
   const jobAttemptService = getJobAttemptService();
@@ -47,6 +51,8 @@ export const applyContinuation = async (
       duration,
       completedAt,
       response: continuation.options?.response,
+      output: outputBuffer && !outputBuffer.isEmpty ? outputBuffer.serialize() : undefined,
+      outputTruncated: outputBuffer?.truncated ? true : undefined,
     },
     {
       state: continuation.state,

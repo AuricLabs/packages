@@ -173,6 +173,28 @@ export const handler = jobs.createRegistryExecutorHandler({
 Note: each continuation slice counts as an attempt (`totalAttempts` includes
 slices, not just retries).
 
+### Job logs
+
+Handlers can capture log output onto the attempt row — visible in the
+dashboard's attempt detail, exactly like migration output:
+
+```typescript
+export const handler = jobs.createRegistryExecutorHandler({
+  syncItems: async (payload, context) => {
+    context.log('starting sync', { cursor: payload.cursor });
+    context.logger.warn('rate limited, backing off');
+    // ...
+  },
+});
+```
+
+Output is byte-capped (oldest lines drop first past ~200KB; the attempt row
+records `outputTruncated` when that happens) and persists on completion,
+failure, and each continuation slice. Capture is per-attempt and
+concurrency-safe — parallel jobs never interleave. Only in-process executors
+can capture: jobs run through the Lambda executor log to the target Lambda's
+own CloudWatch instead.
+
 ### Retrying failed jobs
 
 ```typescript

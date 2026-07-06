@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { JobAttempt } from '../api/types';
 import { ErrorPanel } from './ErrorPanel';
 import { JsonView } from './JsonView';
+import { OutputPanel } from './OutputPanel';
 
 interface AttemptDetailsPanelProps {
   attempt: JobAttempt;
@@ -10,6 +11,7 @@ interface AttemptDetailsPanelProps {
 export function hasAttemptDetails(attempt: JobAttempt): boolean {
   return (
     !!attempt.error ||
+    !!attempt.output ||
     attempt.response !== undefined ||
     attempt.state !== undefined ||
     attempt.duration != null ||
@@ -40,6 +42,10 @@ export function AttemptDetailsPanel({ attempt }: AttemptDetailsPanelProps) {
       </div>
 
       {attempt.error && <ErrorPanel error={attempt.error} />}
+
+      {attempt.output && (
+        <OutputPanel output={attempt.output} truncated={attempt.outputTruncated} />
+      )}
 
       {attempt.response !== undefined && (
         <div>

@@ -6,6 +6,7 @@ import type { Job, JobStatus } from '../api/types';
 import { StatusChip } from './StatusChip';
 import { TimeAgo } from './TimeAgo';
 import { DataTable } from './DataTable';
+import { retryActionLabel } from './RetryDialog';
 
 /**
  * Retrying a pending job would double-enqueue it (the job-level CAS prevents
@@ -77,7 +78,7 @@ export function JobTable({ rows, loading, onRetry, onCancel }: JobTableProps) {
           const job = info.row.original;
           return (
             <div className="flex items-center justify-end gap-1.5">
-              {job.status === 'failed' && (
+              {canRetry(job) && (
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
@@ -87,7 +88,7 @@ export function JobTable({ rows, loading, onRetry, onCancel }: JobTableProps) {
                   }}
                 >
                   <RotateCcw className="size-3.5" />
-                  Retry
+                  {retryActionLabel(job)}
                 </button>
               )}
               {canCancel(job) && (

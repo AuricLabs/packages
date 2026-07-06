@@ -26,6 +26,8 @@ export interface JobAttempt {
   error?: string;
   response?: unknown;
   state?: unknown;
+  output?: string;
+  outputTruncated?: boolean;
   duration?: number;
   startedAt?: string;
   scheduledAt?: string;

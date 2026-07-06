@@ -22,6 +22,8 @@ export interface ContinuationFields {
   duration: number;
   completedAt: string;
   response?: unknown;
+  output?: string;
+  outputTruncated?: boolean;
 }
 
 export interface ContinuationNext {
@@ -86,6 +88,8 @@ export function createJobAttemptService(
             duration: fields.duration,
             completedAt: fields.completedAt,
             response: fields.response,
+            output: fields.output,
+            outputTruncated: fields.outputTruncated,
           })
           .remove(['error'])
           .where((attr, op) => op.eq<JobStatus, JobStatus>(attr.status, jobStatus.running))

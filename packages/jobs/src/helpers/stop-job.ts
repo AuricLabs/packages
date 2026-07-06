@@ -13,7 +13,11 @@ export interface StopJobContext {
 }
 
 export const stopJob = async (
-  { job, jobAttempt }: Pick<StartJobContext, 'job' | 'jobAttempt'>,
+  {
+    job,
+    jobAttempt,
+    outputBuffer,
+  }: Pick<StartJobContext, 'job' | 'jobAttempt'> & Partial<Pick<StartJobContext, 'outputBuffer'>>,
   response: JobResponse | undefined | null,
 ): Promise<StopJobContext> => {
   const jobAttemptService = getJobAttemptService();
@@ -25,27 +29,51 @@ export const stopJob = async (
 
   const success = response?.success ?? !response?.error;
   const duration = new Date(completedAt).getTime() - new Date(jobAttempt.startedAt).getTime();
+  const output = outputBuffer && !outputBuffer.isEmpty ? outputBuffer.serialize() : undefined;
+  const outputTruncated = outputBuffer?.truncated ? true : undefined;
 
   logger.info(
     { jobId: job.id, response, attempt: jobAttempt.attempt },
     `job ${job.id} completed as ${success ? 'success' : 'failed'} in ${duration}ms`,
   );
 
-  try {
-    if (success) {
-      await jobAttemptService.updateJobAttempt(job.id, jobAttempt.attempt, {
+  const updateFields = success
+    ? {
         status: jobStatus.completed,
         duration,
         response: response?.data,
         completedAt,
-      });
-    } else {
-      await jobAttemptService.updateJobAttempt(job.id, jobAttempt.attempt, {
+        output,
+        outputTruncated,
+      }
+    : {
         status: jobStatus.failed,
         error: response?.error instanceof Error ? response.error.stack : String(response?.error),
         response: response?.data,
         failedAt: completedAt,
         duration,
+        output,
+        outputTruncated,
+      };
+
+  try {
+    try {
+      await jobAttemptService.updateJobAttempt(job.id, jobAttempt.attempt, updateFields);
+    } catch (error) {
+      if (output === undefined) {
+        throw error;
+      }
+      // The row may have blown DynamoDB's item limit (output + response +
+      // state share the 400KB cap). Losing the logs beats wedging the
+      // attempt in `running` forever — retry once without them.
+      logger.warn(
+        { err: error, jobId: job.id, attempt: jobAttempt.attempt },
+        'failed to persist attempt with captured output — retrying without output',
+      );
+      await jobAttemptService.updateJobAttempt(job.id, jobAttempt.attempt, {
+        ...updateFields,
+        output: undefined,
+        outputTruncated: true,
       });
     }
   } catch (error) {
