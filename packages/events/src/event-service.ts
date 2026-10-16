@@ -168,11 +168,9 @@ export function createEventService(tableName: string): EventService {
         );
       } catch (err) {
         if (err instanceof ConditionalCheckFailedException) {
-          throw new Error(
-            `OCC failed for aggregate ${aggregateType}/${aggregateId}: expectedVersion=${expectedVersion}`,
-          );
+          throw new Error('Event append conflict');
         }
-        throw err;
+        throw new Error('Event append failed');
       }
 
       return { pk, sk, version: nextVersion };
@@ -180,8 +178,12 @@ export function createEventService(tableName: string): EventService {
 
     async getHead(aggregateType: string, aggregateId: string): Promise<AggregateHead | undefined> {
       const pk = pkFor(aggregateType, aggregateId);
-      const res = await ddb.send(new GetCommand({ TableName: TABLE, Key: { pk, sk: 'HEAD' } }));
-      return res.Item as AggregateHead | undefined;
+      try {
+        const res = await ddb.send(new GetCommand({ TableName: TABLE, Key: { pk, sk: 'HEAD' } }));
+        return res.Item as AggregateHead | undefined;
+      } catch {
+        throw new Error('Event head read failed');
+      }
     },
 
     async getEvent(
@@ -191,8 +193,12 @@ export function createEventService(tableName: string): EventService {
     ): Promise<EventRecord | undefined> {
       const pk = pkFor(aggregateType, aggregateId);
       const sk = `EVT#${pad(version)}`;
-      const res = await ddb.send(new GetCommand({ TableName: TABLE, Key: { pk, sk } }));
-      return res.Item as EventRecord | undefined;
+      try {
+        const res = await ddb.send(new GetCommand({ TableName: TABLE, Key: { pk, sk } }));
+        return res.Item as EventRecord | undefined;
+      } catch {
+        throw new Error('Event read failed');
+      }
     },
 
     async listEvents(params: {
@@ -212,24 +218,28 @@ export function createEventService(tableName: string): EventService {
           ? `EVT#${pad(params.toVersionInclusive)}`
           : 'EVT#999999999';
 
-      const res = await ddb.send(
-        new QueryCommand({
-          TableName: TABLE,
-          KeyConditionExpression: 'pk = :pk AND sk BETWEEN :from AND :to',
-          ExpressionAttributeValues: {
-            ':pk': pk,
-            ':from': fromSk,
-            ':to': toSk,
-          },
-          ScanIndexForward: true,
-          Limit: params.limit,
-        }),
-      );
+      try {
+        const res = await ddb.send(
+          new QueryCommand({
+            TableName: TABLE,
+            KeyConditionExpression: 'pk = :pk AND sk BETWEEN :from AND :to',
+            ExpressionAttributeValues: {
+              ':pk': pk,
+              ':from': fromSk,
+              ':to': toSk,
+            },
+            ScanIndexForward: true,
+            Limit: params.limit,
+          }),
+        );
 
-      return normalizePaginationResponse({
-        data: (res.Items ?? []) as EventRecord[],
-        cursor: res.LastEvaluatedKey && (res.LastEvaluatedKey as { pk: string; sk: string }).sk,
-      });
+        return normalizePaginationResponse({
+          data: (res.Items ?? []) as EventRecord[],
+          cursor: res.LastEvaluatedKey && (res.LastEvaluatedKey as { pk: string; sk: string }).sk,
+        });
+      } catch {
+        throw new Error('Event list failed');
+      }
     },
   };
 }

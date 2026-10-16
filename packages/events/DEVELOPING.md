@@ -106,6 +106,19 @@ Handlers that want to log/metric replays read `event.meta?.replay` inside
 the handler body. The staleness policy is orthogonal — a replayed event that
 arrives within `maxAgeMs` is not stale; a stale event need not be a replay.
 
+## Safe transport diagnostics
+
+Event bodies, payloads, identifiers supplied by events, DynamoDB stream
+images, provider failure messages and raw exceptions can contain private
+input. Keep them out of logs in this package, including debug and failed-send
+paths. Use SQS-assigned message IDs, fixed processing stages, numeric queue or
+record positions, and counts for diagnostics. A stream handler exception can
+also be logged by Lambda after propagation, so rethrow fixed-text errors
+without attaching an unsafe cause. Event-store methods follow the same rule:
+provider failures become fixed, operation-only errors before callers or retry
+helpers can log them. Preserve partial-batch failures, FIFO ordering and
+provider retry behavior when changing diagnostics.
+
 ## Releasing
 
 This package's downstream peer (`@auriclabs/events-infra`) declares a
