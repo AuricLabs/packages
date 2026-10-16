@@ -227,12 +227,12 @@ describe('event-service', () => {
           eventId: 'e',
           eventType: 'T',
         }),
-      ).rejects.toThrow('OCC failed for aggregate order/o-1: expectedVersion=3');
+      ).rejects.toThrow('Event append conflict');
     });
 
-    it('re-throws non-OCC errors', async () => {
+    it('sanitizes non-OCC provider errors', async () => {
       const service = createEventService(TABLE_NAME);
-      mockSend.mockRejectedValue(new Error('Network error'));
+      mockSend.mockRejectedValue(new Error('provider-secret-marker payload-secret-marker'));
 
       await expect(
         service.appendEvent({
@@ -245,7 +245,20 @@ describe('event-service', () => {
           eventId: 'e',
           eventType: 'T',
         }),
-      ).rejects.toThrow('Network error');
+      ).rejects.toThrow('Event append failed');
+
+      await expect(
+        service.appendEvent({
+          tenantId: 'tenant-1',
+          aggregateType: 'order',
+          aggregateId: 'o-1',
+          source: 'test',
+          expectedVersion: 0,
+          idempotencyKey: 'k',
+          eventId: 'e',
+          eventType: 'T',
+        }),
+      ).rejects.not.toThrow(/provider-secret-marker|payload-secret-marker/);
     });
   });
 
@@ -271,6 +284,18 @@ describe('event-service', () => {
       const result = await service.getHead('order', 'nonexistent');
       expect(result).toBeUndefined();
     });
+
+    it('sanitizes provider errors', async () => {
+      const service = createEventService(TABLE_NAME);
+      mockSend.mockRejectedValue(new Error('provider-secret-marker payload-secret-marker'));
+
+      await expect(service.getHead('order', 'payload-secret-marker')).rejects.toThrow(
+        'Event head read failed',
+      );
+      await expect(service.getHead('order', 'payload-secret-marker')).rejects.not.toThrow(
+        /provider-secret-marker|payload-secret-marker/,
+      );
+    });
   });
 
   describe('getEvent', () => {
@@ -294,6 +319,18 @@ describe('event-service', () => {
 
       const result = await service.getEvent('order', 'o-1', 999);
       expect(result).toBeUndefined();
+    });
+
+    it('sanitizes provider errors', async () => {
+      const service = createEventService(TABLE_NAME);
+      mockSend.mockRejectedValue(new Error('provider-secret-marker payload-secret-marker'));
+
+      await expect(service.getEvent('order', 'payload-secret-marker', 3)).rejects.toThrow(
+        'Event read failed',
+      );
+      await expect(service.getEvent('order', 'payload-secret-marker', 3)).rejects.not.toThrow(
+        /provider-secret-marker|payload-secret-marker/,
+      );
     });
   });
 
@@ -395,6 +432,17 @@ describe('event-service', () => {
       const result = await service.listEvents({ aggregateType: 'order', aggregateId: 'o-1' });
 
       expect(result).toEqual({ data: [], cursor: undefined });
+    });
+
+    it('sanitizes provider errors', async () => {
+      const service = createEventService(TABLE_NAME);
+      mockSend.mockRejectedValue(new Error('provider-secret-marker payload-secret-marker'));
+
+      const request = { aggregateType: 'order', aggregateId: 'payload-secret-marker' };
+      await expect(service.listEvents(request)).rejects.toThrow('Event list failed');
+      await expect(service.listEvents(request)).rejects.not.toThrow(
+        /provider-secret-marker|payload-secret-marker/,
+      );
     });
   });
 });

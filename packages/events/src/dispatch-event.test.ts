@@ -28,6 +28,7 @@ vi.mock('ulid', () => ({
 }));
 
 import { retry } from '@auriclabs/api-core';
+import { logger } from '@auriclabs/logger';
 
 import { dispatchEvent } from './dispatch-event';
 
@@ -234,5 +235,21 @@ describe('dispatchEvent', () => {
     });
 
     expect(result).toEqual(expected);
+  });
+
+  it('does not put producer event data into debug logs', async () => {
+    await dispatchEvent({
+      aggregateType: 'order',
+      aggregateId: 'producer-aggregate-secret-marker',
+      source: 'test',
+      eventType: 'OrderCreated',
+      tenantId: 'tenant-1',
+      payload: { secret: 'producer-payload-secret-marker' },
+    });
+
+    expect(logger.debug).toHaveBeenCalledWith({}, 'Dispatching event');
+    const logged = JSON.stringify(vi.mocked(logger.debug).mock.calls);
+    expect(logged).not.toContain('producer-payload-secret-marker');
+    expect(logged).not.toContain('producer-aggregate-secret-marker');
   });
 });

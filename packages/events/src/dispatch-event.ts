@@ -20,7 +20,7 @@ export const dispatchEvent = async (event: DispatchEventArgs): Promise<AppendEve
 
   return retry(async () => {
     const head = await eventService.getHead(event.aggregateType, event.aggregateId);
-    logger.debug({ event }, 'Dispatching event');
+    logger.debug({}, 'Dispatching event');
     return eventService.appendEvent({
       ...getEventContext(),
       ...event,

@@ -155,6 +155,16 @@ describe('createEventListener', () => {
     expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-fail' }]);
   });
 
+  it('handles a record without optional group attributes', async () => {
+    const handler = createEventListener({ OrderCreated: vi.fn() });
+    const record = makeRecord(makeEvent(), 'msg-no-group');
+    record.attributes = undefined as unknown as SQSRecordAttributes;
+
+    const result = await handler({ Records: [record] });
+
+    expect(result.batchItemFailures).toEqual([]);
+  });
+
   it('marks subsequent records in same message group as failed after first failure', async () => {
     const handler = createEventListener({
       OrderCreated: () => {
@@ -229,19 +239,17 @@ describe('createEventListener', () => {
     ]);
   });
 
-  it('logs events in debug mode', async () => {
+  it('logs only the SQS message identifier in debug mode', async () => {
     const handler = createEventListener({ OrderCreated: vi.fn() }, { debug: true });
 
     const sqsEvent: SQSEvent = {
-      Records: [makeRecord(makeEvent())],
+      Records: [makeRecord(makeEvent({ payload: { secret: 'debug-secret-marker' } }))],
     };
 
     await handler(sqsEvent);
 
-    expect(logger.debug).toHaveBeenCalledWith(
-      { event: expect.objectContaining({ eventType: 'OrderCreated' }) as unknown },
-      'Processing event',
-    );
+    expect(logger.debug).toHaveBeenCalledWith({ messageId: 'msg-1' }, 'Processing event');
+    expect(JSON.stringify(vi.mocked(logger.debug).mock.calls)).not.toContain('debug-secret-marker');
   });
 
   it('does not log events when debug is false', async () => {
@@ -256,24 +264,45 @@ describe('createEventListener', () => {
     expect(logger.debug).not.toHaveBeenCalled();
   });
 
-  it('logs error details when handler fails', async () => {
-    const error = new Error('boom');
+  it('logs a safe failure stage when a handler error contains event data', async () => {
+    const error = new Error('handler-secret-marker');
     const handler = createEventListener({
       OrderCreated: () => {
         throw error;
       },
     });
 
-    const event = makeEvent();
+    const event = makeEvent({ payload: { secret: 'payload-secret-marker' } });
     const sqsEvent: SQSEvent = {
       Records: [makeRecord(event, 'msg-err')],
     };
 
-    await handler(sqsEvent);
+    const result = await handler(sqsEvent);
 
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ error, event: expect.any(Object) as unknown }),
+      { messageId: 'msg-err', phase: 'process' },
       'Error processing event',
+    );
+    expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-err' }]);
+    const logged = JSON.stringify(vi.mocked(logger.error).mock.calls);
+    expect(logged).not.toContain('handler-secret-marker');
+    expect(logged).not.toContain('payload-secret-marker');
+  });
+
+  it('logs a safe parse stage for malformed SQS bodies', async () => {
+    const handler = createEventListener({}, { debug: true });
+    const record = makeRecord({}, 'msg-malformed');
+    record.body = '{"secret":"malformed-secret-marker"';
+
+    const result = await handler({ Records: [record] });
+
+    expect(logger.error).toHaveBeenCalledWith(
+      { messageId: 'msg-malformed', phase: 'parse' },
+      'Error processing event',
+    );
+    expect(result.batchItemFailures).toEqual([{ itemIdentifier: 'msg-malformed' }]);
+    expect(JSON.stringify(vi.mocked(logger.error).mock.calls)).not.toContain(
+      'malformed-secret-marker',
     );
   });
 
@@ -312,11 +341,34 @@ describe('createEventListener', () => {
       expect(result.batchItemFailures).toEqual([]);
       expect(logger.info).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: 'OrderCreated',
+          messageId: 'msg-skip',
           maxAgeMs: 60_000,
         }),
         'Skipping stale event',
       );
+    });
+
+    it('does not log event identifiers from a stale skipped message', async () => {
+      const handler = createEventListener(
+        { OrderCreated: vi.fn() },
+        { staleness: { maxAgeMs: 60_000, onStale: 'skip' } },
+      );
+      await handler({
+        Records: [
+          makeRecord(
+            makeEvent({
+              eventId: 'stale-event-secret-marker',
+              aggregateId: 'stale-aggregate-secret-marker',
+              occurredAt: oldTimestamp(),
+            }),
+            'msg-stale',
+          ),
+        ],
+      });
+
+      const logged = JSON.stringify(vi.mocked(logger.info).mock.calls);
+      expect(logged).not.toContain('stale-event-secret-marker');
+      expect(logged).not.toContain('stale-aggregate-secret-marker');
     });
 
     it("onStale: 'skip' does NOT poison subsequent same-group records", async () => {

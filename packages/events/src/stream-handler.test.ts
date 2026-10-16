@@ -278,7 +278,7 @@ describe('stream-handler', () => {
           Id: 'evt-1-0',
           Code: 'InvalidParameterValue',
           SenderFault: true,
-          Message: 'Value for parameter MessageGroupId is invalid.',
+          Message: 'provider-failure-secret-marker',
         },
       ],
     });
@@ -288,26 +288,29 @@ describe('stream-handler', () => {
       Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
-    await expect(handler(event)).rejects.toThrow(/failed entries/i);
+    await expect(handler(event)).rejects.toThrow('SQS batch send failed');
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
-        queue: 'https://sqs.us-east-1.amazonaws.com/123/queue-1',
+        queueIndex: 0,
         failedCount: 1,
-        failed: expect.arrayContaining([
-          expect.objectContaining({
-            Code: 'InvalidParameterValue',
-            SenderFault: true,
-          }) as unknown,
-        ]) as unknown,
+        senderFaultCount: 1,
       }),
       'SQS batch had failed entries',
     );
+    expect(JSON.stringify(vi.mocked(logger.error).mock.calls)).not.toContain(
+      'provider-failure-secret-marker',
+    );
   });
 
-  it('error log redacts full event payloads (no PII)', async () => {
-    const eventRecord = makeEventRecord({ payload: { secret: 'pii-do-not-log' } });
+  it('error logs omit event fields and thrown error text', async () => {
+    const eventRecord = makeEventRecord({
+      eventId: 'event-id-secret-marker',
+      aggregateId: 'aggregate-id-secret-marker',
+      eventType: 'event-type-secret-marker',
+      payload: { secret: 'pii-do-not-log' },
+    });
     mockUnmarshall.mockReturnValue(eventRecord);
-    mockSqsSend.mockRejectedValue(new Error('boom'));
+    mockSqsSend.mockRejectedValue(new Error('sdk-error-secret-marker'));
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
@@ -316,14 +319,19 @@ describe('stream-handler', () => {
 
     await expect(handler(event)).rejects.toThrow();
 
-    const callsWithBatch = vi.mocked(logger.error).mock.calls.filter((call) => {
-      const arg = call[0] as { batch?: unknown };
-      return arg.batch !== undefined;
-    });
-    expect(callsWithBatch.length).toBeGreaterThan(0);
-    for (const call of callsWithBatch) {
-      const logged = JSON.stringify(call[0]);
-      expect(logged).not.toContain('pii-do-not-log');
+    expect(logger.error).toHaveBeenCalledWith(
+      { queueIndex: 0, batchSize: 1 },
+      'Error sending batch to queue',
+    );
+    const logged = JSON.stringify(vi.mocked(logger.error).mock.calls);
+    for (const secret of [
+      'pii-do-not-log',
+      'event-id-secret-marker',
+      'aggregate-id-secret-marker',
+      'event-type-secret-marker',
+      'sdk-error-secret-marker',
+    ]) {
+      expect(logged).not.toContain(secret);
     }
   });
 
@@ -332,7 +340,7 @@ describe('stream-handler', () => {
     mockUnmarshall.mockReturnValue(eventRecord);
     mockEbSend.mockResolvedValue({
       FailedEntryCount: 1,
-      Entries: [{ ErrorCode: 'InternalException', ErrorMessage: 'transient' }],
+      Entries: [{ ErrorCode: 'InternalException', ErrorMessage: 'eventbridge-secret-marker' }],
     });
 
     const handler = createStreamHandler(config);
@@ -340,15 +348,16 @@ describe('stream-handler', () => {
       Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
-    await expect(handler(event)).rejects.toThrow(/failed entries/i);
+    await expect(handler(event)).rejects.toThrow('EventBridge batch send failed');
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         failedCount: 1,
-        failed: expect.arrayContaining([
-          expect.objectContaining({ ErrorCode: 'InternalException' }) as unknown,
-        ]) as unknown,
+        batchSize: 1,
       }),
       'EventBridge PutEvents had failed entries',
+    );
+    expect(JSON.stringify(vi.mocked(logger.error).mock.calls)).not.toContain(
+      'eventbridge-secret-marker',
     );
   });
 
@@ -381,20 +390,23 @@ describe('stream-handler', () => {
 
   it('handles unmarshall errors gracefully', async () => {
     mockUnmarshall.mockImplementation(() => {
-      throw new Error('unmarshall failed');
+      throw new Error('unmarshall-error-secret-marker');
     });
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
-      Records: [makeStreamRecord('INSERT', { bad: { S: 'data' } })],
+      Records: [makeStreamRecord('INSERT', { bad: { S: 'stream-record-secret-marker' } })],
     };
 
     await handler(event);
 
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.any(Error) as unknown }),
+      { recordIndex: 0 },
       'Error unmarshalling event record',
     );
+    const logged = JSON.stringify(vi.mocked(logger.error).mock.calls);
+    expect(logged).not.toContain('unmarshall-error-secret-marker');
+    expect(logged).not.toContain('stream-record-secret-marker');
     // Should not send to queues since no valid records
     expect(SendMessageBatchCommand).not.toHaveBeenCalled();
     expect(PutEventsCommand).not.toHaveBeenCalled();
@@ -410,18 +422,21 @@ describe('stream-handler', () => {
     expect(PutEventsCommand).not.toHaveBeenCalled();
   });
 
-  it('re-throws SQS send errors', async () => {
+  it('rethrows a fixed SQS error without SDK text', async () => {
     const eventRecord = makeEventRecord();
     mockUnmarshall.mockReturnValue(eventRecord);
-    mockSqsSend.mockRejectedValue(new Error('SQS error'));
+    mockSqsSend.mockRejectedValue(new Error('sqs-sdk-secret-marker'));
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
       Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
-    await expect(handler(event)).rejects.toThrow('SQS error');
+    await expect(handler(event)).rejects.toThrow('SQS batch send failed');
     expect(logger.error).toHaveBeenCalled();
+    expect(JSON.stringify(vi.mocked(logger.error).mock.calls)).not.toContain(
+      'sqs-sdk-secret-marker',
+    );
   });
 
   it('skips EventBridge when busName is omitted', async () => {
@@ -459,17 +474,20 @@ describe('stream-handler', () => {
     expect(PutEventsCommand).not.toHaveBeenCalled();
   });
 
-  it('re-throws EventBridge send errors', async () => {
+  it('rethrows a fixed EventBridge error without SDK text', async () => {
     const eventRecord = makeEventRecord();
     mockUnmarshall.mockReturnValue(eventRecord);
-    mockEbSend.mockRejectedValue(new Error('EB error'));
+    mockEbSend.mockRejectedValue(new Error('eventbridge-sdk-secret-marker'));
 
     const handler = createStreamHandler(config);
     const event: DynamoDBStreamEvent = {
       Records: [makeStreamRecord('INSERT', { a: { S: '1' } })],
     };
 
-    await expect(handler(event)).rejects.toThrow();
+    await expect(handler(event)).rejects.toThrow('EventBridge batch send failed');
     expect(logger.error).toHaveBeenCalled();
+    expect(JSON.stringify(vi.mocked(logger.error).mock.calls)).not.toContain(
+      'eventbridge-sdk-secret-marker',
+    );
   });
 });

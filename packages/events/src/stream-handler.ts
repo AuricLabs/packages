@@ -31,20 +31,15 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
     return chunks;
   }
 
-  function summarizeBatchForLog(batch: EventRecord[]) {
-    return batch.map((eventRecord) => ({
-      eventId: eventRecord.eventId,
-      aggregateId: eventRecord.aggregateId,
-      aggregateType: eventRecord.aggregateType,
-      eventType: eventRecord.eventType,
-    }));
-  }
-
   async function sendToQueuesBatch(eventRecords: EventRecord[]) {
-    await Promise.all(config.queueUrls.map((queue) => sendToQueueBatch(eventRecords, queue)));
+    await Promise.all(
+      config.queueUrls.map((queue, queueIndex) =>
+        sendToQueueBatch(eventRecords, queue, queueIndex),
+      ),
+    );
   }
 
-  async function sendToQueueBatch(eventRecords: EventRecord[], queue: string) {
+  async function sendToQueueBatch(eventRecords: EventRecord[], queue: string, queueIndex: number) {
     const batches = chunkArray(eventRecords, BATCH_SIZE);
     // SQS FIFO queues require MessageGroupId + MessageDeduplicationId on every entry;
     // standard queues reject both as InvalidParameterValue. Queue URLs always end in
@@ -76,28 +71,20 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
         if (res.Failed && res.Failed.length > 0) {
           logger.error(
             {
-              queue,
+              queueIndex,
+              batchSize: batch.length,
               failedCount: res.Failed.length,
-              failed: res.Failed.map((f) => ({
-                Id: f.Id,
-                Code: f.Code,
-                SenderFault: f.SenderFault,
-                Message: f.Message,
-              })),
-              batch: summarizeBatchForLog(batch),
+              senderFaultCount: res.Failed.filter((entry) => entry.SenderFault).length,
             },
             'SQS batch had failed entries',
           );
-          throw new Error(
-            `SQS batch send had ${String(res.Failed.length)} failed entries on ${queue}`,
-          );
+          throw new Error('SQS batch send had failed entries');
         }
-      } catch (error) {
-        logger.error(
-          { error, queue, batch: summarizeBatchForLog(batch) },
-          'Error sending batch to queue',
-        );
-        throw error;
+      } catch {
+        // SDK error text can echo rejected entry data. Lambda also logs
+        // uncaught errors, so throw a fixed message without an unsafe cause.
+        logger.error({ queueIndex, batchSize: batch.length }, 'Error sending batch to queue');
+        throw new Error('SQS batch send failed');
       }
     }
   }
@@ -130,36 +117,27 @@ export function createStreamHandler(config: CreateStreamHandlerConfig) {
           logger.error(
             {
               failedCount: res.FailedEntryCount,
-              failed: (res.Entries ?? [])
-                .map((entry, idx) => ({
-                  idx,
-                  ErrorCode: entry.ErrorCode,
-                  ErrorMessage: entry.ErrorMessage,
-                }))
-                .filter((entry) => entry.ErrorCode),
-              batch: summarizeBatchForLog(batch),
+              batchSize: batch.length,
             },
             'EventBridge PutEvents had failed entries',
           );
-          throw new Error(
-            `EventBridge PutEvents had ${String(res.FailedEntryCount)} failed entries`,
-          );
+          throw new Error('EventBridge PutEvents had failed entries');
         }
-      } catch (error) {
-        logger.error({ error, batch: summarizeBatchForLog(batch) }, 'Error sending batch to bus');
-        throw error;
+      } catch {
+        logger.error({ batchSize: batch.length }, 'Error sending batch to bus');
+        throw new Error('EventBridge batch send failed');
       }
     }
   }
 
   return async (event: DynamoDBStreamEvent): Promise<void> => {
     const eventRecords = event.Records.filter((record) => record.eventName === 'INSERT')
-      .map((record) => {
+      .map((record, recordIndex) => {
         try {
           const data = record.dynamodb?.NewImage;
           return unmarshall(data as Record<string, AttributeValue>) as EventRecord | AggregateHead;
-        } catch (error) {
-          logger.error({ error, record }, 'Error unmarshalling event record');
+        } catch {
+          logger.error({ recordIndex }, 'Error unmarshalling event record');
           return undefined;
         }
       })

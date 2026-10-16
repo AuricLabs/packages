@@ -35,7 +35,9 @@ export const createEventListener =
     };
     const failedGroups = new Set<string>();
     for (const record of sqsEvent.Records) {
-      const groupId = record.attributes.MessageGroupId;
+      // Keep the published runtime's tolerance for incomplete synthetic records.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      const groupId = record.attributes?.MessageGroupId;
 
       // Skip records whose message group already failed (preserves FIFO ordering per aggregate)
       if (groupId && failedGroups.has(groupId)) {
@@ -45,11 +47,12 @@ export const createEventListener =
         continue;
       }
 
-      let event: EventRecord | undefined;
+      let phase: 'parse' | 'process' = 'parse';
       try {
-        event = JSON.parse(record.body) as EventRecord;
+        const event = JSON.parse(record.body) as EventRecord;
+        phase = 'process';
         if (debug) {
-          logger.debug({ event }, 'Processing event');
+          logger.debug({ messageId: record.messageId }, 'Processing event');
         }
 
         const policy = stalenessByEventType[event.eventType] ?? staleness;
@@ -61,10 +64,7 @@ export const createEventListener =
             // evaluated independently (each gets its own staleness check).
             logger.info(
               {
-                eventId: event.eventId,
-                eventType: event.eventType,
-                aggregateId: event.aggregateId,
-                aggregateType: event.aggregateType,
+                messageId: record.messageId,
                 ageMs: eventAgeMs(event),
                 maxAgeMs: policy.maxAgeMs,
               },
@@ -94,9 +94,11 @@ export const createEventListener =
           });
           await handler(event);
         }
-      } catch (error) {
+      } catch {
         if (groupId) failedGroups.add(groupId);
-        logger.error({ error, event, body: record.body }, 'Error processing event');
+        // Both handler errors and SQS bodies can contain event payloads. The
+        // transport-assigned ID identifies the retry without logging either.
+        logger.error({ messageId: record.messageId, phase }, 'Error processing event');
         response.batchItemFailures.push({
           itemIdentifier: record.messageId,
         });
