@@ -323,7 +323,11 @@ import { createJobsDashboardApiHandler, initJobs } from '@auriclabs/jobs';
 import { Resource } from 'sst';
 
 initJobs({ tableName: Resource.JobTable.name });
-export const handler = createJobsDashboardApiHandler();
+export const handler = createJobsDashboardApiHandler({
+  // Recheck the verified API Gateway authorizer context in the handler.
+  // The consumer decides which signed-in operator role may see/act on jobs.
+  authorize: (event) => isAuthorizedOperator(event.requestContext.authorizer),
+});
 ```
 
 Routes: `GET /api/jobs` (`status`/`cursor`/`limit` query params),
@@ -332,8 +336,11 @@ Routes: `GET /api/jobs` (`status`/`cursor`/`limit` query params),
 `POST /api/jobs/:id/cancel` (pending jobs only, 409 otherwise).
 
 Deploy it with `createJobsDashboard()` from `@auriclabs/jobs-infra`.
-Note the API is CORS-`*` and unauthenticated (basic-auth only gates the
-static site) — deploy to dev/demo stages only.
+The handler refuses to start without an authorization predicate. In hosted
+deployments, `createJobsDashboard()` also requires an API Gateway authorizer
+for every data route and exact-origin CORS. The bundled UI requests a new
+short-lived token from its trusted operator-app parent for each API call. The
+local CLI still uses the same router on loopback with its AWS SSO session.
 
 ### Local CLI dashboard
 
