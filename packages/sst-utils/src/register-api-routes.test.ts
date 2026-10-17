@@ -205,7 +205,7 @@ function createMockAwsProvider() {
     route: [] as MockCall[],
   };
 
-  const provider: AwsProvider = {
+  const provider = {
     lambda: {
       Permission: createMockConstructor(calls.permission),
     },
@@ -309,7 +309,7 @@ describe('consolidated route configuration boundaries', () => {
     Object.assign(globalThis, { $app: {}, $dev: {} });
 
     const functions: MockCall[] = [];
-    const sstProvider: SstProvider = {
+    const sstProvider = {
       aws: {
         Function: class {
           arn: string;
@@ -343,8 +343,8 @@ describe('consolidated route configuration boundaries', () => {
       functionArgs: { environment: { BASE: 'shared' } },
       apiGatewayV2RouteArgs,
       consolidate: true,
-      sst: sstProvider,
-      aws: provider,
+      sst: sstProvider as unknown as SstProvider,
+      aws: provider as unknown as AwsProvider,
       name: 'Boundary',
     });
     return { functions, calls };

@@ -13,11 +13,7 @@ import { generateRouterFile, type RouterRoute } from './generate-router';
  */
 export interface SstProvider {
   aws: {
-    Function: new (
-      name: string,
-      args: Record<string, unknown>,
-      opts?: Record<string, unknown>,
-    ) => { arn: unknown };
+    Function: typeof sst.aws.Function;
   };
 }
 
@@ -27,23 +23,11 @@ export interface SstProvider {
  */
 export interface AwsProvider {
   lambda: {
-    Permission: new (
-      name: string,
-      args: Record<string, unknown>,
-      opts?: Record<string, unknown>,
-    ) => unknown;
+    Permission: typeof aws.lambda.Permission;
   };
   apigatewayv2: {
-    Integration: new (
-      name: string,
-      args: Record<string, unknown>,
-      opts?: Record<string, unknown>,
-    ) => { id: unknown };
-    Route: new (
-      name: string,
-      args: Record<string, unknown>,
-      opts?: Record<string, unknown>,
-    ) => unknown;
+    Integration: typeof aws.apigatewayv2.Integration;
+    Route: typeof aws.apigatewayv2.Route;
   };
 }
 
