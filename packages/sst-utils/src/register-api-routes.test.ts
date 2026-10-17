@@ -1,10 +1,16 @@
-import { describe, expect, test } from 'vitest';
+import * as glob from 'glob';
+import { vol } from 'memfs';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   resolveAuthProperties,
   deriveResourcePrefix,
+  registerApiRoutes,
   type AwsProvider,
+  type SstProvider,
 } from './register-api-routes.js';
+
+vi.mock('glob', () => ({ sync: vi.fn() }));
 
 /**
  * Unit tests for the route path extraction and route formatting logic
@@ -199,7 +205,7 @@ function createMockAwsProvider() {
     route: [] as MockCall[],
   };
 
-  const provider: AwsProvider = {
+  const provider = {
     lambda: {
       Permission: createMockConstructor(calls.permission),
     },
@@ -274,5 +280,166 @@ describe('AwsProvider mock factory', () => {
     expect(calls.permission).toHaveLength(1);
     expect(calls.integration).toHaveLength(1);
     expect(calls.route).toHaveLength(5);
+  });
+});
+
+describe('consolidated route configuration boundaries', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(glob.sync).mockReset();
+    vol.reset();
+  });
+
+  function registerFixtureRoutes(
+    files: Record<string, string>,
+    variables: Record<string, unknown> = {},
+    apiGatewayV2RouteArgs: sst.aws.ApiGatewayV2RouteArgs = {},
+  ) {
+    vol.fromJSON(
+      Object.fromEntries(
+        Object.entries(files).map(([file, contents]) => [`/fixture/api/${file}`, contents]),
+      ),
+    );
+    vi.spyOn(process, 'cwd').mockReturnValue('/fixture');
+    vi.mocked(glob.sync).mockReturnValue(
+      Object.keys(files)
+        .filter((file) => /\/(?:get|post|put|delete|patch)\.ts$/.test(file))
+        .map((file) => `/fixture/api/${file}`),
+    );
+    Object.assign(globalThis, { $app: {}, $dev: {} });
+
+    const functions: MockCall[] = [];
+    const sstProvider = {
+      aws: {
+        Function: class {
+          arn: string;
+          constructor(name: string, args: Record<string, unknown>) {
+            functions.push({ name, args });
+            this.arn = `arn:aws:lambda:region:account:function:${name}`;
+          }
+        },
+      },
+    };
+    const { provider, calls } = createMockAwsProvider();
+    provider.apigatewayv2.Integration = class {
+      id: { apply: (callback: (id: string) => string) => string };
+      constructor(name: string, args: Record<string, unknown>) {
+        calls.integration.push({ name, args });
+        this.id = { apply: (callback) => callback(name) };
+      }
+    };
+
+    const api = {
+      nodes: {
+        api: {
+          id: 'api-id',
+          executionArn: { apply: (callback: (arn: string) => string) => callback('api-arn') },
+        },
+      },
+    } as unknown as sst.aws.ApiGatewayV2;
+    registerApiRoutes(api, {
+      routesDir: 'api',
+      variables,
+      functionArgs: { environment: { BASE: 'shared' } },
+      apiGatewayV2RouteArgs,
+      consolidate: true,
+      sst: sstProvider as unknown as SstProvider,
+      aws: provider as unknown as AwsProvider,
+      name: 'Boundary',
+    });
+    return { functions, calls };
+  }
+
+  test('keeps a webhook-only signer environment out of a sibling Lambda', () => {
+    const signer = 'canary-secret-never-in-resource-names';
+    const { functions, calls } = registerFixtureRoutes({
+      'hook/post.ts': 'export const handler = () => undefined;',
+      'hook/post.properties': `function.environment.CHAT_INJECT_SIGNER=${signer}`,
+      'sibling/get.ts': 'export const handler = () => undefined;',
+    });
+
+    expect(functions).toHaveLength(2);
+    expect(calls.integration).toHaveLength(2);
+    expect(calls.route).toHaveLength(2);
+    const withSigner = functions.find((fn) =>
+      Object.hasOwn(fn.args.environment as object, 'CHAT_INJECT_SIGNER'),
+    );
+    const withoutSigner = functions.find(
+      (fn) => !Object.hasOwn(fn.args.environment as object, 'CHAT_INJECT_SIGNER'),
+    );
+    expect(withSigner?.args.environment).toEqual({ BASE: 'shared', CHAT_INJECT_SIGNER: signer });
+    expect(withoutSigner?.args.environment).toEqual({ BASE: 'shared' });
+    expect(functions.map((fn) => fn.name).join(' ')).not.toContain(signer);
+    expect(calls.route.map((route) => route.args.target)).toHaveLength(2);
+    expect(new Set(calls.route.map((route) => route.args.target)).size).toBe(2);
+  });
+
+  test('does not merge distinct Pulumi-style Outputs with identical JSON diagnostics', () => {
+    class OutputLike {
+      toJSON() {
+        return 'Calling [toJSON] on an [Output<T>] is not supported.';
+      }
+    }
+    const first = new OutputLike();
+    const second = new OutputLike();
+    const { functions } = registerFixtureRoutes(
+      {
+        'first/get.ts': 'export const handler = () => undefined;',
+        'first/get.properties': 'function.environment.CHAT_INJECT_SIGNER=${first}',
+        'second/post.ts': 'export const handler = () => undefined;',
+        'second/post.properties': 'function.environment.CHAT_INJECT_SIGNER=${second}',
+      },
+      { first, second },
+    );
+
+    expect(functions).toHaveLength(2);
+    expect(
+      functions.map((fn) => (fn.args.environment as Record<string, unknown>).CHAT_INJECT_SIGNER),
+    ).toEqual([first, second]);
+  });
+
+  test('shares one Lambda when both routes use the same opaque Output', () => {
+    const signer = { toJSON: () => 'Pulumi output diagnostic' };
+    const { functions } = registerFixtureRoutes(
+      {
+        'first/get.ts': 'export const handler = () => undefined;',
+        'first/get.properties': 'function.environment.CHAT_INJECT_SIGNER=${signer}',
+        'second/post.ts': 'export const handler = () => undefined;',
+        'second/post.properties': 'function.environment.CHAT_INJECT_SIGNER=${signer}',
+      },
+      { signer },
+    );
+
+    expect(functions).toHaveLength(1);
+    expect((functions[0].args.environment as Record<string, unknown>).CHAT_INJECT_SIGNER).toBe(
+      signer,
+    );
+  });
+
+  test('uses the distinct Output for a route-specific authorizer', () => {
+    class OutputLike {
+      toJSON() {
+        return 'Pulumi output diagnostic';
+      }
+    }
+    const defaultAuthorizer = new OutputLike();
+    const routeAuthorizer = new OutputLike();
+    const { calls } = registerFixtureRoutes(
+      {
+        'first/get.ts': 'export const handler = () => undefined;',
+        'second/post.ts': 'export const handler = () => undefined;',
+        'second/post.properties': 'api-gateway.auth.lambda=${routeAuthorizer}',
+      },
+      { routeAuthorizer },
+      { auth: { lambda: defaultAuthorizer as unknown as $util.Input<string> } },
+    );
+
+    expect(calls.route).toHaveLength(2);
+    expect(
+      calls.route.find((route) => route.args.routeKey === 'GET /first')?.args.authorizerId,
+    ).toBe(defaultAuthorizer);
+    expect(
+      calls.route.find((route) => route.args.routeKey === 'POST /second')?.args.authorizerId,
+    ).toBe(routeAuthorizer);
   });
 });
