@@ -139,13 +139,77 @@ interface ParsedRoute {
 }
 
 /**
- * Create a stable hash of function args for grouping.
- * Only hashes the serializable parts that affect Lambda configuration.
+ * Compare the effective configuration without serializing it. JSON.stringify
+ * drops nested keys when passed a top-level replacer list, and Pulumi Outputs
+ * deliberately serialize to the same diagnostic text even when they resolve
+ * to different values. Plain data is compared recursively; Outputs, resources,
+ * promises, functions and other non-plain values only match by reference.
+ * Never put configuration values (which may be secrets) in a resource name.
  */
-const hashFunctionArgs = (args: sst.aws.FunctionArgs): string => {
-  // JSON.stringify with sorted keys for stable hashing
-  const serialized = JSON.stringify(args, Object.keys(args).sort());
-  return crypto.createHash('md5').update(serialized).digest('hex').slice(0, 8);
+const sameConfiguration = (left: unknown, right: unknown): boolean => {
+  const visitingLeft = new WeakSet();
+  const visitingRight = new WeakSet();
+
+  const compare = (a: unknown, b: unknown): boolean => {
+    if (Object.is(a, b)) return true;
+    if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+
+    const bothArrays = Array.isArray(a) && Array.isArray(b);
+    if (Array.isArray(a) !== Array.isArray(b)) return false;
+    if (!bothArrays) {
+      const aPrototype = Object.getPrototypeOf(a) as unknown;
+      const bPrototype = Object.getPrototypeOf(b) as unknown;
+      if (aPrototype !== bPrototype || (aPrototype !== Object.prototype && aPrototype !== null)) {
+        return false;
+      }
+    }
+
+    // Distinct cyclic records cannot be safely compared as SST inputs. Keep
+    // them in separate groups rather than assuming their resolved values match.
+    if (visitingLeft.has(a) || visitingRight.has(b)) return false;
+    visitingLeft.add(a);
+    visitingRight.add(b);
+    try {
+      const aKeys = Reflect.ownKeys(a);
+      const bKeys = Reflect.ownKeys(b);
+      if (aKeys.length !== bKeys.length) return false;
+      for (const key of aKeys) {
+        const aDescriptor = Object.getOwnPropertyDescriptor(a, key);
+        const bDescriptor = Object.getOwnPropertyDescriptor(b, key);
+        if (!aDescriptor || !bDescriptor) return false;
+        if (aDescriptor.enumerable !== bDescriptor.enumerable) return false;
+        // Getters may produce different outputs even when their definitions
+        // are identical; only the same containing object may share a group.
+        if (!('value' in aDescriptor) || !('value' in bDescriptor)) return false;
+        if (!compare(aDescriptor.value, bDescriptor.value)) return false;
+      }
+      return true;
+    } finally {
+      visitingLeft.delete(a);
+      visitingRight.delete(b);
+    }
+  };
+
+  return compare(left, right);
+};
+
+/** Preserve the existing per-route logical names for unchanged routes. */
+const hashRouteKey = (routeKey: string): string =>
+  crypto
+    .createHash('md5')
+    .update(JSON.stringify({ r: routeKey }))
+    .digest('hex')
+    .slice(0, 8);
+
+/** Group names use only public route keys, never configuration or secret values. */
+const hashGroupRoutes = (routes: ParsedRoute[], pathPrefix: string): string => {
+  const keys = routes
+    .map(
+      (route) =>
+        `${route.method.toUpperCase()} ${pathPrefix}${route.routePath ? `/${route.routePath}` : ''}`,
+    )
+    .sort();
+  return crypto.createHash('sha256').update(JSON.stringify(keys)).digest('hex').slice(0, 16);
 };
 
 /**
@@ -203,13 +267,6 @@ const registerIndividualRoutes = (
     logger.debug(`Registering route ${route} from ${routesDir}/${file}`);
     api.route(route, { ...functionArgs, handler }, { ...apiGatewayArgs });
   });
-};
-
-/**
- * Check if two objects are deeply equal (for comparing API gateway args).
- */
-const isDeepEqual = (a: unknown, b: unknown): boolean => {
-  return JSON.stringify(a) === JSON.stringify(b);
 };
 
 /**
@@ -280,15 +337,17 @@ const registerConsolidatedRoutes = (
     // eslint-disable-next-line @typescript-eslint/no-invalid-void-type
   ) => void | { qualifierName?: $util.Input<string> },
 ): void => {
-  // Group routes by their effective function config hash
-  const groups = new Map<string, { functionArgs: sst.aws.FunctionArgs; routes: ParsedRoute[] }>();
+  // Compare complete effective configs, including nested environment values.
+  // A non-plain Pulumi Input can only match the same object reference.
+  const groups: { functionArgs: sst.aws.FunctionArgs; routes: ParsedRoute[] }[] = [];
 
   for (const route of routes) {
-    const hash = hashFunctionArgs(route.functionArgs);
-    let group = groups.get(hash);
+    let group = groups.find((candidate) =>
+      sameConfiguration(candidate.functionArgs, route.functionArgs),
+    );
     if (!group) {
       group = { functionArgs: route.functionArgs, routes: [] };
-      groups.set(hash, group);
+      groups.push(group);
     }
     group.routes.push(route);
   }
@@ -296,17 +355,22 @@ const registerConsolidatedRoutes = (
   // Access the underlying API Gateway resource for IDs
   const apiGw = api.nodes.api;
 
-  for (const [hash, group] of groups) {
-    const suffix = groups.size > 1 ? `_${hash}` : '';
+  const groupNames = new Set<string>();
+  for (const group of groups) {
+    const suffix = groups.length > 1 ? `_${hashGroupRoutes(group.routes, pathPrefix)}` : '';
     const routerPath = path.join(baseDir, `_router${suffix}.ts`);
     const name = `${resourcePrefix}${suffix}`;
+    if (groupNames.has(name)) {
+      throw new Error('Distinct consolidated route groups generated the same resource name');
+    }
+    groupNames.add(name);
 
     // Separate routes into catch-all eligible and api-gateway override routes
     const catchAllRoutes: ParsedRoute[] = [];
     const overrideRoutes: ParsedRoute[] = [];
 
     for (const route of group.routes) {
-      if (isDeepEqual(route.apiGatewayArgs, defaultApiGatewayV2RouteArgs)) {
+      if (sameConfiguration(route.apiGatewayArgs, defaultApiGatewayV2RouteArgs)) {
         catchAllRoutes.push(route);
       } else {
         overrideRoutes.push(route);
@@ -379,12 +443,9 @@ const registerConsolidatedRoutes = (
       const routePath = route.routePath ? `/${route.routePath}` : '';
       const fullPath = pathPrefix + routePath || '/';
       const routeKey = `${route.method.toUpperCase()} ${fullPath}`;
-      const routeHash = hashFunctionArgs({ r: routeKey } as unknown as sst.aws.FunctionArgs).slice(
-        0,
-        6,
-      );
+      const routeHash = hashRouteKey(routeKey).slice(0, 6);
 
-      const apiGwArgs = isDeepEqual(route.apiGatewayArgs, defaultApiGatewayV2RouteArgs)
+      const apiGwArgs = sameConfiguration(route.apiGatewayArgs, defaultApiGatewayV2RouteArgs)
         ? defaultApiGatewayV2RouteArgs
         : route.apiGatewayArgs;
       const authProps = resolveAuthProperties(apiGwArgs);
