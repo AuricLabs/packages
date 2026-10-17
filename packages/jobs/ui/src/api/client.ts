@@ -6,15 +6,27 @@ import type {
   ListJobsResponse,
   RetryResponse,
 } from './types';
+import { getJobsBrowserConfig, requestParentToken } from './auth';
 
 const API_URL =
+  getJobsBrowserConfig()?.apiUrl ??
   import.meta.env.VITE_API_URL ??
-  (globalThis as Record<string, unknown>).__JOBS_API_URL__ ??
+  globalThis.__JOBS_API_URL__ ??
   '';
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, init);
+  const headers = new Headers(init?.headers);
+  const config = getJobsBrowserConfig();
+  if (config?.auth) {
+    const token = await requestParentToken(config);
+    if (!token) throw new Error('Administrator sign-in required');
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(`${API_URL}${path}`, { ...init, headers, credentials: 'omit' });
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      window.dispatchEvent(new Event('auriclabs.jobs.authorization-denied'));
+    }
     const body = await res.text();
     let message = `API error ${res.status}: ${body}`;
     try {
@@ -35,6 +47,7 @@ export interface ListJobsParams {
 }
 
 export const api = {
+  getSession: () => fetchJson<{ authenticated: true }>('/api/session'),
   getJobs: (params: ListJobsParams = {}) => {
     const search = new URLSearchParams();
     if (params.status) search.set('status', params.status);

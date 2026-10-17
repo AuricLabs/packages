@@ -23,16 +23,52 @@ function createEvent(
 }
 
 describe('createJobsDashboardApiHandler', () => {
-  const handler = createJobsDashboardApiHandler();
+  const authorize = vi.fn<() => boolean>();
+  const handler = createJobsDashboardApiHandler({ authorize });
 
   beforeEach(() => {
     vi.clearAllMocks();
+    authorize.mockReturnValue(true);
+  });
+
+  it('refuses a missing authorization policy at creation', () => {
+    expect(() => createJobsDashboardApiHandler({} as never)).toThrow(
+      'Jobs dashboard API requires an authorization policy',
+    );
   });
 
   it('answers CORS preflight without routing', async () => {
     const response = await handler(createEvent('OPTIONS', '/api/jobs'));
 
     expect(response).toMatchObject({ statusCode: 200 });
+    expect(authorize).not.toHaveBeenCalled();
+    expect(mockRouteRequest).not.toHaveBeenCalled();
+  });
+
+  it('denies every data route before reaching the router', async () => {
+    authorize.mockReturnValue(false);
+
+    for (const [method, path] of [
+      ['GET', '/api/jobs'],
+      ['GET', '/api/jobs/summary'],
+      ['GET', '/api/jobs/job-1'],
+      ['POST', '/api/jobs/job-1/retry'],
+      ['POST', '/api/jobs/job-1/cancel'],
+      ['GET', '/api/session'],
+    ]) {
+      const response = await handler(createEvent(method, path));
+      expect(response).toMatchObject({ statusCode: 403 });
+    }
+    expect(mockRouteRequest).not.toHaveBeenCalled();
+  });
+
+  it('probes the authorized operator session without reading jobs', async () => {
+    const response = await handler(createEvent('GET', '/api/session'));
+
+    expect(response).toMatchObject({
+      statusCode: 200,
+      body: JSON.stringify({ authenticated: true }),
+    });
     expect(mockRouteRequest).not.toHaveBeenCalled();
   });
 

@@ -11,6 +11,22 @@ export interface JobsDashboardBasicAuthConfig {
 }
 
 /**
+ * A host application owns identity and authorization. The authorizer must be
+ * created on this API (authorizer IDs cannot be reused across API Gateways).
+ * The bundled UI requests short-lived tokens from a trusted parent window;
+ * the host must verify both the request origin and iframe Window source.
+ */
+export interface JobsDashboardAuthConfig {
+  createAuthorizer: (api: sst.aws.ApiGatewayV2) => { id: $util.Input<string> };
+  /** Exact HTTPS origin hosting the Jobs static site. */
+  siteOrigin: string;
+  /** Exact HTTPS origin of the signed-in operator application. */
+  parentOrigin: string;
+  /** Operator-app URL to open when the Jobs site is visited directly. */
+  signInUrl: string;
+}
+
+/**
  * The subset of the SST components namespace that {@link createJobsDashboard}
  * needs at runtime.
  *
@@ -50,6 +66,8 @@ export interface JobsDashboardOptions {
    * Defaults to resolving the installed package via `require.resolve`.
    */
   uiPath?: string;
+  /** Required authorization contract for the deployed site and API. */
+  auth: JobsDashboardAuthConfig;
   /**
    * Optional HTTP basic auth gate on the static site. When set, injects a
    * basic-auth check into the StaticSite's CloudFront viewer-request
@@ -57,24 +75,54 @@ export interface JobsDashboardOptions {
    * header get a 401 before any routing logic runs. Credentials are inlined
    * into the function source at deploy time via Pulumi apply.
    *
-   * Note: this only gates the static UI. The API gateway URL remains
-   * directly callable — browsers don't auto-send basic auth credentials
-   * cross-origin, so the dashboard's fetch() can't carry them. Treat this
-   * as discovery-prevention for the dashboard, not API protection.
+   * Additional discovery gate only. It does not replace `auth`, and callers
+   * embedding the UI must ensure it does not block the iframe.
    */
   basicAuth?: JobsDashboardBasicAuthConfig;
 }
 
 export function createJobsDashboard(options: JobsDashboardOptions) {
   const { sst } = options;
-  const api = new sst.aws.ApiGatewayV2('JobsDashboardApi', { cors: true });
+  if (typeof options.auth.createAuthorizer !== 'function') {
+    throw new Error('Jobs dashboard requires an API authorizer');
+  }
+  assertOrigin(options.auth.siteOrigin, 'siteOrigin');
+  assertOrigin(options.auth.parentOrigin, 'parentOrigin');
+  const signInUrl = new URL(options.auth.signInUrl);
+  if (signInUrl.origin !== options.auth.parentOrigin) {
+    throw new Error('Jobs dashboard signInUrl must use parentOrigin');
+  }
+
+  const api = new sst.aws.ApiGatewayV2('JobsDashboardApi', {
+    cors: {
+      allowOrigins: [options.auth.siteOrigin],
+      allowMethods: ['GET', 'POST', 'OPTIONS'],
+      allowHeaders: ['Authorization', 'Content-Type'],
+    },
+  });
+  const authorizer = options.auth.createAuthorizer(api);
+  if (!authorizer.id) {
+    throw new Error('Jobs dashboard authorizer did not return an ID');
+  }
 
   const link: unknown[] = [options.table, ...(options.link ?? [])];
 
-  api.route('$default', {
-    handler: options.apiHandler,
-    link,
-  });
+  api.route(
+    '$default',
+    { handler: options.apiHandler, link },
+    {
+      auth: { lambda: authorizer.id },
+    },
+  );
+  // A protected $default route also catches OPTIONS. AWS requires an explicit
+  // unprotected, higher-priority route so browser preflights can complete.
+  api.route(
+    'OPTIONS /{proxy+}',
+    { handler: options.apiHandler, link },
+    {
+      auth: false,
+    },
+  );
 
   const uiPath = options.uiPath ?? resolveJobsUiPath();
   const uiRelative = path.relative(process.cwd(), uiPath);
@@ -95,8 +143,7 @@ export function createJobsDashboard(options: JobsDashboardOptions) {
         // nest the new dist and keep serving the old bundle
         'rm -rf _deploy',
         'cp -r dist _deploy',
-        `sed -i.bak 's|<head>|<head><script>globalThis.__JOBS_API_URL__="'$VITE_API_URL'"</script>|' _deploy/index.html`,
-        'rm -f _deploy/index.html.bak',
+        'node scripts/inject-config.mjs',
       ].join(' && '),
       output: '_deploy',
     },
@@ -105,17 +152,36 @@ export function createJobsDashboard(options: JobsDashboardOptions) {
       url: 'http://localhost:3101',
     },
     environment: {
-      VITE_API_URL: api.url,
+      JOBS_API_URL: api.url,
+      JOBS_AUTH_PARENT_ORIGIN: options.auth.parentOrigin,
+      JOBS_AUTH_SIGN_IN_URL: options.auth.signInUrl,
     },
     domain: options.domain,
-    ...(basicAuthInjection && {
-      edge: {
-        viewerRequest: { injection: basicAuthInjection },
+    edge: {
+      ...(basicAuthInjection && { viewerRequest: { injection: basicAuthInjection } }),
+      viewerResponse: {
+        injection: `event.response.headers["content-security-policy"] = { value: ${JSON.stringify(`frame-ancestors 'self' ${options.auth.parentOrigin}`)} };`,
       },
-    }),
+    },
   });
 
   return { api, site };
+}
+
+function assertOrigin(value: string, name: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`Jobs dashboard ${name} must be an exact HTTPS origin`);
+  }
+  if (
+    parsed.origin !== value ||
+    parsed.protocol !== 'https:' ||
+    !/^[a-zA-Z0-9.-]+$/.test(parsed.hostname)
+  ) {
+    throw new Error(`Jobs dashboard ${name} must be an exact HTTPS origin`);
+  }
 }
 
 /**

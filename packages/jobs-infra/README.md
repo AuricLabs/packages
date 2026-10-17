@@ -163,26 +163,52 @@ export const handler = createRegistryExecutorHandler({
 
 Deploys the jobs dashboard that ships inside `@auriclabs/jobs`: an
 `ApiGatewayV2` routing `$default` to your dashboard API handler, and a
-`StaticSite` serving the package's `ui/` bundle with the API URL injected
-at deploy time. Optional CloudFront basic-auth gates the static site
-(discovery prevention only — the API itself is unauthenticated, so deploy
-on dev/demo stages only).
+`StaticSite` serving the package's `ui/` bundle. An authorization contract is
+required. The factory attaches the consumer's authorizer to every data route,
+allows unauthenticated CORS preflight through a separate `OPTIONS` route,
+restricts CORS to the exact Jobs site origin, and allows framing only by the
+configured operator-app origin. The static UI renders job data only when its
+trusted parent supplies a fresh token and the API confirms access.
 
 ```typescript
 import { createJobsDashboard } from '@auriclabs/jobs-infra';
 
 if (['dev', 'demo'].includes($app.stage)) {
   createJobsDashboard({
+    sst,
     apiHandler: 'services/job/dashboard.handler', // wraps createJobsDashboardApiHandler
     table,
-    basicAuth: { username: 'ops', password: secret.value },
+    auth: {
+      siteOrigin: 'https://jobs.example.com',
+      parentOrigin: 'https://admin.example.com',
+      signInUrl: 'https://admin.example.com/jobs',
+      createAuthorizer: (jobsApi) => jobsApi.addAuthorizer({
+        name: 'JobsOperatorAuthorizer',
+        lambda: {
+          function: 'services/auth/jobs-authorizer.handler',
+          ttl: '0 seconds',
+          response: 'simple',
+        },
+      }),
+    },
   });
 }
 ```
 
 Options: `apiHandler`, `table`, `link?` (extra linkables for the API fn),
-`domain?`, `uiPath?` (override the resolved @auriclabs/jobs ui dir),
-`basicAuth?` (`{ username, password, realm? }`). Returns `{ api, site }`.
+`domain?`, `uiPath?` (override the resolved @auriclabs/jobs ui dir), required
+`auth`, and optional `basicAuth?` (additional static-site gate only). Returns
+`{ api, site }`. The authorizer must be created on the Jobs API supplied to the
+callback; authorizer IDs from another API are not reusable. The handler also
+requires an `authorize` predicate that checks verified authorizer context.
+
+The embedding operator app must verify `event.origin` equals the Jobs site
+origin and `event.source` equals the particular iframe's `contentWindow` before
+answering `{ type: 'auriclabs.jobs.token.request', nonce }` with
+`{ type: 'auriclabs.jobs.token.response', nonce, token }` sent to the exact Jobs
+origin. It must obtain a fresh token per request and never persist or place it
+in a URL. The Jobs iframe checks the response origin, parent Window and nonce.
+Direct site visits have no parent token and show a sign-in link with no job data.
 
 ## Full Example
 
