@@ -7,7 +7,7 @@ export const parseScope = (scope?: Scope): ScopeSubjectArray => {
   }
 
   if (Array.isArray(scope) && scope.every(isScopeSubject)) {
-    return scope;
+    return scope.map((subject) => ({ ...subject, type: subject.type.toLowerCase().trim() }));
   }
 
   // Make this type not readonly by using string[]
@@ -15,11 +15,14 @@ export const parseScope = (scope?: Scope): ScopeSubjectArray => {
 
   if (typeof scope === 'string') {
     scopeStringArray = scope
-      .toLowerCase()
       .split(':')
-      .map((s) => s.trim()) as unknown as ScopeStringArray;
+      .map((s, index) =>
+        index % 2 === 0 ? s.toLowerCase().trim() : s,
+      ) as unknown as ScopeStringArray;
   } else if (Array.isArray(scope) && scope.every((s) => typeof s === 'string')) {
-    scopeStringArray = scope.map((s) => s.toLowerCase().trim()) as unknown as ScopeStringArray;
+    scopeStringArray = scope.map((s, index) =>
+      index % 2 === 0 ? s.toLowerCase().trim() : s,
+    ) as unknown as ScopeStringArray;
   } else {
     throw new Error(
       'Unsupported scope type ' +

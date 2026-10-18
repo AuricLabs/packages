@@ -1,6 +1,7 @@
 export * from './create-app-scope';
 export * from './create-org-scope';
 export * from './create-scope-regex';
+export * from './encoding-version';
 export * from './get-id-from-scope';
 export * from './is-global-scope';
 export * from './is-scope-subject';

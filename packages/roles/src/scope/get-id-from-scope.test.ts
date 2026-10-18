@@ -201,12 +201,12 @@ describe('getIdFromScope', () => {
   describe('with mixed scope types', () => {
     it('should extract id from string scope with variables', () => {
       const result = getIdFromScope('org:{orgId}:app:456', 'org');
-      expect(result).toBe('{orgid}');
+      expect(result).toBe('{orgId}');
     });
 
     it('should extract id from array scope with variables', () => {
       const result = getIdFromScope(['org', '{orgId}', 'app', '456'], 'org');
-      expect(result).toBe('{orgid}');
+      expect(result).toBe('{orgId}');
     });
 
     it('should extract id from ScopeSubjectArray with variables', () => {
@@ -231,10 +231,10 @@ describe('getIdFromScope', () => {
       expect(result).toBe('456');
     });
 
-    it('should handle scope with spaces (after stringify)', () => {
+    it('should preserve ID spaces when extracting a scope ID', () => {
       // @ts-expect-error test for whitespace
       const result = getIdFromScope(' org : 123 ', 'org');
-      expect(result).toBe('123');
+      expect(result).toBe(' 123 ');
     });
 
     it('should handle scope with mixed case', () => {

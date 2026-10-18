@@ -75,11 +75,11 @@ describe('parseScope', () => {
       ]);
     });
 
-    it('should convert to lowercase', () => {
+    it('should lowercase type names and preserve IDs', () => {
       // @ts-expect-error test for uppercase
       expect(parseScope('ORG:123:APP:MYAPP')).toStrictEqual([
         { type: 'org', id: '123' },
-        { type: 'app', id: 'myapp' },
+        { type: 'app', id: 'MYAPP' },
       ]);
     });
   });
@@ -112,11 +112,11 @@ describe('parseScope', () => {
       ]);
     });
 
-    it('should convert to lowercase', () => {
+    it('should lowercase type names and preserve IDs', () => {
       // @ts-expect-error test for uppercase
       expect(parseScope(['ORG', '123', 'APP', 'MYAPP'])).toStrictEqual([
         { type: 'org', id: '123' },
-        { type: 'app', id: 'myapp' },
+        { type: 'app', id: 'MYAPP' },
       ]);
     });
   });
@@ -151,14 +151,14 @@ describe('parseScope', () => {
       ]);
     });
 
-    it('should handle whitespace in string', () => {
+    it('should normalize type whitespace but preserve ID whitespace in string', () => {
       // @ts-expect-error test for whitespace
-      expect(parseScope(' org : 123 ')).toStrictEqual([{ type: 'org', id: '123' }]);
+      expect(parseScope(' org : 123 ')).toStrictEqual([{ type: 'org', id: ' 123 ' }]);
     });
 
-    it('should handle whitespace in array', () => {
+    it('should normalize type whitespace but preserve ID whitespace in array', () => {
       // @ts-expect-error test for whitespace
-      expect(parseScope([' org ', ' 123 '])).toStrictEqual([{ type: 'org', id: '123' }]);
+      expect(parseScope([' org ', ' 123 '])).toStrictEqual([{ type: 'org', id: ' 123 ' }]);
     });
   });
 
