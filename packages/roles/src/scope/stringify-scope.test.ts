@@ -166,13 +166,13 @@ describe('stringifyScope', () => {
     it('should handle undefined variables', () => {
       const variables = { orgId: '123', appId: undefined };
       const result = stringifyScope('org:{orgId}:app:{appId}', variables);
-      expect(result).toBe('org:123:app:{appid}');
+      expect(result).toBe('org:123:app:{appId}');
     });
 
     it('should handle empty variables object', () => {
       const variables = {};
       const result = stringifyScope('org:{orgId}:app:{appId}', variables);
-      expect(result).toBe('org:{orgid}:app:{appid}');
+      expect(result).toBe('org:{orgId}:app:{appId}');
     });
 
     it('should handle variables with special characters', () => {

@@ -413,11 +413,12 @@ describe('createScopeRegex', () => {
       expect(regex.test(longScope + ':extra')).toBe(false); // Exact match only
     });
 
-    it('should handle scope with mixed case (lowercased)', () => {
+    it('should lowercase scope types while preserving exact ID case', () => {
       // @ts-expect-error test for uppercase
       const regex = createScopeRegex('Org:Test123:App:Test456');
       expect(regex.test('Org:Test123:App:Test456')).toBe(false);
-      expect(regex.test('org:test123:app:test456')).toBe(true);
+      expect(regex.test('org:Test123:app:Test456')).toBe(true);
+      expect(regex.test('org:test123:app:test456')).toBe(false);
     });
 
     it('should handle double wildcard without preceding scope', () => {

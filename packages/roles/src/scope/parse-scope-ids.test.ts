@@ -194,10 +194,10 @@ describe('parseScopeIds', () => {
       });
     });
 
-    it('should handle whitespace in scope', () => {
+    it('should preserve ID whitespace in scope', () => {
       // @ts-expect-error test for whitespace
       expect(parseScopeIds(' org : 123 ')).toStrictEqual({
-        orgId: '123',
+        orgId: ' 123 ',
       });
     });
 

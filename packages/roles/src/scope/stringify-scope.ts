@@ -30,5 +30,10 @@ export const stringifyScope = (
     return String(get(context, p1, match));
   });
 
-  return result.toLowerCase() as ScopeString;
+  // Scope types are vocabulary; IDs are opaque authority values. Normalizing
+  // IDs (including their case or whitespace) aliases different resources.
+  return result
+    .split(':')
+    .map((segment, index) => (index % 2 === 0 ? segment.toLowerCase().trim() : segment))
+    .join(':') as ScopeString;
 };

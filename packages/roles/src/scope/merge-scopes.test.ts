@@ -66,12 +66,12 @@ describe('mergeScopes', () => {
       ]);
     });
 
-    it('should trim whitespace', () => {
+    it('should trim type whitespace and preserve ID whitespace', () => {
       // @ts-expect-error test for whitespace
       const result = mergeScopes(' org : 123 ', ' app : 456 ');
       expect(result).toStrictEqual([
-        { type: 'org', id: '123' },
-        { type: 'app', id: '456' },
+        { type: 'org', id: ' 123 ' },
+        { type: 'app', id: ' 456 ' },
       ]);
     });
   });
@@ -118,12 +118,12 @@ describe('mergeScopes', () => {
       ]);
     });
 
-    it('should trim whitespace', () => {
+    it('should trim type whitespace and preserve ID whitespace', () => {
       // @ts-expect-error test for whitespace
       const result = mergeScopes([' org ', ' 123 '], [' app ', ' 456 ']);
       expect(result).toStrictEqual([
-        { type: 'org', id: '123' },
-        { type: 'app', id: '456' },
+        { type: 'org', id: ' 123 ' },
+        { type: 'app', id: ' 456 ' },
       ]);
     });
   });
